@@ -49,7 +49,7 @@ export function TenantDashboard({ tenantId }: { tenantId: number }) {
             <div className="p-4 bg-amber-500/10 rounded-xl"><PoundSterling className="w-8 h-8 text-amber-400" /></div>
             <div>
               <div className="text-muted-foreground text-sm mb-1 font-medium tracking-wide uppercase">Revenue Today</div>
-              <div className="text-3xl font-black text-amber-400">£{todayRev.toFixed(2)}</div>
+              <div className="text-3xl font-black text-amber-400">₦{todayRev.toFixed(2)}</div>
             </div>
           </CardContent>
         </Card>
@@ -86,7 +86,7 @@ export function TenantDashboard({ tenantId }: { tenantId: number }) {
                       <TableCell className="text-foreground text-sm">{tx.date}</TableCell>
                       <TableCell className="text-foreground font-medium">{tx.studentName}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
-                      <TableCell className="text-primary font-bold text-right">£{tx.amount.toFixed(2)}</TableCell>
+                      <TableCell className="text-primary font-bold text-right">₦{tx.amount.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
                   {recentTx.length === 0 && (

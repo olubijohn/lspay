@@ -154,13 +154,13 @@ export function TenantStudents({ tenantId }: { tenantId: number }) {
 
               <div className="bg-background p-6 rounded-xl border border-border text-center mb-6 shadow-inner">
                 <div className="text-sm text-muted-foreground mb-1 font-medium tracking-wide uppercase">Wallet Balance</div>
-                <div className="text-4xl font-black text-primary">£{s.walletBalance.toFixed(2)}</div>
+                <div className="text-4xl font-black text-primary">₦{s.walletBalance.toFixed(2)}</div>
               </div>
 
               <div className="space-y-4 text-left border-t border-border pt-6">
                 <div>
                   <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Limits</div>
-                  <div className="text-foreground text-sm">Daily: £{s.dailyLimit.toFixed(2)} | Monthly: £{s.monthlyLimit.toFixed(2)}</div>
+                  <div className="text-foreground text-sm">Daily: ₦{s.dailyLimit.toFixed(2)} | Monthly: ₦{s.monthlyLimit.toFixed(2)}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Parent / Guardian</div>
@@ -200,7 +200,7 @@ export function TenantStudents({ tenantId }: { tenantId: number }) {
                       <TableRow key={tx.id} className="border-border/50">
                         <TableCell className="text-foreground text-sm">{tx.date}</TableCell>
                         <TableCell className="text-foreground">{tx.itemsString}</TableCell>
-                        <TableCell className="text-right text-primary font-bold">-£{tx.amount.toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-primary font-bold">-₦{tx.amount.toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
                     {sTx.length === 0 && (

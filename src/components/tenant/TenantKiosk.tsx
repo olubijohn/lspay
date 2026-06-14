@@ -125,7 +125,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
       targetTenantId: student.tenantId,
       targetParentEmail: student.parentEmail,
       type: "limit_exceeded",
-      message: `${student.name} attempted a £${cartTotal.toFixed(2)} purchase at ${activeTenant?.name ?? "the canteen"}, which would exceed their ${kind} spending limit of £${limit.toFixed(2)} (£${alreadySpent.toFixed(2)} already spent ${kind === "daily" ? "today" : "this month"}). The purchase was declined.`,
+      message: `${student.name} attempted a ₦${cartTotal.toFixed(2)} purchase at ${activeTenant?.name ?? "the canteen"}, which would exceed their ${kind} spending limit of ₦${limit.toFixed(2)} (₦${alreadySpent.toFixed(2)} already spent ${kind === "daily" ? "today" : "this month"}). The purchase was declined.`,
       studentId: student.id,
       studentName: student.name,
       isRead: false,
@@ -142,7 +142,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
       return;
     }
     if (posStudent.walletBalance < cartTotal) {
-      setPinError(`Insufficient funds. Balance: £${posStudent.walletBalance.toFixed(2)}`);
+      setPinError(`Insufficient funds. Balance: ₦${posStudent.walletBalance.toFixed(2)}`);
       setEnteredPin("");
       return;
     }
@@ -155,13 +155,13 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
 
     if (spentToday + cartTotal > posStudent.dailyLimit) {
       notifyLimitBreach(posStudent, "daily", posStudent.dailyLimit, spentToday);
-      setPinError(`Daily limit of £${posStudent.dailyLimit.toFixed(2)} would be exceeded (£${spentToday.toFixed(2)} already spent today). The parent has been notified.`);
+      setPinError(`Daily limit of ₦${posStudent.dailyLimit.toFixed(2)} would be exceeded (₦${spentToday.toFixed(2)} already spent today). The parent has been notified.`);
       setEnteredPin("");
       return;
     }
     if (spentMonth + cartTotal > posStudent.monthlyLimit) {
       notifyLimitBreach(posStudent, "monthly", posStudent.monthlyLimit, spentMonth);
-      setPinError(`Monthly limit of £${posStudent.monthlyLimit.toFixed(2)} would be exceeded (£${spentMonth.toFixed(2)} already spent this month). The parent has been notified.`);
+      setPinError(`Monthly limit of ₦${posStudent.monthlyLimit.toFixed(2)} would be exceeded (₦${spentMonth.toFixed(2)} already spent this month). The parent has been notified.`);
       setEnteredPin("");
       return;
     }
@@ -264,7 +264,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
                     <h3 className="font-bold text-foreground leading-tight line-clamp-2 text-lg">{item.name}</h3>
                   </div>
                   <div className="flex justify-between items-end mt-4 pt-4 border-t border-border/50">
-                    <span className="text-primary font-black text-2xl">£{item.sellingPrice.toFixed(2)}</span>
+                    <span className="text-primary font-black text-2xl">₦{item.sellingPrice.toFixed(2)}</span>
                     <span className="text-sm font-medium text-muted-foreground">Qty: {item.stock}</span>
                   </div>
                 </CardContent>
@@ -296,10 +296,10 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
                     <div key={c.item.id} className="flex flex-col p-4 bg-background border border-border rounded-xl shadow-sm">
                       <div className="flex justify-between mb-3">
                         <div className="font-bold text-foreground text-lg truncate pr-2">{c.item.name}</div>
-                        <div className="text-primary font-bold text-lg">£{(c.item.sellingPrice * c.qty).toFixed(2)}</div>
+                        <div className="text-primary font-bold text-lg">₦{(c.item.sellingPrice * c.qty).toFixed(2)}</div>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground text-sm">£{c.item.sellingPrice.toFixed(2)} each</span>
+                        <span className="text-muted-foreground text-sm">₦{c.item.sellingPrice.toFixed(2)} each</span>
                         <div className="flex items-center space-x-3 bg-card rounded-lg p-1 border border-border">
                           <Button variant="ghost" size="icon" className="h-10 w-10 text-foreground hover:bg-muted active:scale-90" onClick={() => updateCartQty(c.item.id, -1)}><Minus className="h-5 w-5" /></Button>
                           <span className="w-8 text-center text-foreground font-bold text-xl">{c.qty}</span>
@@ -314,7 +314,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
               <div className="p-6 border-t border-border bg-background shadow-[0_-10px_20px_rgba(0,0,0,0.2)]">
                 <div className="flex justify-between items-end mb-6">
                   <span className="text-muted-foreground text-xl font-medium uppercase tracking-wider">Total Due</span>
-                  <span className="text-6xl font-black text-primary tracking-tighter">£{cartTotal.toFixed(2)}</span>
+                  <span className="text-6xl font-black text-primary tracking-tighter">₦{cartTotal.toFixed(2)}</span>
                 </div>
                 <Button 
                   className="w-full bg-primary hover:bg-primary/90 text-white h-20 text-2xl font-bold rounded-xl shadow-lg shadow-primary/50 transition-transform active:scale-95 disabled:opacity-50"
@@ -399,15 +399,15 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
                   <div className="grid grid-cols-2 gap-3 mb-8">
                     <div className="bg-background rounded-2xl border border-border p-4">
                       <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Wallet Balance</div>
-                      <div className={`text-2xl font-black ${posStudent.walletBalance >= cartTotal ? "text-foreground" : "text-red-400"}`}>£{posStudent.walletBalance.toFixed(2)}</div>
+                      <div className={`text-2xl font-black ${posStudent.walletBalance >= cartTotal ? "text-foreground" : "text-red-400"}`}>₦{posStudent.walletBalance.toFixed(2)}</div>
                     </div>
                     <div className="bg-background rounded-2xl border border-border p-4">
                       <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Total Due</div>
-                      <div className="text-2xl font-black text-primary">£{cartTotal.toFixed(2)}</div>
+                      <div className="text-2xl font-black text-primary">₦{cartTotal.toFixed(2)}</div>
                     </div>
                   </div>
                   <Button onClick={() => setCheckoutStage("pin")} disabled={posStudent.walletBalance < cartTotal} className="w-full bg-primary hover:bg-primary/90 text-white h-16 text-xl font-bold rounded-xl shadow-lg shadow-primary/30 active:scale-95 transition-transform disabled:opacity-50" data-testid="btn-pay">
-                    {posStudent.walletBalance < cartTotal ? "Insufficient Balance" : `Pay £${cartTotal.toFixed(2)}`}
+                    {posStudent.walletBalance < cartTotal ? "Insufficient Balance" : `Pay ₦${cartTotal.toFixed(2)}`}
                   </Button>
                 </div>
               </div>
@@ -487,7 +487,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
                 data-testid="btn-mobile-cart"
               >
                 <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">{cart.reduce((n, c) => n + c.qty, 0)} items</span>
-                <span className="text-2xl font-black text-primary leading-none">£{cartTotal.toFixed(2)}</span>
+                <span className="text-2xl font-black text-primary leading-none">₦{cartTotal.toFixed(2)}</span>
               </button>
               <Button
                 onClick={() => { setCheckoutStage("scan"); setMobileSheetOpen(true); }}

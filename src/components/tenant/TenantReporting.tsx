@@ -158,19 +158,19 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Total Revenue</div>
-            <div className="text-2xl font-black text-primary">£{totalRev.toFixed(2)}</div>
+            <div className="text-2xl font-black text-primary">₦{totalRev.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Total COGS</div>
-            <div className="text-2xl font-black text-amber-400">£{totalCogs.toFixed(2)}</div>
+            <div className="text-2xl font-black text-amber-400">₦{totalCogs.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Net Profit</div>
-            <div className="text-2xl font-black text-blue-400">£{netProfit.toFixed(2)}</div>
+            <div className="text-2xl font-black text-blue-400">₦{netProfit.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
@@ -188,7 +188,7 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Avg Order Val</div>
-            <div className="text-2xl font-black text-foreground">£{periodTx.length ? (totalRev / periodTx.length).toFixed(2) : '0.00'}</div>
+            <div className="text-2xl font-black text-foreground">₦{periodTx.length ? (totalRev / periodTx.length).toFixed(2) : '0.00'}</div>
           </CardContent>
         </Card>
       </div>
@@ -203,8 +203,8 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
               <LineChart data={dailyRevData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
                 <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={12} tickMargin={10} />
-                <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={(val) => `£${val}`} />
-                <RechartsTooltip contentStyle={chartTheme.tooltip} formatter={(value: number) => [`£${value.toFixed(2)}`, 'Revenue']} />
+                <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={(val) => `₦${val}`} />
+                <RechartsTooltip contentStyle={chartTheme.tooltip} formatter={(value: number) => [`₦${value.toFixed(2)}`, 'Revenue']} />
                 <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 6 }} />
               </LineChart>
             </ResponsiveContainer>
@@ -222,7 +222,7 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
                   <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
                     {categoryData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                   </Pie>
-                  <RechartsTooltip contentStyle={chartTheme.tooltip} formatter={(value: number) => [`£${value.toFixed(2)}`, 'Revenue']} />
+                  <RechartsTooltip contentStyle={chartTheme.tooltip} formatter={(value: number) => [`₦${value.toFixed(2)}`, 'Revenue']} />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
@@ -279,7 +279,7 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Revenue</div>
-                      <div className="text-2xl font-black text-primary">£{itemAnalysis.revenue.toFixed(2)}</div>
+                      <div className="text-2xl font-black text-primary">₦{itemAnalysis.revenue.toFixed(2)}</div>
                     </div>
                   </div>
                 </div>
@@ -325,8 +325,8 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
                     <TableRow key={idx} className="border-border/50 hover:bg-muted/50">
                       <TableCell className="text-foreground font-medium">{s.name}</TableCell>
                       <TableCell className="text-right text-foreground font-mono">{s.txCount}</TableCell>
-                      <TableCell className="text-right text-primary font-bold">£{s.spend.toFixed(2)}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">£{s.avg.toFixed(2)}</TableCell>
+                      <TableCell className="text-right text-primary font-bold">₦{s.spend.toFixed(2)}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">₦{s.avg.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
                   {studentData.length === 0 && (

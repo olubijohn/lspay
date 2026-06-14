@@ -1,277 +1,293 @@
 import { useState } from "react";
 import { useStore } from "@/store";
 import { useLocation } from "wouter";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Eye, EyeOff, AlertTriangle, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Wallet, ArrowRight, Eye, EyeOff, ShieldCheck, Store, Users, AlertTriangle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/theme";
 
 export function UnifiedLogin() {
   const { systemUsers, parentUsers, login, loginParent, registerParent } = useStore();
   const [, setLocation] = useLocation();
 
+  const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [step, setStep] = useState<"email" | "password" | "register">("email");
-  const [userType, setUserType] = useState<"super_admin" | "tenant" | "parent" | null>(null);
-  const [error, setError] = useState("");
   const [regName, setRegName] = useState("");
   const [regConfirm, setRegConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
 
-  const portalMeta = {
-    super_admin: {
-      label: "Super Admin Console",
-      color: "text-primary",
-      bg: "bg-primary/10 border-primary/30",
-      icon: ShieldCheck,
-    },
-    tenant: {
-      label: "School Admin Console",
-      color: "text-blue-400",
-      bg: "bg-blue-500/10 border-blue-500/30",
-      icon: Store,
-    },
-    parent: {
-      label: "Parent Portal",
-      color: "text-purple-400",
-      bg: "bg-purple-500/10 border-purple-500/30",
-      icon: Users,
-    },
-  };
-
-  const handleEmailContinue = (e: React.FormEvent) => {
+  const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     const trimmed = email.trim().toLowerCase();
-    if (!trimmed) return;
-
+    
     const sysUser = systemUsers.find(u => u.email.toLowerCase() === trimmed && u.isActive);
     if (sysUser) {
-      setUserType(sysUser.role === "super_admin" ? "super_admin" : "tenant");
-      setStep("password");
+      const role = sysUser.role === "super_admin" ? "super_admin" : "tenant";
+      const user = login(trimmed, password, role);
+      if (user) {
+        setLocation(role === "super_admin" ? "/super-admin" : "/tenant");
+        return;
+      }
+      setError("Incorrect password.");
       return;
     }
 
-    const parentUser = parentUsers.find(u => u.email.toLowerCase() === trimmed);
-    if (parentUser) {
-      setUserType("parent");
-      setStep("password");
+    const user = loginParent(trimmed, password);
+    if (user) {
+      setLocation("/parent");
       return;
     }
-
-    setStep("register");
-  };
-
-  const handlePasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (userType === "super_admin") {
-      const user = login(email, password, "super_admin");
-      if (user) { setLocation("/super-admin"); return; }
-    } else if (userType === "tenant") {
-      const user = login(email, password, "tenant");
-      if (user) { setLocation("/tenant"); return; }
-    } else if (userType === "parent") {
-      const user = loginParent(email, password);
-      if (user) { setLocation("/parent"); return; }
-    }
-    setError("Incorrect password. Please try again.");
+    
+    setError("Invalid email or password.");
   };
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!regName || !password || !regConfirm) { setError("Please fill in all fields."); return; }
-    if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
-    if (password !== regConfirm) { setError("Passwords do not match."); return; }
-    const existing = parentUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (existing) { setError("An account with this email already exists."); return; }
-    registerParent(regName, email, password);
+    if (!regName || !email || !password || !regConfirm) { setError("Fill in all fields."); return; }
+    if (password.length < 6) { setError("Password too short."); return; }
+    if (password !== regConfirm) { setError("Passwords don't match."); return; }
+    
+    const trimmed = email.trim().toLowerCase();
+    const existingParent = parentUsers.find(u => u.email.toLowerCase() === trimmed);
+    const existingSys = systemUsers.find(u => u.email.toLowerCase() === trimmed);
+    if (existingParent || existingSys) { setError("Email already exists."); return; }
+    
+    registerParent(regName, trimmed, password);
     setLocation("/parent");
   };
 
-  const portalInfo = userType ? portalMeta[userType] : null;
-
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-      <div className="absolute top-4 right-4">
-        <ThemeToggle variant="outline" />
-      </div>
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center space-y-3">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 border border-primary/30 rounded-2xl mb-2">
-            <Wallet className="h-8 w-8 text-primary" />
+    <div className="min-h-screen w-full flex items-center justify-center p-4 lg:p-8 bg-slate-100 dark:bg-[#090c15]">
+      {/* Centered Floating Card with Border Radius */}
+      <div className="flex w-full max-w-[1100px] h-auto lg:h-[calc(100vh-4rem)] lg:max-h-[700px] rounded-[2rem] overflow-hidden shadow-2xl bg-card border border-border">
+        
+        {/* Left Panel - Hidden on mobile */}
+        <div className="hidden lg:flex w-1/2 bg-[#0f172a] text-white flex-col relative overflow-hidden p-10">
+          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-teal-500/10 blur-[100px] rounded-full pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-500/10 blur-[100px] rounded-full pointer-events-none" />
+          
+          <div className="z-10 flex items-center gap-3 mb-10">
+            <img src="/logo.png" alt="LSPay Logo" className="w-8 h-8 object-contain" />
+            <span className="text-xl font-bold tracking-tight">LSPay</span>
           </div>
-          <h1 className="text-3xl font-black text-foreground tracking-tight">LSPay</h1>
-          <p className="text-muted-foreground text-sm">Enter your email to get started</p>
+
+          <div className="z-10 flex-1 flex flex-col justify-center max-w-md">
+            <div className="inline-flex items-center px-3 py-1 rounded-full bg-teal-500/20 text-teal-400 text-xs font-semibold mb-6 border border-teal-500/30 w-fit">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-400 mr-2 animate-pulse"></span>
+              SCHOOL PAYMENTS
+            </div>
+            
+            <h1 className="text-4xl font-bold tracking-tight mb-4 leading-[1.1]">
+              School payments,<br />
+              <span className="text-amber-200 italic font-serif tracking-normal">fully in view.</span>
+            </h1>
+            
+            <p className="text-slate-400 text-sm mb-8 leading-relaxed max-w-[90%]">
+              Real-time analytics, smart alerts, and wallet tracking built for modern schools and parents.
+            </p>
+
+            <div className="grid grid-cols-3 gap-4 bg-slate-800/50 p-5 rounded-2xl border border-slate-700/50 backdrop-blur-sm mb-8">
+              <div>
+                <div className="text-xl font-bold text-white mb-0.5">₦2.4M</div>
+                <div className="text-[10px] text-slate-400 uppercase tracking-wider">Processed</div>
+              </div>
+              <div>
+                <div className="text-xl font-bold text-white mb-0.5">12k</div>
+                <div className="text-[10px] text-slate-400 uppercase tracking-wider">Students</div>
+              </div>
+              <div>
+                <div className="text-xl font-bold text-white flex items-center mb-0.5">
+                  4.9<span className="text-sm ml-1 text-amber-400">★</span>
+                </div>
+                <div className="text-[10px] text-slate-400 uppercase tracking-wider">Rating</div>
+              </div>
+            </div>
+
+            {/* Faux Chart */}
+            <div className="space-y-3 mt-auto">
+              <div className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">Transaction Volume · 6 Months</div>
+              <div className="flex items-end gap-2 h-16">
+                {[40, 60, 45, 80, 55, 95].map((height, i) => (
+                  <div key={i} className="flex-1 rounded-t-sm bg-slate-800 relative group transition-all">
+                    <div 
+                      className={`absolute bottom-0 w-full rounded-t-sm transition-all duration-500 ${i === 3 || i === 5 ? 'bg-teal-500' : 'bg-slate-700 group-hover:bg-slate-600'}`} 
+                      style={{ height: `${height}%` }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
-        <Card className="bg-card border-border shadow-2xl">
-          <CardContent className="p-8 space-y-6">
-            {portalInfo && step === "password" && (
-              <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${portalInfo.bg}`} data-testid="portal-indicator">
-                <portalInfo.icon className={`h-5 w-5 ${portalInfo.color}`} />
-                <div>
-                  <span className={`text-sm font-bold ${portalInfo.color}`}>{portalInfo.label}</span>
-                  <p className="text-xs text-muted-foreground mt-0.5">{email}</p>
-                </div>
-                <button
-                  onClick={() => { setStep("email"); setPassword(""); setUserType(null); setError(""); }}
-                  className="ml-auto text-xs text-muted-foreground hover:text-foreground underline"
-                  data-testid="btn-change-email"
-                >
-                  Change
-                </button>
-              </div>
+        {/* Right Panel - Login Form */}
+        <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 py-6 relative bg-card">
+          <div className="absolute top-6 right-6">
+            <ThemeToggle />
+          </div>
+
+          <div className="w-full max-w-[360px] mx-auto flex flex-col h-full justify-center">
+            <div className="lg:hidden flex items-center gap-3 mb-6">
+              <img src="/logo.png" alt="LSPay Logo" className="w-8 h-8 object-contain" />
+              <span className="text-xl font-bold tracking-tight text-foreground">LSPay</span>
+            </div>
+
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-foreground mb-1 font-serif tracking-tight">
+                {isRegistering ? "Create an account" : "Welcome back"}
+              </h2>
+              <p className="text-muted-foreground text-sm">
+                {isRegistering ? "Sign up to track your child's wallet." : "Sign in to your LSPay account."}
+              </p>
+            </div>
+
+            {error && (
+              <Alert className="bg-red-500/10 border-red-500/20 py-2 mb-4">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+                <AlertDescription className="text-red-600 text-xs">{error}</AlertDescription>
+              </Alert>
             )}
 
-            {step === "email" && (
-              <form onSubmit={handleEmailContinue} className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-foreground text-sm font-medium">Email Address</Label>
+            {!isRegistering ? (
+              <form onSubmit={handleSignIn} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Email</Label>
                   <Input
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    autoFocus
-                    className="bg-background border-border text-foreground placeholder:text-muted-foreground h-12 text-base"
-                    data-testid="input-email"
+                    className="h-10 bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800"
+                    required
                   />
                 </div>
-                {error && (
-                  <Alert className="bg-amber-900/20 border-amber-700/50">
-                    <AlertTriangle className="h-4 w-4 text-amber-400" />
-                    <AlertDescription className="text-amber-300 text-sm">{error}</AlertDescription>
-                  </Alert>
-                )}
-                <Button
-                  type="submit"
-                  className="w-full bg-primary hover:bg-primary/90 text-white h-12 text-base font-bold"
-                  data-testid="btn-continue"
-                >
-                  Continue <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </form>
-            )}
 
-            {step === "password" && (
-              <form onSubmit={handlePasswordSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-foreground text-sm font-medium">Password</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Password</Label>
                   <div className="relative">
                     <Input
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={e => setPassword(e.target.value)}
-                      autoFocus
-                      className="bg-background border-border text-foreground h-12 text-base pr-12"
-                      data-testid="input-password"
+                      placeholder="••••••••"
+                      className="h-10 bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 pr-10"
+                      required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(v => !v)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      data-testid="btn-toggle-password"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                     </button>
                   </div>
                 </div>
-                {error && (
-                  <Alert className="bg-red-900/20 border-red-700/50">
-                    <AlertTriangle className="h-4 w-4 text-red-400" />
-                    <AlertDescription className="text-red-300 text-sm">{error}</AlertDescription>
-                  </Alert>
-                )}
-                <Button
-                  type="submit"
-                  className="w-full bg-primary hover:bg-primary/90 text-white h-12 text-base font-bold"
-                  data-testid="btn-sign-in"
-                >
-                  Sign In
-                </Button>
-              </form>
-            )}
 
-            {step === "register" && (
-              <form onSubmit={handleRegister} className="space-y-4">
-                <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/30">
-                  <Users className="h-5 w-5 text-purple-400" />
-                  <div>
-                    <p className="text-purple-400 text-sm font-bold">New Parent Account</p>
-                    <p className="text-xs text-muted-foreground">{email}</p>
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="remember" className="h-3.5 w-3.5 border-slate-300 data-[state=checked]:bg-teal-600 data-[state=checked]:border-teal-600" />
+                    <label htmlFor="remember" className="text-xs font-medium leading-none text-slate-600 dark:text-slate-400 cursor-pointer">
+                      Remember me
+                    </label>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => { setStep("email"); setError(""); }}
-                    className="ml-auto text-xs text-muted-foreground hover:text-foreground underline"
-                  >
-                    Change
+                  <button type="button" className="text-xs font-semibold text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300">
+                    Forgot password?
                   </button>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-foreground text-sm font-medium">Full Name</Label>
+
+                <Button type="submit" className="w-full h-10 bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-50 dark:text-slate-900 dark:hover:bg-slate-200 font-semibold rounded-lg mt-2">
+                  Sign In to Dashboard
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleRegister} className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Full Name</Label>
                   <Input
                     value={regName}
                     onChange={e => setRegName(e.target.value)}
-                    placeholder="Your full name"
-                    className="bg-background border-border text-foreground h-12"
-                    data-testid="input-reg-name"
+                    placeholder="John Doe"
+                    className="h-10 bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800"
+                    required
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-foreground text-sm font-medium">Password</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Email</Label>
                   <Input
-                    type="password"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="Min 6 characters"
-                    className="bg-background border-border text-foreground h-12"
-                    data-testid="input-reg-password"
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="h-10 bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800"
+                    required
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-foreground text-sm font-medium">Confirm Password</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Password</Label>
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="Min 6 chars"
+                      className="h-10 bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 pr-10"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    >
+                      {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Confirm</Label>
                   <Input
                     type="password"
                     value={regConfirm}
                     onChange={e => setRegConfirm(e.target.value)}
                     placeholder="Repeat password"
-                    className="bg-background border-border text-foreground h-12"
-                    data-testid="input-reg-confirm"
+                    className="h-10 bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800"
+                    required
                   />
                 </div>
-                {error && (
-                  <Alert className="bg-red-900/20 border-red-700/50">
-                    <AlertTriangle className="h-4 w-4 text-red-400" />
-                    <AlertDescription className="text-red-300 text-sm">{error}</AlertDescription>
-                  </Alert>
-                )}
-                <Button
-                  type="submit"
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white h-12 text-base font-bold"
-                  data-testid="btn-create-account"
-                >
+                <Button type="submit" className="w-full h-10 bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-50 dark:text-slate-900 dark:hover:bg-slate-200 font-semibold rounded-lg mt-2">
                   Create Parent Account
                 </Button>
               </form>
             )}
-          </CardContent>
-        </Card>
 
-        <div className="bg-card/50 border border-border rounded-xl p-4 space-y-2">
-          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-2">Demo Credentials</p>
-          <div className="grid grid-cols-1 gap-1 text-xs text-muted-foreground">
-            <div className="flex justify-between"><span className="text-muted-foreground">Super Admin</span><span className="font-mono">admin@lspay.com</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">School Admin</span><span className="font-mono">sarah@greenwood.edu</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Kiosk Operator</span><span className="font-mono">james@greenwood.edu</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Parent</span><span className="font-mono">helen@family.com</span></div>
+            <div className="pt-4 text-center">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {isRegistering ? "Already have an account? " : "Don't have an account? "}
+                <button 
+                  onClick={() => { setIsRegistering(!isRegistering); setError(""); }}
+                  className="font-semibold text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300"
+                >
+                  {isRegistering ? "Sign in here" : "Create one free"}
+                </button>
+              </p>
+            </div>
+
+            <div className="pt-6 mt-6 border-t border-slate-100 dark:border-slate-800 flex justify-center gap-6">
+              <div className="flex items-center text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+                <ShieldCheck className="w-3.5 h-3.5 mr-1.5 text-teal-500" />
+                Secure Login
+              </div>
+              <div className="flex items-center text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+                <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-teal-500" />
+                Verified
+              </div>
+            </div>
           </div>
         </div>
       </div>

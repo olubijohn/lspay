@@ -171,7 +171,7 @@ export function ParentPortal() {
       {topupSuccess && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[10002] flex items-center gap-3 px-5 py-3 rounded-xl bg-green-600 text-white shadow-2xl animate-in fade-in slide-in-from-top-4" data-testid="topup-success">
           <CheckCircle2 className="h-5 w-5 shrink-0" />
-          <span className="text-sm font-semibold">£{topupSuccess.amount.toFixed(2)} added to {topupSuccess.name}'s wallet</span>
+          <span className="text-sm font-semibold">₦{topupSuccess.amount.toFixed(2)} added to {topupSuccess.name}'s wallet</span>
         </div>
       )}
       <ParentSidebar activeTab={activeTab} setActiveTab={setActiveTab} onAddChild={() => setShowAddChild(true)} mobileOpen={mobileNav} onMobileOpenChange={setMobileNav} />
@@ -231,7 +231,7 @@ export function ParentPortal() {
                       <Card className="bg-card border-border shadow-xl">
                         <CardContent className="p-6">
                           <div className="text-muted-foreground text-sm mb-1 font-medium tracking-wide uppercase">Combined Balance</div>
-                          <div className="text-4xl font-black text-primary">£{totalBal.toFixed(2)}</div>
+                          <div className="text-4xl font-black text-primary">₦{totalBal.toFixed(2)}</div>
                         </CardContent>
                       </Card>
                       <Card className="bg-card border-border shadow-xl">
@@ -243,7 +243,7 @@ export function ParentPortal() {
                       <Card className="bg-card border-border shadow-xl">
                         <CardContent className="p-6">
                           <div className="text-muted-foreground text-sm mb-1 font-medium tracking-wide uppercase">Spent This Month</div>
-                          <div className="text-4xl font-black text-amber-400">£{spentThisMonth.toFixed(2)}</div>
+                          <div className="text-4xl font-black text-amber-400">₦{spentThisMonth.toFixed(2)}</div>
                         </CardContent>
                       </Card>
                     </div>
@@ -258,7 +258,7 @@ export function ParentPortal() {
                             <BarChart data={childSpendData}>
                               <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
                               <XAxis dataKey="name" stroke={chartTheme.axis} fontSize={12} />
-                              <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={v => `£${v}`} />
+                              <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={v => `₦${v}`} />
                               <RechartsTooltip cursor={{ fill: chartTheme.cursor }} contentStyle={chartTheme.tooltip} />
                               <Bar dataKey="spent" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                             </BarChart>
@@ -274,7 +274,7 @@ export function ParentPortal() {
                             <LineChart data={dailyData}>
                               <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
                               <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={12} />
-                              <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={v => `£${v}`} />
+                              <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={v => `₦${v}`} />
                               <RechartsTooltip contentStyle={chartTheme.tooltip} />
                               <Line type="monotone" dataKey="spend" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981' }} />
                             </LineChart>
@@ -306,7 +306,7 @@ export function ParentPortal() {
                                   <TableCell className="text-foreground font-medium">{tx.studentName}</TableCell>
                                   <TableCell className="text-muted-foreground text-sm">{tx.schoolName}</TableCell>
                                   <TableCell className="text-foreground text-sm">{tx.itemsString}</TableCell>
-                                  <TableCell className="text-primary font-bold text-right pr-4">-£{tx.amount.toFixed(2)}</TableCell>
+                                  <TableCell className="text-primary font-bold text-right pr-4">-₦{tx.amount.toFixed(2)}</TableCell>
                                 </TableRow>
                               ))}
                               {allTx.length === 0 && (
@@ -382,7 +382,7 @@ export function ParentPortal() {
                   
                   <div className="bg-background p-6 rounded-xl border border-border text-center min-w-[220px] z-10 shadow-inner">
                     <div className="text-sm text-muted-foreground mb-1 font-medium tracking-wide uppercase">Wallet Balance</div>
-                    <div className="text-5xl font-black text-primary">£{child.walletBalance.toFixed(2)}</div>
+                    <div className="text-5xl font-black text-primary">₦{child.walletBalance.toFixed(2)}</div>
                   </div>
                 </div>
 
@@ -446,11 +446,11 @@ export function ParentPortal() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                       <div className="bg-background p-4 rounded-xl border border-border">
                         <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-1">Spent in Period</div>
-                        <div className="text-3xl font-black text-foreground">£{spentInPeriod.toFixed(2)}</div>
+                        <div className="text-3xl font-black text-foreground">₦{spentInPeriod.toFixed(2)}</div>
                       </div>
                       <div className="bg-background p-4 rounded-xl border border-border">
                         <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-1">Avg Transaction</div>
-                        <div className="text-3xl font-black text-foreground">£{periodTx.length ? (spentInPeriod / periodTx.length).toFixed(2) : "0.00"}</div>
+                        <div className="text-3xl font-black text-foreground">₦{periodTx.length ? (spentInPeriod / periodTx.length).toFixed(2) : "0.00"}</div>
                       </div>
                       <div className="bg-background p-4 rounded-xl border border-border">
                         <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-1">Most Frequent Item</div>
@@ -466,7 +466,7 @@ export function ParentPortal() {
                             <LineChart data={childDailyData}>
                               <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
                               <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={10} />
-                              <YAxis stroke={chartTheme.axis} fontSize={10} tickFormatter={v => `£${v}`} />
+                              <YAxis stroke={chartTheme.axis} fontSize={10} tickFormatter={v => `₦${v}`} />
                               <RechartsTooltip contentStyle={chartTheme.tooltip} />
                               <Line type="monotone" dataKey="spend" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} />
                             </LineChart>
@@ -504,7 +504,7 @@ export function ParentPortal() {
                             <TableRow key={tx.id} className="border-border/50 hover:bg-muted/50">
                               <TableCell className="text-foreground text-sm whitespace-nowrap">{tx.date}</TableCell>
                               <TableCell className="text-foreground text-sm">{tx.itemsString}</TableCell>
-                              <TableCell className="text-right text-primary font-bold pr-4">-£{tx.amount.toFixed(2)}</TableCell>
+                              <TableCell className="text-right text-primary font-bold pr-4">-₦{tx.amount.toFixed(2)}</TableCell>
                             </TableRow>
                           ))}
                           {periodTx.length === 0 && (
@@ -642,11 +642,11 @@ export function ParentPortal() {
           <form onSubmit={handleTopup} className="mt-4">
             <div className="grid grid-cols-3 gap-3 mb-6">
               {[10, 20, 50].map(amt => (
-                <Button key={amt} type="button" variant="outline" onClick={() => setTopupAmount(amt.toString())} className="bg-background border-border text-foreground h-14 text-xl font-bold hover:bg-muted hover:border-primary">£{amt}</Button>
+                <Button key={amt} type="button" variant="outline" onClick={() => setTopupAmount(amt.toString())} className="bg-background border-border text-foreground h-14 text-xl font-bold hover:bg-muted hover:border-primary">₦{amt}</Button>
               ))}
             </div>
             <div className="space-y-2 mb-4">
-              <Label className="text-foreground">Custom Amount (£)</Label>
+              <Label className="text-foreground">Custom Amount (₦)</Label>
               <Input type="number" step="0.01" min="1" value={topupAmount} onChange={e => setTopupAmount(e.target.value)} placeholder="0.00" className="bg-background border-border text-foreground h-14 text-xl" required />
             </div>
             {topupError && (
@@ -695,11 +695,11 @@ export function ParentPortal() {
           </DialogHeader>
           <form onSubmit={handleChangeLimits} className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label className="text-foreground">Daily Limit (£)</Label>
+              <Label className="text-foreground">Daily Limit (₦)</Label>
               <Input type="number" min="0" value={dailyLim} onChange={e => setDailyLim(e.target.value)} className="bg-background border-border text-foreground h-12" required />
             </div>
             <div className="space-y-2">
-              <Label className="text-foreground">Monthly Limit (£)</Label>
+              <Label className="text-foreground">Monthly Limit (₦)</Label>
               <Input type="number" min="0" value={monthlyLim} onChange={e => setMonthlyLim(e.target.value)} className="bg-background border-border text-foreground h-12" required />
             </div>
             <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 text-white h-12 text-lg font-bold mt-2">Save Limits</Button>
@@ -730,11 +730,11 @@ export function ParentPortal() {
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-foreground">Daily Limit (£)</Label>
+                <Label className="text-foreground">Daily Limit (₦)</Label>
                 <Input type="number" min="1" value={dailyLim} onChange={e => setDailyLim(e.target.value)} className="bg-background border-border text-foreground h-12" placeholder="10" required />
               </div>
               <div className="space-y-2">
-                <Label className="text-foreground">Monthly Limit (£)</Label>
+                <Label className="text-foreground">Monthly Limit (₦)</Label>
                 <Input type="number" min="1" value={monthlyLim} onChange={e => setMonthlyLim(e.target.value)} className="bg-background border-border text-foreground h-12" placeholder="100" required />
               </div>
             </div>

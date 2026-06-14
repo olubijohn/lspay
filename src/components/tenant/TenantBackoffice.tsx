@@ -90,11 +90,11 @@ export function TenantBackoffice({ tenantId }: { tenantId: number }) {
                 <Input value={invStock} onChange={e => setInvStock(e.target.value)} type="number" placeholder="Qty" className="bg-card border-border text-foreground h-9" />
               </div>
               <div className="col-span-1 space-y-1">
-                <Label className="text-xs text-muted-foreground">Cost (£)</Label>
+                <Label className="text-xs text-muted-foreground">Cost (₦)</Label>
                 <Input value={invCost} onChange={e => setInvCost(e.target.value)} type="number" step="0.01" placeholder="0.00" className="bg-card border-border text-foreground h-9" />
               </div>
               <div className="col-span-1 space-y-1">
-                <Label className="text-xs text-muted-foreground">Price (£)</Label>
+                <Label className="text-xs text-muted-foreground">Price (₦)</Label>
                 <Input value={invPrice} onChange={e => setInvPrice(e.target.value)} type="number" step="0.01" placeholder="0.00" className="bg-card border-border text-foreground h-9" />
               </div>
               <Button type="submit" className="col-span-2 sm:col-span-4 bg-primary hover:bg-primary/90 text-white h-9">Add Item</Button>
@@ -121,7 +121,7 @@ export function TenantBackoffice({ tenantId }: { tenantId: number }) {
                       <TableCell className="text-right">
                         <span className={item.stock < 10 ? "text-amber-500 font-bold" : "text-foreground font-bold"}>{item.stock}</span>
                       </TableCell>
-                      <TableCell className="text-right text-primary font-medium">£{item.sellingPrice.toFixed(2)}</TableCell>
+                      <TableCell className="text-right text-primary font-medium">₦{item.sellingPrice.toFixed(2)}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" onClick={() => deleteInventory(item.id)} className="text-red-400 hover:bg-red-900/30 hover:text-red-300">
                           <Trash2 className="h-4 w-4" />

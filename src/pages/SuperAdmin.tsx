@@ -249,7 +249,7 @@ export function SuperAdmin() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
                   { label: "Total Schools", value: tenants.length, color: "text-foreground" },
-                  { label: "Transaction Volume", value: `£${filteredTx.reduce((s, t) => s + t.amount, 0).toFixed(2)}`, color: "text-primary" },
+                  { label: "Transaction Volume", value: `₦${filteredTx.reduce((s, t) => s + t.amount, 0).toFixed(2)}`, color: "text-primary" },
                   { label: "Total Operations", value: filteredTx.length, color: "text-foreground" },
                   { label: "Active Students", value: students.filter(s => s.cardStatus === "Active" && (filterSchool === "all" || s.tenantId === Number(filterSchool))).length, color: "text-blue-400" },
                 ].map(c => (
@@ -269,7 +269,7 @@ export function SuperAdmin() {
                     <LineChart data={dailyRevData}>
                       <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
                       <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={12} />
-                      <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={v => `£${v}`} />
+                      <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={v => `₦${v}`} />
                       <RechartsTooltip contentStyle={chartTheme.tooltip} />
                       <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: "#10b981" }} />
                     </LineChart>
@@ -300,7 +300,7 @@ export function SuperAdmin() {
                             <TableCell className="text-foreground">{tx.schoolName}</TableCell>
                             <TableCell className="text-foreground">{tx.studentName}</TableCell>
                             <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
-                            <TableCell className="text-primary font-bold text-right">£{tx.amount.toFixed(2)}</TableCell>
+                            <TableCell className="text-primary font-bold text-right">₦{tx.amount.toFixed(2)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -338,7 +338,7 @@ export function SuperAdmin() {
                 <Card className="bg-card border-border">
                   <CardContent className="p-6">
                     <div className="text-muted-foreground text-xs uppercase tracking-wide mb-2">Total Volume</div>
-                    <div className="text-3xl font-black text-primary">£{txFiltered.reduce((s, t) => s + t.amount, 0).toFixed(2)}</div>
+                    <div className="text-3xl font-black text-primary">₦{txFiltered.reduce((s, t) => s + t.amount, 0).toFixed(2)}</div>
                   </CardContent>
                 </Card>
                 <Card className="bg-card border-border">
@@ -370,7 +370,7 @@ export function SuperAdmin() {
                         <span className="text-foreground font-bold text-lg">{date}</span>
                         <Badge variant="outline" className="text-muted-foreground border-border ml-2">{Object.values(schoolMap).reduce((s, v) => s + v.count, 0)} transactions</Badge>
                       </div>
-                      <span className="text-primary font-black text-xl">£{dayTotal.toFixed(2)}</span>
+                      <span className="text-primary font-black text-xl">₦{dayTotal.toFixed(2)}</span>
                     </div>
                     <div className="divide-y divide-border">
                       {Object.entries(schoolMap).map(([tenantKey, data]) => {
@@ -388,7 +388,7 @@ export function SuperAdmin() {
                                 <span className="text-foreground font-medium">{data.schoolName}</span>
                                 <Badge className="bg-muted text-muted-foreground border-0">{data.count} txs</Badge>
                               </div>
-                              <span className="text-primary font-bold">£{data.total.toFixed(2)}</span>
+                              <span className="text-primary font-bold">₦{data.total.toFixed(2)}</span>
                             </button>
                             {isExpanded && (
                               <div className="bg-background border-t border-border">
@@ -405,7 +405,7 @@ export function SuperAdmin() {
                                       <TableRow key={tx.id} className="border-border/40">
                                         <TableCell className="text-foreground pl-14 font-medium">{tx.studentName}</TableCell>
                                         <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
-                                        <TableCell className="text-primary font-bold text-right pr-6">£{tx.amount.toFixed(2)}</TableCell>
+                                        <TableCell className="text-primary font-bold text-right pr-6">₦{tx.amount.toFixed(2)}</TableCell>
                                       </TableRow>
                                     ))}
                                   </TableBody>

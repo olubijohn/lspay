@@ -44,7 +44,7 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
           </div>
           <div>
             <div className="text-xl font-bold">{item.name}</div>
-            <div className="text-sm text-muted-foreground font-normal">{item.category} · £{item.sellingPrice.toFixed(2)} each</div>
+            <div className="text-sm text-muted-foreground font-normal">{item.category} · ₦{item.sellingPrice.toFixed(2)} each</div>
           </div>
         </DialogTitle>
       </DialogHeader>
@@ -54,8 +54,8 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Total Sold", value: `${totalSold} units`, color: "text-foreground", icon: ShoppingCart },
-            { label: "Revenue", value: `£${totalRevenue.toFixed(2)}`, color: "text-primary", icon: TrendingUp },
-            { label: "Gross Profit", value: `£${grossProfit.toFixed(2)}`, color: "text-blue-400", icon: BarChart2 },
+            { label: "Revenue", value: `₦${totalRevenue.toFixed(2)}`, color: "text-primary", icon: TrendingUp },
+            { label: "Gross Profit", value: `₦${grossProfit.toFixed(2)}`, color: "text-blue-400", icon: BarChart2 },
             { label: "Restocked", value: `${totalRestocked} units`, color: "text-amber-400", icon: ArrowUpCircle },
           ].map(c => {
             const Icon = c.icon;
@@ -110,7 +110,7 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
                   <TableRow key={m.id} className="border-border/50">
                     <TableCell className="text-foreground text-sm">{m.date}</TableCell>
                     <TableCell className="text-foreground font-bold text-right">{m.quantity}</TableCell>
-                    <TableCell className="text-primary font-bold text-right">£{(m.quantity * item.sellingPrice).toFixed(2)}</TableCell>
+                    <TableCell className="text-primary font-bold text-right">₦{(m.quantity * item.sellingPrice).toFixed(2)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -253,11 +253,11 @@ export function TenantInventory({ tenantId }: { tenantId: number }) {
                 <Input value={invStock} onChange={e => setInvStock(e.target.value)} type="number" min="0" required disabled={!!editingId} className="bg-background border-border text-foreground h-11 disabled:opacity-50" />
               </div>
               <div className="space-y-2">
-                <Label className="text-foreground">Cost Price (£)</Label>
+                <Label className="text-foreground">Cost Price (₦)</Label>
                 <Input value={invCost} onChange={e => setInvCost(e.target.value)} type="number" step="0.01" min="0" required className="bg-background border-border text-foreground h-11" />
               </div>
               <div className="space-y-2">
-                <Label className="text-foreground">Selling Price (£)</Label>
+                <Label className="text-foreground">Selling Price (₦)</Label>
                 <Input value={invPrice} onChange={e => setInvPrice(e.target.value)} type="number" step="0.01" min="0" required className="bg-background border-border text-foreground h-11" />
               </div>
               <div className="col-span-2 flex justify-end mt-4">
@@ -310,8 +310,8 @@ export function TenantInventory({ tenantId }: { tenantId: number }) {
                         {item.stock}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right text-muted-foreground font-medium">£{item.costPrice.toFixed(2)}</TableCell>
-                    <TableCell className="text-right text-primary font-bold text-lg">£{item.sellingPrice.toFixed(2)}</TableCell>
+                    <TableCell className="text-right text-muted-foreground font-medium">₦{item.costPrice.toFixed(2)}</TableCell>
+                    <TableCell className="text-right text-primary font-bold text-lg">₦{item.sellingPrice.toFixed(2)}</TableCell>
                     <TableCell className="text-right pr-4" onClick={e => e.stopPropagation()}>
                       <div className="flex justify-end gap-2">
                         <Button variant="ghost" size="sm" onClick={() => openEdit(item)} className="text-foreground hover:text-foreground hover:bg-muted" data-testid={`btn-edit-item-${item.id}`}>Edit</Button>

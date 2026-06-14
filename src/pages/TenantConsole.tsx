@@ -106,7 +106,7 @@ export function TenantConsole() {
     const tx = transactions.find(t => t.id === cancelId);
     cancelTransaction(cancelId);
     setCancelId(null);
-    setCancelSuccessMsg(`Transaction refunded — £${tx?.amount.toFixed(2) ?? ""} returned to ${tx?.studentName}'s wallet.`);
+    setCancelSuccessMsg(`Transaction refunded — ₦${tx?.amount.toFixed(2) ?? ""} returned to ${tx?.studentName}'s wallet.`);
     setTimeout(() => setCancelSuccessMsg(""), 5000);
   };
 
@@ -167,7 +167,7 @@ export function TenantConsole() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                  { label: "Period Revenue", value: `£${txTotal.toFixed(2)}`, color: "text-primary" },
+                  { label: "Period Revenue", value: `₦${txTotal.toFixed(2)}`, color: "text-primary" },
                   { label: "Transactions", value: tenantTxs.length, color: "text-foreground" },
                   { label: "Unique Students", value: new Set(tenantTxs.map(t => t.studentId)).size, color: "text-blue-400" },
                 ].map(c => (
@@ -214,7 +214,7 @@ export function TenantConsole() {
                               </div>
                             </TableCell>
                             <TableCell className="text-muted-foreground text-sm max-w-xs truncate">{tx.itemsString}</TableCell>
-                            <TableCell className="text-primary font-bold text-right">£{tx.amount.toFixed(2)}</TableCell>
+                            <TableCell className="text-primary font-bold text-right">₦{tx.amount.toFixed(2)}</TableCell>
                             <TableCell className="text-right px-6">
                               <Button variant="ghost" size="sm" onClick={() => setCancelId(tx.id)} className="text-red-500 hover:text-red-400 hover:bg-red-950/30 h-8 px-3">
                                 <XCircle className="h-3.5 w-3.5 mr-1" /> Cancel
@@ -365,7 +365,7 @@ export function TenantConsole() {
             if (!tx) return null;
             return (
               <div className="space-y-4 py-2">
-                <p className="text-foreground text-sm">Refund <span className="font-bold text-primary">£{tx.amount.toFixed(2)}</span> to <span className="font-bold text-foreground">{tx.studentName}</span>'s wallet?</p>
+                <p className="text-foreground text-sm">Refund <span className="font-bold text-primary">₦{tx.amount.toFixed(2)}</span> to <span className="font-bold text-foreground">{tx.studentName}</span>'s wallet?</p>
                 <div className="bg-background rounded-lg p-3 text-sm text-muted-foreground space-y-1">
                   <div className="flex justify-between"><span>Items</span><span className="text-foreground">{tx.itemsString}</span></div>
                   <div className="flex justify-between"><span>Date</span><span className="text-foreground">{tx.date}</span></div>
