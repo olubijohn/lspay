@@ -105,7 +105,7 @@ export function ParentPortal() {
       return;
     }
 
-    const fee = amount * 0.03;
+    const fee = amount * 0.04;
     const creditedAmount = amount - fee;
 
     setTopupProcessing(true);
@@ -662,8 +662,8 @@ export function ParentPortal() {
               <div className="flex items-start gap-2 px-3 py-2.5 mb-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
                 <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                 <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-                  -<strong>3% processing fee</strong> (₦{(Number(topupAmount) * 0.03).toFixed(2)}).<br />
-                  Your child's wallet will be credited with <strong>₦{(Number(topupAmount) * 0.97).toFixed(2)}</strong>.
+                  -<strong>4% processing fee</strong> (₦{(Number(topupAmount) * 0.04).toFixed(2)}).<br />
+                  Your child's wallet will be credited with <strong>₦{(Number(topupAmount) * 0.96).toFixed(2)}</strong>.
                 </p>
               </div>
             )}
