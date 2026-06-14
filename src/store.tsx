@@ -293,7 +293,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (isSupabaseConfigured) {
       getSupabase().from('students').insert({
         tenant_id: s.tenantId, name: s.name, student_id: s.studentId, card_status: s.cardStatus, card_hardware_id: s.cardHardwareId, card_type: s.cardType, wallet_balance: s.walletBalance, daily_limit: s.dailyLimit, monthly_limit: s.monthlyLimit, pin: s.pin, parent_notification_sent: s.parentNotificationSent, image_url: s.imageUrl, class_name: s.className, card_lifecycle_status: 'pending_assignment', home_address: s.homeAddress, billing_address: s.billingAddress, parent_name: s.parentName, parent_email: s.parentEmail
-      }).select().single().then(({ data }) => {
+      }).select().single().then(({ data, error }) => {
+        if (error) {
+          console.error("Supabase insert failed for createStudent:", error);
+          alert("Database insert failed! Check console for errors.");
+        }
         if (data) setStudents(prev => prev.map(st => st.id === newStudent.id ? { ...st, id: data.id } : st));
       });
     }
