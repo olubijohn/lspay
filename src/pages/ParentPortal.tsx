@@ -24,7 +24,7 @@ export function ParentPortal() {
   const [, setLocation] = useLocation();
 
   const [activeTab, setActiveTab] = useState<string>("overview");
-  
+
   const [showAddChild, setShowAddChild] = useState(false);
   const [authCode, setAuthCode] = useState("");
   const [studentIdInput, setStudentIdInput] = useState("");
@@ -69,7 +69,7 @@ export function ParentPortal() {
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     setRegError(""); setRegSuccess("");
-    
+
     const codeMatch = authCode.match(/^SCH-([A-Z]{3})-2026$/i);
     if (!codeMatch) {
       setRegError("Invalid Authorization Code format.");
@@ -77,7 +77,7 @@ export function ParentPortal() {
     }
 
     const result = addParentChild(parentSession.id, authCode.toUpperCase(), studentIdInput.toUpperCase(), parentSession.email);
-    
+
     if (result.success) {
       setRegSuccess(`Successfully linked student!`);
       setAuthCode(""); setStudentIdInput("");
@@ -105,6 +105,9 @@ export function ParentPortal() {
       return;
     }
 
+    const fee = amount * 0.03;
+    const creditedAmount = amount - fee;
+
     setTopupProcessing(true);
     launchPaystack({
       email: parentSession!.email,
@@ -116,11 +119,11 @@ export function ParentPortal() {
         ],
       },
       onSuccess: () => {
-        updateStudent(child.id, { walletBalance: child.walletBalance + amount });
+        updateStudent(child.id, { walletBalance: child.walletBalance + creditedAmount });
         setTopupProcessing(false);
         setTopupAmount("");
         setShowTopupModal(null);
-        setTopupSuccess({ name: child.name, amount });
+        setTopupSuccess({ name: child.name, amount: creditedAmount });
         window.setTimeout(() => setTopupSuccess(null), 5000);
       },
       onCancel: () => {
@@ -145,9 +148,9 @@ export function ParentPortal() {
   const handleChangeLimits = (e: React.FormEvent) => {
     e.preventDefault();
     if (!dailyLim || !monthlyLim) return;
-    updateStudent(showLimitsModal!, { 
-      dailyLimit: Number(dailyLim), 
-      monthlyLimit: Number(monthlyLim) 
+    updateStudent(showLimitsModal!, {
+      dailyLimit: Number(dailyLim),
+      monthlyLimit: Number(monthlyLim)
     });
     setShowLimitsModal(null);
   };
@@ -179,7 +182,7 @@ export function ParentPortal() {
 
       <main className="flex-1 lg:ml-64 overflow-y-auto bg-background px-4 pb-6 pt-20 lg:px-8 lg:pb-8 lg:pt-8">
         <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-          
+
           {/* OVERVIEW DASHBOARD */}
           {activeTab === "overview" && (
             <div className="space-y-8">
@@ -202,7 +205,7 @@ export function ParentPortal() {
               ) : (() => {
                 const allTx = transactions.filter(t => linkedChildren.some(c => c.id === t.studentId));
                 const totalBal = linkedChildren.reduce((sum, c) => sum + c.walletBalance, 0);
-                
+
                 const thisMonthStr = new Date().toISOString().slice(0, 7);
                 const thisMonthTx = allTx.filter(t => t.date.startsWith(thisMonthStr));
                 const spentThisMonth = thisMonthTx.reduce((sum, t) => sum + t.amount, 0);
@@ -333,9 +336,9 @@ export function ParentPortal() {
 
             const childTx = transactions.filter(t => t.studentId === childId).reverse();
             const periodTx = childTx.filter(t => t.date >= startDate && t.date <= endDate);
-            
+
             const spentInPeriod = periodTx.reduce((sum, t) => sum + t.amount, 0);
-            
+
             const childDailyData = Object.entries(
               periodTx.reduce((acc, t) => {
                 acc[t.date] = (acc[t.date] || 0) + t.amount;
@@ -357,20 +360,20 @@ export function ParentPortal() {
                 {/* Header Card */}
                 <div className="bg-card p-8 rounded-2xl border border-border relative overflow-hidden shadow-xl flex flex-col md:flex-row gap-8 items-center md:items-start">
                   <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
-                  
+
                   <img src={child.imageUrl} alt={child.name} className="w-32 h-32 rounded-full bg-background border-4 border-border z-10" />
-                  
+
                   <div className="flex-1 text-center md:text-left z-10">
                     <h2 className="text-3xl font-bold text-foreground mb-1">{child.name}</h2>
                     <p className="text-muted-foreground mb-4">{child.className} • {tenants.find(t => t.id === child.tenantId)?.name}</p>
-                    
+
                     <div className="flex flex-wrap gap-2 justify-center md:justify-start">
                       <Badge className={
-                        child.cardLifecycleStatus === 'pending_assignment' ? 'bg-amber-500/20 text-amber-400 border-0' : 
-                        child.cardLifecycleStatus === 'assigned' ? 'bg-blue-500/20 text-blue-400 border-0' : 
-                        child.cardLifecycleStatus === 'ready' ? 'bg-cyan-500/20 text-cyan-400 border-0' : 
-                        child.cardLifecycleStatus === 'delivered' ? 'bg-purple-500/20 text-purple-400 border-0' : 
-                        'bg-primary/20 text-primary border-0'
+                        child.cardLifecycleStatus === 'pending_assignment' ? 'bg-amber-500/20 text-amber-400 border-0' :
+                          child.cardLifecycleStatus === 'assigned' ? 'bg-blue-500/20 text-blue-400 border-0' :
+                            child.cardLifecycleStatus === 'ready' ? 'bg-cyan-500/20 text-cyan-400 border-0' :
+                              child.cardLifecycleStatus === 'delivered' ? 'bg-purple-500/20 text-purple-400 border-0' :
+                                'bg-primary/20 text-primary border-0'
                       }>
                         {cardLifecycleLabel(child.cardLifecycleStatus)}
                       </Badge>
@@ -379,7 +382,7 @@ export function ParentPortal() {
                       </Badge>
                     </div>
                   </div>
-                  
+
                   <div className="bg-background p-6 rounded-xl border border-border text-center min-w-[220px] z-10 shadow-inner">
                     <div className="text-sm text-muted-foreground mb-1 font-medium tracking-wide uppercase">Wallet Balance</div>
                     <div className="text-5xl font-black text-primary">₦{child.walletBalance.toFixed(2)}</div>
@@ -392,8 +395,8 @@ export function ParentPortal() {
                     <AlertTriangle className="h-5 w-5 text-amber-500" />
                     <AlertTitle className="text-amber-400 text-lg font-bold ml-2">Action Required: Activate Card</AlertTitle>
                     <AlertDescription className="text-amber-200/80 ml-2 mt-2">
-                      {child.cardLifecycleStatus === 'ready' 
-                        ? "Your child's card is ready for pickup. Please set a secure PIN and limits to activate it." 
+                      {child.cardLifecycleStatus === 'ready'
+                        ? "Your child's card is ready for pickup. Please set a secure PIN and limits to activate it."
                         : "Card has been delivered. Please activate it below to enable purchases."}
                       <div className="mt-4">
                         <Button onClick={() => setShowActivateModal(child.id)} className="bg-amber-600 hover:bg-amber-700 text-white font-bold">Complete Activation</Button>
@@ -527,7 +530,7 @@ export function ParentPortal() {
               <h1 className="text-3xl font-bold text-foreground flex items-center gap-3 mb-6">
                 <Bell className="text-primary" /> Notifications
               </h1>
-              
+
               <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xl">
                 {parentNotifications.length === 0 ? (
                   <div className="text-center py-20 text-muted-foreground">
@@ -655,6 +658,15 @@ export function ParentPortal() {
                 <p className="text-sm text-red-400">{topupError}</p>
               </div>
             )}
+            {topupAmount && !isNaN(Number(topupAmount)) && Number(topupAmount) > 0 && (
+              <div className="flex items-start gap-2 px-3 py-2.5 mb-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                  -<strong>3% processing fee</strong> (₦{(Number(topupAmount) * 0.03).toFixed(2)}).<br />
+                  Your child's wallet will be credited with <strong>₦{(Number(topupAmount) * 0.97).toFixed(2)}</strong>.
+                </p>
+              </div>
+            )}
             <div className="flex items-start gap-2 px-3 py-2.5 mb-5 rounded-lg bg-muted/50 border border-border">
               <ShieldCheck className="h-4 w-4 text-primary mt-0.5 shrink-0" />
               <p className="text-xs text-muted-foreground">
@@ -716,7 +728,7 @@ export function ParentPortal() {
             <div className="p-4 bg-background rounded-xl border border-border text-muted-foreground text-sm">
               Please set a secure 4-digit PIN for purchases and define the spending limits. These can be changed later.
             </div>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-foreground">4-Digit PIN</Label>
@@ -727,7 +739,7 @@ export function ParentPortal() {
                 <Input type="password" maxLength={4} value={pin2} onChange={e => setPin2(e.target.value)} className="bg-background border-border text-foreground text-center text-xl tracking-[0.5em] h-12" required />
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-foreground">Daily Limit (₦)</Label>

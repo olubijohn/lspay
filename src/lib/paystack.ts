@@ -3,7 +3,8 @@ import PaystackPop from "@paystack/inline-js";
 export const PAYSTACK_PUBLIC_KEY =
   (import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string | undefined) ?? "";
 
-export const isPaystackConfigured = () => PAYSTACK_PUBLIC_KEY.trim().length > 0;
+export const isPaystackConfigured = () => 
+  PAYSTACK_PUBLIC_KEY.trim().length > 0 && !PAYSTACK_PUBLIC_KEY.includes("xxx");
 
 interface LaunchOptions {
   email: string;

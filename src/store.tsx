@@ -121,6 +121,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const { data: nData } = await supabase.from('notifications').select('*');
       if (nData) setNotifications(nData.map(r => ({ id: r.id, targetRole: r.target_role as any, targetTenantId: r.target_tenant_id, targetParentEmail: r.target_parent_email, type: r.type as any, message: r.message, studentId: r.student_id, studentName: r.student_name, isRead: r.is_read, createdAt: r.created_at })));
     })();
+
+    // Supabase Realtime Subscription
+    const channel = supabase.channel('schema-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, (payload) => {
+        if (payload.eventType === 'UPDATE') {
+          setStudents(prev => prev.map(s => s.id === payload.new.id ? {
+            ...s,
+            cardStatus: payload.new.card_status,
+            cardHardwareId: payload.new.card_hardware_id,
+            cardType: payload.new.card_type,
+            walletBalance: Number(payload.new.wallet_balance),
+            dailyLimit: Number(payload.new.daily_limit),
+            monthlyLimit: Number(payload.new.monthly_limit),
+            pin: payload.new.pin,
+            parentNotificationSent: payload.new.parent_notification_sent,
+            imageUrl: payload.new.image_url,
+            className: payload.new.class_name,
+            cardLifecycleStatus: payload.new.card_lifecycle_status,
+            activatedAt: payload.new.activated_at ?? undefined,
+            homeAddress: payload.new.home_address,
+            billingAddress: payload.new.billing_address,
+            parentName: payload.new.parent_name,
+            parentEmail: payload.new.parent_email
+          } : s));
+        } else if (payload.eventType === 'INSERT') {
+          setStudents(prev => {
+            if (prev.find(s => s.id === payload.new.id)) return prev;
+            return [...prev, {
+              id: payload.new.id, tenantId: payload.new.tenant_id, name: payload.new.name, studentId: payload.new.student_id, cardStatus: payload.new.card_status, cardHardwareId: payload.new.card_hardware_id, cardType: payload.new.card_type, walletBalance: Number(payload.new.wallet_balance), dailyLimit: Number(payload.new.daily_limit), monthlyLimit: Number(payload.new.monthly_limit), pin: payload.new.pin, parentNotificationSent: payload.new.parent_notification_sent, imageUrl: payload.new.image_url, className: payload.new.class_name, cardLifecycleStatus: payload.new.card_lifecycle_status, activatedAt: payload.new.activated_at ?? undefined, homeAddress: payload.new.home_address, billingAddress: payload.new.billing_address, parentName: payload.new.parent_name, parentEmail: payload.new.parent_email
+            }];
+          });
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const login = (email: string, passwordHash: string, portal: 'super_admin' | 'tenant') => {
@@ -216,7 +254,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (isSupabaseConfigured) {
       getSupabase().from('students').update({
         card_status: "Issued", card_lifecycle_status: "assigned", card_type: cardType, card_hardware_id: hardwareId, parent_notification_sent: true
-      }).eq('id', studentId).then();
+      }).eq('id', studentId).then(({ error }) => {
+        if (error) {
+          console.error("Supabase update failed for assignCard:", error);
+          alert("Database update failed! Check console for errors.");
+        }
+      });
     }
   };
 
@@ -283,7 +326,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (updates.billingAddress !== undefined) dbUpdates.billing_address = updates.billingAddress;
       if (updates.parentName !== undefined) dbUpdates.parent_name = updates.parentName;
       if (updates.parentEmail !== undefined) dbUpdates.parent_email = updates.parentEmail;
-      if (Object.keys(dbUpdates).length > 0) getSupabase().from('students').update(dbUpdates).eq('id', studentId).then();
+      if (Object.keys(dbUpdates).length > 0) {
+        getSupabase().from('students').update(dbUpdates).eq('id', studentId).then(({ error }) => {
+          if (error) {
+            console.error("Supabase update failed for updateStudent:", error);
+            alert("Database update failed! Check console for errors.");
+          }
+        });
+      }
     }
   };
 
