@@ -431,12 +431,24 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, "C", 0, "⌫"].map(d => (
                     <Button 
                       key={d} 
+                      type="button"
                       variant="outline" 
-                      className="h-16 sm:h-24 text-3xl sm:text-4xl font-black bg-card border-border text-foreground hover:bg-muted hover:border-primary/50 hover:text-primary rounded-2xl active:scale-90 transition-all shadow-sm"
-                      onClick={() => {
+                      className="h-16 sm:h-24 text-3xl sm:text-4xl font-black bg-card border-border text-foreground hover:bg-muted hover:border-primary/50 hover:text-primary rounded-2xl active:scale-90 transition-all shadow-sm relative z-50 cursor-pointer"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         if (d === "C") setEnteredPin("");
                         else if (d === "⌫") setEnteredPin(prev => prev.slice(0, -1));
-                        else if (enteredPin.length < 4) setEnteredPin(prev => prev + d);
+                        else if (enteredPin.length < 4) setEnteredPin(prev => prev + String(d));
+                      }}
+                      onPointerDown={(e) => {
+                        // Backup for touch screens if onClick fails
+                        if (e.pointerType === 'touch') {
+                          e.preventDefault();
+                          if (d === "C") setEnteredPin("");
+                          else if (d === "⌫") setEnteredPin(prev => prev.slice(0, -1));
+                          else if (enteredPin.length < 4) setEnteredPin(prev => prev + String(d));
+                        }
                       }}
                     >
                       {d}
