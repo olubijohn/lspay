@@ -374,10 +374,10 @@ export function ParentPortal() {
                                 if (txFilter === 'out') return tx.amount > 0;
                                 return true;
                               }).length === 0 && (
-                                <TableRow>
-                                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No transactions found.</TableCell>
-                                </TableRow>
-                              )}
+                                  <TableRow>
+                                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No transactions found.</TableCell>
+                                  </TableRow>
+                                )}
                             </TableBody>
                           </Table>
                         </div>
@@ -561,9 +561,9 @@ export function ParentPortal() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                       <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-0">Transaction Log</h4>
                       <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
-                          <button onClick={() => setTxFilter('all')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
-                          <button onClick={() => setTxFilter('in')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
-                          <button onClick={() => setTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
+                        <button onClick={() => setTxFilter('all')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
+                        <button onClick={() => setTxFilter('in')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
+                        <button onClick={() => setTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
                       </div>
                     </div>
                     <div className="max-h-[300px] overflow-auto border border-border rounded-lg bg-background">
@@ -577,10 +577,10 @@ export function ParentPortal() {
                         </TableHeader>
                         <TableBody>
                           {periodTx.filter(tx => {
-                                if (txFilter === 'in') return tx.amount < 0;
-                                if (txFilter === 'out') return tx.amount > 0;
-                                return true;
-                              }).map(tx => (
+                            if (txFilter === 'in') return tx.amount < 0;
+                            if (txFilter === 'out') return tx.amount > 0;
+                            return true;
+                          }).map(tx => (
                             <TableRow key={tx.id} className="border-border/50 hover:bg-muted/50">
                               <TableCell className="text-foreground text-sm whitespace-nowrap">{tx.date}</TableCell>
                               <TableCell className="text-foreground text-sm">{tx.itemsString}</TableCell>
@@ -588,14 +588,14 @@ export function ParentPortal() {
                             </TableRow>
                           ))}
                           {periodTx.filter(tx => {
-                                if (txFilter === 'in') return tx.amount < 0;
-                                if (txFilter === 'out') return tx.amount > 0;
-                                return true;
-                              }).length === 0 && (
-                            <TableRow>
-                              <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">No transactions found.</TableCell>
-                            </TableRow>
-                          )}
+                            if (txFilter === 'in') return tx.amount < 0;
+                            if (txFilter === 'out') return tx.amount > 0;
+                            return true;
+                          }).length === 0 && (
+                              <TableRow>
+                                <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">No transactions found.</TableCell>
+                              </TableRow>
+                            )}
                         </TableBody>
                       </Table>
                     </div>
@@ -716,11 +716,11 @@ export function ParentPortal() {
             <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
               <ShieldCheck className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
               <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-                A termly school enrollment fee of <strong>₦1,000</strong> is required to link this account. Payments are processed securely by <strong>Paystack</strong>.
+                A termly school enrollment fee of <strong>₦1,000.00</strong> is required to link this account. Payments are processed securely by <strong>Paystack</strong>.
               </p>
             </div>
             <Button type="submit" disabled={regProcessing} className="w-full bg-primary hover:bg-primary/90 text-white mt-4 h-12 text-lg font-bold shadow-lg shadow-primary/20">
-              {regProcessing ? "Opening secure checkout…" : "Pay ₦1000 & Connect Account"}
+              {regProcessing ? "Opening secure checkout…" : "Pay ₦1,000 & Connect Account"}
             </Button>
           </form>
         </DialogContent>
