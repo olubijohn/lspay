@@ -20,7 +20,7 @@ import { ParentSidebar } from "@/components/layout/ParentSidebar";
 
 export function ParentPortal() {
   const chartTheme = useChartTheme();
-  const { tenants, students, transactions, updateStudent, parentSession, updateParentUser, addParentChild, notifications, markNotificationRead, activateCard } = useStore();
+  const { tenants, students, transactions, updateStudent, parentSession, updateParentUser, addParentChild, notifications, markNotificationRead, activateCard, addTransaction } = useStore();
   const [, setLocation] = useLocation();
 
   const [activeTab, setActiveTab] = useState<string>("overview");
@@ -30,6 +30,7 @@ export function ParentPortal() {
   const [studentIdInput, setStudentIdInput] = useState("");
   const [regError, setRegError] = useState("");
   const [regSuccess, setRegSuccess] = useState("");
+  const [regProcessing, setRegProcessing] = useState(false);
 
   const [topupAmount, setTopupAmount] = useState("");
   const [showTopupModal, setShowTopupModal] = useState<number | null>(null);
@@ -54,6 +55,7 @@ export function ParentPortal() {
   const [phoneSaved, setPhoneSaved] = useState(false);
 
   const [mobileNav, setMobileNav] = useState(false);
+  const [txFilter, setTxFilter] = useState<"all" | "in" | "out">("all");
 
   useEffect(() => {
     if (!parentSession) {
@@ -76,18 +78,47 @@ export function ParentPortal() {
       return;
     }
 
-    const result = addParentChild(parentSession.id, authCode.toUpperCase(), studentIdInput.toUpperCase(), parentSession.email);
-
-    if (result.success) {
-      setRegSuccess(`Successfully linked student!`);
-      setAuthCode(""); setStudentIdInput("");
-      setTimeout(() => {
-        setRegSuccess("");
-        setShowAddChild(false);
-      }, 2000);
-    } else {
-      setRegError(result.message || "Failed to link student.");
+    if (!isPaystackConfigured()) {
+      setRegError("Payments are not available yet — the payment gateway has not been configured.");
+      return;
     }
+
+    setRegProcessing(true);
+    launchPaystack({
+      email: parentSession!.email,
+      amountMajor: 1000,
+      metadata: {
+        custom_fields: [
+          { display_name: "Action", variable_name: "action", value: "Enrollment Fee" },
+          { display_name: "Auth Code", variable_name: "auth_code", value: authCode },
+          { display_name: "Student ID", variable_name: "student_id", value: studentIdInput },
+        ],
+      },
+      onSuccess: () => {
+        const result = addParentChild(parentSession.id, authCode.toUpperCase(), studentIdInput.toUpperCase(), parentSession.email);
+
+        if (result.success) {
+          setRegSuccess(`Successfully linked student!`);
+          setAuthCode(""); setStudentIdInput("");
+          setRegProcessing(false);
+          setTimeout(() => {
+            setRegSuccess("");
+            setShowAddChild(false);
+          }, 2000);
+        } else {
+          setRegProcessing(false);
+          setRegError(result.message || "Failed to link student.");
+        }
+      },
+      onCancel: () => {
+        setRegProcessing(false);
+        setRegError("Payment was cancelled. You cannot link an account without the enrollment fee.");
+      },
+      onError: (message) => {
+        setRegProcessing(false);
+        setRegError(message);
+      },
+    });
   };
 
   const handleTopup = (e: React.FormEvent) => {
@@ -120,6 +151,17 @@ export function ParentPortal() {
       },
       onSuccess: () => {
         updateStudent(child.id, { walletBalance: child.walletBalance + creditedAmount });
+        const tenant = tenants.find(t => t.id === child.tenantId);
+        addTransaction({
+          tenantId: child.tenantId,
+          studentId: child.id,
+          studentName: child.name,
+          schoolName: tenant ? tenant.name : "Unknown School",
+          itemsString: "Wallet Top-up",
+          amount: -creditedAmount,
+          cost: 0,
+          date: new Date().toISOString().split('T')[0]
+        });
         setTopupProcessing(false);
         setTopupAmount("");
         setShowTopupModal(null);
@@ -208,16 +250,18 @@ export function ParentPortal() {
 
                 const thisMonthStr = new Date().toISOString().slice(0, 7);
                 const thisMonthTx = allTx.filter(t => t.date.startsWith(thisMonthStr));
-                const spentThisMonth = thisMonthTx.reduce((sum, t) => sum + t.amount, 0);
+                const spentThisMonth = thisMonthTx.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
 
                 const childSpendData = linkedChildren.map(c => {
-                  const spent = allTx.filter(t => t.studentId === c.id).reduce((sum, t) => sum + t.amount, 0);
+                  const spent = allTx.filter(t => t.studentId === c.id && t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
                   return { name: c.name.split(' ')[0], spent };
                 });
 
                 const dailyData = Object.entries(
                   allTx.reduce((acc, t) => {
-                    acc[t.date] = (acc[t.date] || 0) + t.amount;
+                    if (t.amount > 0) {
+                      acc[t.date] = (acc[t.date] || 0) + t.amount;
+                    }
                     return acc;
                   }, {} as Record<string, number>)
                 ).map(([date, spend]) => ({ date, spend })).sort((a, b) => a.date.localeCompare(b.date));
@@ -287,8 +331,13 @@ export function ParentPortal() {
                     </div>
 
                     <Card className="bg-card border-border shadow-xl">
-                      <CardHeader>
+                      <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
                         <CardTitle className="text-foreground">Recent Transactions</CardTitle>
+                        <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
+                          <button onClick={() => setTxFilter('all')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
+                          <button onClick={() => setTxFilter('in')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
+                          <button onClick={() => setTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
+                        </div>
                       </CardHeader>
                       <CardContent>
                         <div className="max-h-[400px] overflow-auto border border-border rounded-lg bg-background">
@@ -303,18 +352,26 @@ export function ParentPortal() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {allTx.reverse().map(tx => (
+                              {allTx.filter(tx => {
+                                if (txFilter === 'in') return tx.amount < 0;
+                                if (txFilter === 'out') return tx.amount > 0;
+                                return true;
+                              }).reverse().map(tx => (
                                 <TableRow key={tx.id} className="border-border/50 hover:bg-muted/50">
                                   <TableCell className="text-foreground text-sm">{tx.date}</TableCell>
                                   <TableCell className="text-foreground font-medium">{tx.studentName}</TableCell>
                                   <TableCell className="text-muted-foreground text-sm">{tx.schoolName}</TableCell>
                                   <TableCell className="text-foreground text-sm">{tx.itemsString}</TableCell>
-                                  <TableCell className="text-primary font-bold text-right pr-4">-₦{tx.amount.toFixed(2)}</TableCell>
+                                  <TableCell className={`font-bold text-right pr-4 ${tx.amount < 0 ? 'text-green-500' : 'text-red-500'}`}>{tx.amount < 0 ? '+' : '-'}₦{Math.abs(tx.amount).toFixed(2)}</TableCell>
                                 </TableRow>
                               ))}
-                              {allTx.length === 0 && (
+                              {allTx.filter(tx => {
+                                if (txFilter === 'in') return tx.amount < 0;
+                                if (txFilter === 'out') return tx.amount > 0;
+                                return true;
+                              }).length === 0 && (
                                 <TableRow>
-                                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No transactions recorded.</TableCell>
+                                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No transactions found.</TableCell>
                                 </TableRow>
                               )}
                             </TableBody>
@@ -337,21 +394,25 @@ export function ParentPortal() {
             const childTx = transactions.filter(t => t.studentId === childId).reverse();
             const periodTx = childTx.filter(t => t.date >= startDate && t.date <= endDate);
 
-            const spentInPeriod = periodTx.reduce((sum, t) => sum + t.amount, 0);
+            const spentInPeriod = periodTx.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
 
             const childDailyData = Object.entries(
               periodTx.reduce((acc, t) => {
-                acc[t.date] = (acc[t.date] || 0) + t.amount;
+                if (t.amount > 0) {
+                  acc[t.date] = (acc[t.date] || 0) + t.amount;
+                }
                 return acc;
               }, {} as Record<string, number>)
             ).map(([date, spend]) => ({ date, spend })).sort((a, b) => a.date.localeCompare(b.date));
 
             const itemsMap: Record<string, number> = {};
             periodTx.forEach(t => {
-              t.itemsString.split(", ").forEach(p => {
-                const match = p.match(/(.+) x(\d+)/);
-                if (match) itemsMap[match[1]] = (itemsMap[match[1]] || 0) + Number(match[2]);
-              });
+              if (t.amount > 0) {
+                t.itemsString.split(", ").forEach(p => {
+                  const match = p.match(/(.+) x(\d+)/);
+                  if (match) itemsMap[match[1]] = (itemsMap[match[1]] || 0) + Number(match[2]);
+                });
+              }
             });
             const topItems = Object.entries(itemsMap).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, qty]) => ({ name, qty }));
 
@@ -453,7 +514,7 @@ export function ParentPortal() {
                       </div>
                       <div className="bg-background p-4 rounded-xl border border-border">
                         <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-1">Avg Transaction</div>
-                        <div className="text-3xl font-black text-foreground">₦{periodTx.length ? (spentInPeriod / periodTx.length).toFixed(2) : "0.00"}</div>
+                        <div className="text-3xl font-black text-foreground">₦{periodTx.filter(t => t.amount > 0).length ? (spentInPeriod / periodTx.filter(t => t.amount > 0).length).toFixed(2) : "0.00"}</div>
                       </div>
                       <div className="bg-background p-4 rounded-xl border border-border">
                         <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-1">Most Frequent Item</div>
@@ -492,7 +553,14 @@ export function ParentPortal() {
                       </div>
                     </div>
 
-                    <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">Transaction Log</h4>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                      <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-0">Transaction Log</h4>
+                      <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
+                          <button onClick={() => setTxFilter('all')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
+                          <button onClick={() => setTxFilter('in')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
+                          <button onClick={() => setTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
+                      </div>
+                    </div>
                     <div className="max-h-[300px] overflow-auto border border-border rounded-lg bg-background">
                       <Table>
                         <TableHeader className="bg-card/80 sticky top-0">
@@ -503,16 +571,24 @@ export function ParentPortal() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {periodTx.map(tx => (
+                          {periodTx.filter(tx => {
+                                if (txFilter === 'in') return tx.amount < 0;
+                                if (txFilter === 'out') return tx.amount > 0;
+                                return true;
+                              }).map(tx => (
                             <TableRow key={tx.id} className="border-border/50 hover:bg-muted/50">
                               <TableCell className="text-foreground text-sm whitespace-nowrap">{tx.date}</TableCell>
                               <TableCell className="text-foreground text-sm">{tx.itemsString}</TableCell>
-                              <TableCell className="text-right text-primary font-bold pr-4">-₦{tx.amount.toFixed(2)}</TableCell>
+                              <TableCell className={`text-right font-bold pr-4 ${tx.amount < 0 ? 'text-green-500' : 'text-red-500'}`}>{tx.amount < 0 ? '+' : '-'}₦{Math.abs(tx.amount).toFixed(2)}</TableCell>
                             </TableRow>
                           ))}
-                          {periodTx.length === 0 && (
+                          {periodTx.filter(tx => {
+                                if (txFilter === 'in') return tx.amount < 0;
+                                if (txFilter === 'out') return tx.amount > 0;
+                                return true;
+                              }).length === 0 && (
                             <TableRow>
-                              <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">No transactions in this period.</TableCell>
+                              <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">No transactions found.</TableCell>
                             </TableRow>
                           )}
                         </TableBody>
@@ -632,7 +708,15 @@ export function ParentPortal() {
               <Label className="text-foreground">Student ID</Label>
               <Input value={studentIdInput} onChange={e => setStudentIdInput(e.target.value.toUpperCase())} placeholder="STU-000" className="bg-background border-border text-foreground uppercase h-11" required />
             </div>
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white mt-4 h-12 text-lg font-bold">Connect Account</Button>
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
+              <ShieldCheck className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                A termly school enrollment fee of <strong>₦1,000</strong> is required to link this account. Payments are processed securely by <strong>Paystack</strong>.
+              </p>
+            </div>
+            <Button type="submit" disabled={regProcessing} className="w-full bg-primary hover:bg-primary/90 text-white mt-4 h-12 text-lg font-bold shadow-lg shadow-primary/20">
+              {regProcessing ? "Opening secure checkout…" : "Pay ₦1000 & Connect Account"}
+            </Button>
           </form>
         </DialogContent>
       </Dialog>
