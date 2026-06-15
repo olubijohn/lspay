@@ -73,44 +73,44 @@ export function UnifiedLogin() {
           <div className="absolute top-0 right-0 w-[800px] h-[800px] rounded-full border border-slate-800/50 -translate-y-1/3 translate-x-1/3 pointer-events-none" />
           <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full border border-slate-800/50 -translate-y-1/4 translate-x-1/4 pointer-events-none" />
 
-          <div className="relative z-10 w-full h-full flex flex-col px-8 lg:px-16 py-6 lg:py-10 overflow-hidden max-w-[560px] xl:max-w-[640px] 2xl:max-w-[720px] mx-auto">
+          <div className="relative z-10 w-full h-full flex flex-col px-8 lg:px-16 py-10 lg:py-16 overflow-hidden">
             <div className="flex-shrink-0">
-              <div className="flex items-center gap-3 mb-1">
+              <div className="flex items-center gap-3 mb-12">
                 <img src="/logo-new.png" alt="LSPay Logo" className="w-7 h-7 rounded-md object-cover" />
                 <span className="text-xl font-bold tracking-tight">LSPay</span>
               </div>
             </div>
 
-            <div className="max-w-[460px] xl:max-w-[540px] 2xl:max-w-[600px] my-auto py-8 flex-shrink-0">
-              <div className="inline-flex items-center px-3 py-1.5 xl:py-2 xl:px-4 rounded-full bg-emerald-950/40 text-emerald-400 text-xs xl:text-sm font-medium mb-4 xl:mb-6 border border-emerald-900/50">
-                <span className="w-1.5 h-1.5 xl:w-2 xl:h-2 rounded-full bg-emerald-400 mr-2 xl:mr-3"></span>
+            <div className="max-w-[460px] my-auto py-8 flex-shrink-0">
+              <div className="inline-flex items-center px-3 py-1.5 rounded-full bg-emerald-950/40 text-emerald-400 text-xs font-medium mb-8 border border-emerald-900/50">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-2"></span>
                 Trusted by 500+ schools
               </div>
 
-              <h1 className="text-[2.75rem] xl:text-[3.25rem] 2xl:text-[3.75rem] font-medium tracking-tight mb-3 xl:mb-5 leading-[1.1] text-slate-100">
-                Smart wallets. Safe campuses. Seamless school days.
+              <h1 className="text-[2.75rem] font-medium tracking-tight mb-6 leading-[1.1] text-slate-100">
+                <span className="text-blue-600">Smart wallets.</span> Safe campuses. Seamless school days.
               </h1>
 
-              <p className="text-slate-400 text-sm xl:text-base 2xl:text-lg mb-6 xl:mb-8 leading-relaxed">
-                Empower your school with a secure, cashless ecosystem where students use smart digital cards for frictionless campus purchases while parents effortlessly manage funds in real time.
+              <p className="text-slate-400 text-sm mb-10 leading-relaxed">
+                Empower your school with a <span className="text-green-500">secure,</span> <span className="text-yellow-500">cashless</span> ecosystem where students use smart digital cards for frictionless campus purchases while parents effortlessly manage funds in real time.
               </p>
 
-              <div className="grid grid-cols-2 gap-4 xl:gap-6">
-                <div className="bg-[#0b172a] border border-[#1e293b] rounded-xl p-5 xl:p-6 transition-transform hover:scale-105 duration-300">
-                  <div className="text-2xl xl:text-3xl font-bold text-white mb-1">14,417</div>
-                  <div className="text-xs xl:text-sm text-slate-400">Active students</div>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="bg-[#0b172a] border border-[#1e293b] rounded-xl p-5">
+                  <div className="text-2xl font-bold text-white mb-1">14,417</div>
+                  <div className="text-xs text-slate-400">Active students</div>
                 </div>
-                <div className="bg-[#0b172a] border border-[#1e293b] rounded-xl p-5 xl:p-6 transition-transform hover:scale-105 duration-300">
-                  <div className="text-2xl xl:text-3xl font-bold text-white mb-1">12,363</div>
-                  <div className="text-xs xl:text-sm text-slate-400">Processed payments</div>
+                <div className="bg-[#0b172a] border border-[#1e293b] rounded-xl p-5">
+                  <div className="text-2xl font-bold text-white mb-1">12,363</div>
+                  <div className="text-xs text-slate-400">Processed payments</div>
                 </div>
-                <div className="bg-[#0b172a] border border-[#1e293b] rounded-xl p-5 xl:p-6 transition-transform hover:scale-105 duration-300">
-                  <div className="text-2xl xl:text-3xl font-bold text-white mb-1">6,987</div>
-                  <div className="text-xs xl:text-sm text-slate-400">Meals served today</div>
+                <div className="bg-[#0b172a] border border-[#1e293b] rounded-xl p-5">
+                  <div className="text-2xl font-bold text-white mb-1">6,987</div>
+                  <div className="text-xs text-slate-400">Meals served today</div>
                 </div>
-                <div className="bg-[#0b172a] border border-[#1e293b] rounded-xl p-5 xl:p-6 transition-transform hover:scale-105 duration-300">
-                  <div className="text-2xl xl:text-3xl font-bold text-white mb-1">2,654</div>
-                  <div className="text-xs xl:text-sm text-slate-400">Connected parents</div>
+                <div className="bg-[#0b172a] border border-[#1e293b] rounded-xl p-5">
+                  <div className="text-2xl font-bold text-white mb-1">2,654</div>
+                  <div className="text-xs text-slate-400">Connected parents</div>
                 </div>
               </div>
             </div>
