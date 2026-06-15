@@ -16,8 +16,12 @@ const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6'
 export function TenantReporting({ tenantId }: { tenantId: number }) {
   const chartTheme = useChartTheme();
   const { transactions, stockMovements, inventory, students } = useStore();
-  const [startDate, setStartDate] = useState("2026-06-01");
-  const [endDate, setEndDate] = useState("2026-06-10");
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [appliedStart, setAppliedStart] = useState(startDate);
   const [appliedEnd, setAppliedEnd] = useState(endDate);
   

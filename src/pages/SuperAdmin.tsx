@@ -29,8 +29,12 @@ export function SuperAdmin() {
 
   // Overview Filters
   const [filterSchool, setFilterSchool] = useState<string>("all");
-  const [startDate, setStartDate] = useState("2026-06-01");
-  const [endDate, setEndDate] = useState("2026-06-10");
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Card Assignment State
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
@@ -74,8 +78,14 @@ export function SuperAdmin() {
 
   // Transactions
   const [txFilterSchool, setTxFilterSchool] = useState<string>("all");
-  const [txStartDate, setTxStartDate] = useState("2026-06-01");
-  const [txEndDate, setTxEndDate] = useState("2026-06-10");
+  const [txStartDate, setTxStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().split('T')[0];
+  });
+  const [txEndDate, setTxEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [overviewTxFilter, setOverviewTxFilter] = useState<"all" | "in" | "out">("all");
+  const [txFilterType, setTxFilterType] = useState<"all" | "in" | "out">("all");
   const [expandedSchoolDay, setExpandedSchoolDay] = useState<string | null>(null);
 
   const showSuccess = (msg: string) => {
@@ -143,6 +153,8 @@ export function SuperAdmin() {
   const filteredTx = transactions.filter(t => {
     if (filterSchool !== "all" && t.tenantId !== Number(filterSchool)) return false;
     if (t.date < startDate || t.date > endDate) return false;
+    if (overviewTxFilter === 'in' && t.amount >= 0) return false;
+    if (overviewTxFilter === 'out' && t.amount <= 0) return false;
     return true;
   });
 
@@ -154,8 +166,10 @@ export function SuperAdmin() {
   const txFiltered = useMemo(() => transactions.filter(t => {
     if (txFilterSchool !== "all" && t.tenantId !== Number(txFilterSchool)) return false;
     if (t.date < txStartDate || t.date > txEndDate) return false;
+    if (txFilterType === 'in' && t.amount >= 0) return false;
+    if (txFilterType === 'out' && t.amount <= 0) return false;
     return true;
-  }), [transactions, txFilterSchool, txStartDate, txEndDate]);
+  }), [transactions, txFilterSchool, txStartDate, txEndDate, txFilterType]);
 
   // Group by date, then school
   const txRollup = useMemo(() => {
@@ -278,7 +292,14 @@ export function SuperAdmin() {
               </Card>
 
               <Card className="bg-card border-border">
-                <CardHeader><CardTitle className="text-foreground">Recent Transactions</CardTitle></CardHeader>
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
+                  <CardTitle className="text-foreground">Recent Transactions</CardTitle>
+                  <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
+                    <button onClick={() => setOverviewTxFilter('all')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${overviewTxFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
+                    <button onClick={() => setOverviewTxFilter('in')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${overviewTxFilter === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
+                    <button onClick={() => setOverviewTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${overviewTxFilter === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
+                  </div>
+                </CardHeader>
                 <CardContent>
                   <div className="max-h-96 overflow-auto rounded-lg border border-border">
                     <Table>
@@ -300,7 +321,7 @@ export function SuperAdmin() {
                             <TableCell className="text-foreground">{tx.schoolName}</TableCell>
                             <TableCell className="text-foreground">{tx.studentName}</TableCell>
                             <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
-                            <TableCell className="text-primary font-bold text-right">₦{tx.amount.toFixed(2)}</TableCell>
+                            <TableCell className={`font-bold text-right ${tx.amount < 0 ? 'text-green-500' : 'text-red-500'}`}>{tx.amount < 0 ? '+' : '-'}₦{Math.abs(tx.amount).toFixed(2)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -319,6 +340,11 @@ export function SuperAdmin() {
                   <Receipt className="text-primary" /> Transactions
                 </h1>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-card p-2 rounded-lg border border-border">
+                  <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border mr-2">
+                    <button onClick={() => setTxFilterType('all')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilterType === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
+                    <button onClick={() => setTxFilterType('in')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilterType === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
+                    <button onClick={() => setTxFilterType('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilterType === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
+                  </div>
                   <Select value={txFilterSchool} onValueChange={setTxFilterSchool}>
                     <SelectTrigger className="w-full sm:w-44 bg-background border-border text-foreground" data-testid="select-tx-school">
                       <SelectValue placeholder="All Schools" />
@@ -405,7 +431,7 @@ export function SuperAdmin() {
                                       <TableRow key={tx.id} className="border-border/40">
                                         <TableCell className="text-foreground pl-14 font-medium">{tx.studentName}</TableCell>
                                         <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
-                                        <TableCell className="text-primary font-bold text-right pr-6">₦{tx.amount.toFixed(2)}</TableCell>
+                                        <TableCell className={`font-bold text-right pr-6 ${tx.amount < 0 ? 'text-green-500' : 'text-red-500'}`}>{tx.amount < 0 ? '+' : '-'}₦{Math.abs(tx.amount).toFixed(2)}</TableCell>
                                       </TableRow>
                                     ))}
                                   </TableBody>

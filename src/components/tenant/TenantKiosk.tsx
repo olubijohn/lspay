@@ -223,12 +223,12 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
   return (
     <div className="fixed inset-0 z-[9999] bg-background flex flex-col font-sans h-screen w-screen overflow-hidden">
       {/* Top Header */}
-      <div className="bg-card border-b border-border p-4 flex justify-between items-center shadow-md z-10">
-        <Button variant="ghost" onClick={() => setShowExitModal(true)} className="text-muted-foreground hover:text-foreground hover:bg-muted">
-          <X className="mr-2 h-5 w-5" /> Exit Kiosk
+      <div className="bg-card border-b border-border p-3 sm:p-4 flex justify-between items-center shadow-md z-10">
+        <Button variant="ghost" size="sm" onClick={() => setShowExitModal(true)} className="text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 px-2 sm:px-4">
+          <X className="h-5 w-5 sm:mr-2" /> <span className="hidden sm:inline">Exit Kiosk</span>
         </Button>
-        <div className="text-xl font-black text-foreground tracking-wider uppercase">{activeTenant?.name} POS Terminal</div>
-        <div className="text-primary font-mono font-bold text-xl">{new Date().toLocaleTimeString()}</div>
+        <div className="text-sm sm:text-xl font-black text-foreground tracking-wider uppercase text-center flex-1 px-2 leading-tight">{activeTenant?.name} POS Terminal</div>
+        <div className="text-primary font-mono font-bold text-xs sm:text-xl shrink-0">{new Date().toLocaleTimeString()}</div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
@@ -239,9 +239,9 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
               <Card 
                 key={item.id} 
                 onClick={() => addToCart(item)} 
-                className={`cursor-pointer border-border transition-all flex flex-col overflow-hidden shadow-lg ${item.stock > 0 ? 'bg-card hover:border-primary hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:-translate-y-1' : 'bg-card/40 opacity-50 cursor-not-allowed'}`}
+                className={`cursor-pointer border-border transition-all flex flex-col overflow-hidden shadow-lg h-auto min-h-[220px] ${item.stock > 0 ? 'bg-card hover:border-primary hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:-translate-y-1' : 'bg-card/40 opacity-50 cursor-not-allowed'}`}
               >
-                <div className="h-32 sm:h-40 bg-muted relative">
+                <div className="h-28 sm:h-36 bg-muted relative shrink-0">
                   {item.imageUrl ? (
                     <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display='none'; }} />
                   ) : (

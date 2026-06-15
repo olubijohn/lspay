@@ -24,7 +24,7 @@ export function TenantBackoffice({ tenantId }: { tenantId: number }) {
   // Restock Form
   const [restockItemId, setRestockItemId] = useState<string>("");
   const [restockQty, setRestockQty] = useState("");
-  const [restockDate, setRestockDate] = useState("2026-06-10");
+  const [restockDate, setRestockDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [restockNote, setRestockNote] = useState("");
 
   const handleAddInventory = (e: React.FormEvent) => {

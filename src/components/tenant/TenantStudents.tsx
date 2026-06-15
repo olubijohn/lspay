@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { GraduationCap, ArrowLeft, PoundSterling } from "lucide-react";
+import { GraduationCap, ArrowLeft, Banknote } from "lucide-react";
 import { cardLifecycleLabel } from "@/lib/types";
 
 export function TenantStudents({ tenantId }: { tenantId: number }) {
@@ -19,6 +19,7 @@ export function TenantStudents({ tenantId }: { tenantId: number }) {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [detailStudentId, setDetailStudentId] = useState<number | null>(null);
+  const [txFilter, setTxFilter] = useState<"all" | "in" | "out">("all");
 
   // Form State
   const [firstName, setFirstName] = useState("");
@@ -119,7 +120,11 @@ export function TenantStudents({ tenantId }: { tenantId: number }) {
   if (detailStudentId) {
     const s = tenantStudents.find(st => st.id === detailStudentId);
     if (!s) return null;
-    const sTx = transactions.filter(t => t.studentId === s.id).reverse();
+    const sTx = transactions.filter(t => t.studentId === s.id).filter(tx => {
+      if (txFilter === 'in') return tx.amount < 0;
+      if (txFilter === 'out') return tx.amount > 0;
+      return true;
+    }).reverse();
 
     return (
       <div className="space-y-6 animate-in slide-in-from-right-8 duration-300">
@@ -182,8 +187,13 @@ export function TenantStudents({ tenantId }: { tenantId: number }) {
           </Card>
 
           <Card className="bg-card border-border lg:col-span-2 shadow-xl">
-            <CardHeader>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
               <CardTitle className="text-foreground">Transaction History</CardTitle>
+              <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
+                <button onClick={() => setTxFilter('all')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
+                <button onClick={() => setTxFilter('in')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
+                <button onClick={() => setTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="max-h-[600px] overflow-auto border border-border rounded-lg bg-background">
@@ -200,7 +210,7 @@ export function TenantStudents({ tenantId }: { tenantId: number }) {
                       <TableRow key={tx.id} className="border-border/50">
                         <TableCell className="text-foreground text-sm">{tx.date}</TableCell>
                         <TableCell className="text-foreground">{tx.itemsString}</TableCell>
-                        <TableCell className="text-right text-primary font-bold">-₦{tx.amount.toFixed(2)}</TableCell>
+                        <TableCell className={`font-bold text-right pr-4 ${tx.amount < 0 ? 'text-green-500' : 'text-red-500'}`}>{tx.amount < 0 ? '+' : '-'}₦{Math.abs(tx.amount).toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
                     {sTx.length === 0 && (
@@ -263,7 +273,6 @@ export function TenantStudents({ tenantId }: { tenantId: number }) {
                 <Label className="text-foreground">Class / Year Group</Label>
                 <Input value={className} onChange={e => setClassName(e.target.value)} required className="bg-background border-border text-foreground h-11" />
               </div>
-              
               <div className="col-span-2 space-y-2 mt-4 pt-4 border-t border-border">
                 <Label className="text-foreground">Home Address</Label>
                 <Input value={homeAddress} onChange={e => setHomeAddress(e.target.value)} required className="bg-background border-border text-foreground h-11" />

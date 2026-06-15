@@ -6,6 +6,7 @@ import { TenantStudents } from "@/components/tenant/TenantStudents";
 import { TenantInventory } from "@/components/tenant/TenantInventory";
 import { TenantStockManagement } from "@/components/tenant/TenantStockManagement";
 import { TenantReporting } from "@/components/tenant/TenantReporting";
+import { TenantNotifications } from "@/components/tenant/TenantNotifications";
 import { TenantKiosk } from "@/components/tenant/TenantKiosk";
 import { TenantDashboard } from "@/components/tenant/TenantDashboard";
 import {
@@ -42,8 +43,13 @@ export function TenantConsole() {
   const [mobileNav, setMobileNav] = useState(false);
 
   // Transactions
-  const [txStartDate, setTxStartDate] = useState("2026-06-01");
-  const [txEndDate, setTxEndDate] = useState("2026-06-10");
+  const [txStartDate, setTxStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().split('T')[0];
+  });
+  const [txEndDate, setTxEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [txFilter, setTxFilter] = useState<"all" | "in" | "out">("all");
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [cancelSuccessMsg, setCancelSuccessMsg] = useState("");
 
@@ -95,9 +101,11 @@ export function TenantConsole() {
   const tenantTxs = transactions.filter(t => {
     if (t.tenantId !== activeTenant.id) return false;
     if (t.date < txStartDate || t.date > txEndDate) return false;
+    if (txFilter === 'in' && t.amount >= 0) return false;
+    if (txFilter === 'out' && t.amount <= 0) return false;
     return true;
   });
-  const txTotal = tenantTxs.reduce((s, t) => s + t.amount, 0);
+  const txTotal = tenantTxs.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
 
   const tenantSystemUsers = systemUsers.filter(u => u.tenantId === activeTenant.id);
 
@@ -151,6 +159,7 @@ export function TenantConsole() {
           {activeTab === "inventory" && canSeeOthers && <TenantInventory tenantId={activeTenant.id} />}
           {activeTab === "stock" && canSeeOthers && <TenantStockManagement tenantId={activeTenant.id} />}
           {activeTab === "reporting" && canSeeOthers && <TenantReporting tenantId={activeTenant.id} />}
+          {activeTab === "notifications" && canSeeOthers && <TenantNotifications tenantId={activeTenant.id} />}
 
           {/* ─── TRANSACTIONS ───────────────────────────────────── */}
           {activeTab === "transactions" && canSeeOthers && (
@@ -160,6 +169,11 @@ export function TenantConsole() {
                   <Receipt className="text-primary" /> Transactions
                 </h1>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-card p-2 rounded-lg border border-border">
+                  <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border mr-2">
+                    <button onClick={() => setTxFilter('all')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
+                    <button onClick={() => setTxFilter('in')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
+                    <button onClick={() => setTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
+                  </div>
                   <Input type="date" value={txStartDate} onChange={e => setTxStartDate(e.target.value)} className="flex-1 min-w-[8rem] sm:flex-none sm:w-36 bg-background border-border text-foreground" />
                   <span className="text-muted-foreground text-sm">to</span>
                   <Input type="date" value={txEndDate} onChange={e => setTxEndDate(e.target.value)} className="flex-1 min-w-[8rem] sm:flex-none sm:w-36 bg-background border-border text-foreground" />
@@ -214,7 +228,7 @@ export function TenantConsole() {
                               </div>
                             </TableCell>
                             <TableCell className="text-muted-foreground text-sm max-w-xs truncate">{tx.itemsString}</TableCell>
-                            <TableCell className="text-primary font-bold text-right">₦{tx.amount.toFixed(2)}</TableCell>
+                            <TableCell className={`font-bold text-right ${tx.amount < 0 ? 'text-green-500' : 'text-red-500'}`}>{tx.amount < 0 ? '+' : '-'}₦{Math.abs(tx.amount).toFixed(2)}</TableCell>
                             <TableCell className="text-right px-6">
                               <Button variant="ghost" size="sm" onClick={() => setCancelId(tx.id)} className="text-red-500 hover:text-red-400 hover:bg-red-950/30 h-8 px-3">
                                 <XCircle className="h-3.5 w-3.5 mr-1" /> Cancel

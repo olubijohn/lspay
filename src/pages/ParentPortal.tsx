@@ -48,8 +48,12 @@ export function ParentPortal() {
 
   const [showActivateModal, setShowActivateModal] = useState<number | null>(null);
 
-  const [startDate, setStartDate] = useState("2026-06-01");
-  const [endDate, setEndDate] = useState("2026-06-10");
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1); // Start of current month
+    return d.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   const [phoneInput, setPhoneInput] = useState(parentSession?.phone ?? "");
   const [phoneSaved, setPhoneSaved] = useState(false);
@@ -394,7 +398,8 @@ export function ParentPortal() {
             const childTx = transactions.filter(t => t.studentId === childId).reverse();
             const periodTx = childTx.filter(t => t.date >= startDate && t.date <= endDate);
 
-            const spentInPeriod = periodTx.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
+            const moneyOutPeriod = periodTx.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
+            const moneyInPeriod = periodTx.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
             const childDailyData = Object.entries(
               periodTx.reduce((acc, t) => {
@@ -509,12 +514,12 @@ export function ParentPortal() {
                   <CardContent className="p-6">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                       <div className="bg-background p-4 rounded-xl border border-border">
-                        <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-1">Spent in Period</div>
-                        <div className="text-3xl font-black text-foreground">₦{spentInPeriod.toFixed(2)}</div>
+                        <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-1">Money In</div>
+                        <div className="text-3xl font-black text-green-500">+₦{moneyInPeriod.toFixed(2)}</div>
                       </div>
                       <div className="bg-background p-4 rounded-xl border border-border">
-                        <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-1">Avg Transaction</div>
-                        <div className="text-3xl font-black text-foreground">₦{periodTx.filter(t => t.amount > 0).length ? (spentInPeriod / periodTx.filter(t => t.amount > 0).length).toFixed(2) : "0.00"}</div>
+                        <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-1">Money Out</div>
+                        <div className="text-3xl font-black text-red-500">-₦{moneyOutPeriod.toFixed(2)}</div>
                       </div>
                       <div className="bg-background p-4 rounded-xl border border-border">
                         <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-1">Most Frequent Item</div>

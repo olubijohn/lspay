@@ -103,7 +103,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (iData) setInventory(iData.map(r => ({ id: r.id, tenantId: r.tenant_id, name: r.name, category: r.category, stock: r.stock, costPrice: Number(r.cost_price), sellingPrice: Number(r.selling_price), imageUrl: r.image_url })));
 
       const { data: txData } = await supabase.from('transactions').select('*');
-      if (txData) setTransactions(txData.map(r => ({ id: r.id, tenantId: r.tenant_id, studentId: r.student_id, studentName: r.student_name, schoolName: r.school_name, itemsString: r.items_string, amount: Number(r.amount), cost: Number(r.cost), date: r.date })));
+      if (txData) setTransactions(txData.map(r => ({ id: r.id, tenantId: r.tenant_id, studentId: r.student_id, studentName: r.student_name, schoolName: r.school_name, itemsString: r.items_string, amount: r.items_string === 'Wallet Top-up' ? -Math.abs(Number(r.amount)) : Number(r.amount), cost: Number(r.cost), date: r.date })));
 
       const { data: suData } = await supabase.from('system_users').select('*');
       if (suData) setSystemUsers(suData.map(r => ({ id: r.id, name: r.name, email: r.email, passwordHash: r.password_hash, role: r.role as any, tenantId: r.tenant_id, isActive: r.is_active })));
@@ -377,7 +377,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setTransactions(prev => [...prev, newTx]);
     if (isSupabaseConfigured) {
       getSupabase().from('transactions').insert({
-        tenant_id: tx.tenantId, student_id: tx.studentId, student_name: tx.studentName, school_name: tx.schoolName, items_string: tx.itemsString, amount: tx.amount, cost: tx.cost, date: tx.date
+        tenant_id: tx.tenantId, student_id: tx.studentId, student_name: tx.studentName, school_name: tx.schoolName, items_string: tx.itemsString, amount: Math.abs(tx.amount), cost: tx.cost, date: tx.date
       }).select().single().then(({ data }) => {
         if (data) setTransactions(prev => prev.map(t => t.id === newTx.id ? { ...t, id: data.id } : t));
       });
