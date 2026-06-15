@@ -87,10 +87,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
       setScanError("Card is blocked. Please contact administration.");
       return;
     }
-    if (student.cardStatus === "Issued" || student.cardLifecycleStatus !== 'activated') {
-      setScanError("Card not activated. Parent must complete setup.");
-      return;
-    }
+
     if (student.cardStatus === "Unassigned") {
       setScanError("Card is unassigned.");
       return;
@@ -105,7 +102,6 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
   };
 
   const { supported: nfcSupported, status: nfcStatus, error: nfcError, start: startNfc, stop: stopNfc } = useNfcScanner((id) => {
-    setScanInput(id);
     lookupCard(id);
   });
 
@@ -241,9 +237,9 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
                 onClick={() => addToCart(item)} 
                 className={`cursor-pointer border-border transition-all flex flex-col overflow-hidden shadow-lg h-auto min-h-[220px] ${item.stock > 0 ? 'bg-card hover:border-primary hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:-translate-y-1' : 'bg-card/40 opacity-50 cursor-not-allowed'}`}
               >
-                <div className="h-28 sm:h-36 bg-muted relative shrink-0">
+                <div className="h-28 sm:h-36 bg-white relative shrink-0">
                   {item.imageUrl ? (
-                    <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display='none'; }} />
+                    <img src={item.imageUrl} alt={item.name} className="w-full h-full object-contain p-2" onError={(e) => { e.currentTarget.style.display='none'; }} />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                       <ImageIcon className="w-12 h-12" />
@@ -333,14 +329,14 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
           {checkoutStage === "scan" && (
             <div className="p-4 sm:p-8 flex flex-col h-full bg-background overflow-y-auto">
               <Button variant="outline" onClick={() => setCheckoutStage("cart")} className="w-max border-border text-foreground mb-4 sm:mb-8 h-12 px-6 rounded-full font-bold shrink-0">← Back to Order</Button>
-              <h2 className="text-3xl sm:text-4xl font-black text-foreground text-center mb-4">Scan Student Card</h2>
-              <p className="text-center text-muted-foreground text-lg mb-8 h-6">
+              <div className="bg-blue-600 text-white px-4 py-3 rounded-xl text-sm sm:text-base font-medium text-center mb-4 max-w-md mx-auto shadow-md">
                 {!nfcSupported
-                  ? "NFC not available on this device — enter the card ID below"
+                  ? "NFC not available on this device. Please enter the Hardware ID below."
                   : nfcStatus === "scanning"
                     ? "Hold the card flat against the back of the device…"
-                    : "Tap \u201CScan Card\u201D, then hold a card to the device"}
-              </p>
+                    : "Please scan the student's card or enter their Hardware ID below."}
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-black text-foreground text-center mb-8">Scan Student Card</h2>
 
               <div className="flex-1 flex flex-col items-center justify-center">
                 <div className={`w-64 h-64 rounded-full bg-card border-[8px] flex items-center justify-center mb-10 relative ${nfcStatus === "scanning" ? "border-primary animate-pulse shadow-[0_0_80px_rgba(16,185,129,0.25)]" : "border-border"}`}>
@@ -365,7 +361,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
                   )}
                   <QrScanner
                     triggerClassName="w-full bg-primary hover:bg-primary/90 text-white h-16 text-xl rounded-xl font-bold active:scale-95 transition-transform border-0"
-                    onResult={(text) => { setScanInput(text); lookupCard(text); }}
+                    onResult={(text) => { lookupCard(text); }}
                   >
                     <QrCode className="mr-3 h-6 w-6" /> Scan QR Card
                   </QrScanner>
@@ -373,10 +369,11 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
 
                 <form onSubmit={handleScan} className="w-full max-w-sm space-y-3">
                   <Input 
+                    type="password"
                     value={scanInput} 
                     onChange={e => setScanInput(e.target.value)} 
                     placeholder={nfcSupported ? "Or enter Hardware ID manually" : "Hardware ID (NFC-9982)"}
-                    className="bg-card border-border text-foreground text-center h-14 text-lg rounded-xl font-mono"
+                    className="bg-card border-border text-foreground text-center h-14 text-lg rounded-xl font-mono tracking-widest"
                   />
                   <Button type="submit" variant="outline" className="w-full border-border text-foreground h-12 text-base rounded-xl font-bold" data-testid="btn-manual-lookup">
                     {nfcSupported ? "Enter Manually" : "Look Up Card"}

@@ -72,6 +72,16 @@ export function ParentPortal() {
   const linkedChildren = students.filter(s => parentSession.linkedStudentIds.includes(s.id));
   const parentNotifications = notifications.filter(n => n.targetRole === 'parent' && n.targetParentEmail === parentSession.email);
 
+  const handleOpenAddChild = () => {
+    if (linkedChildren.length > 0 && !authCode) {
+      const tenant = tenants.find(t => t.id === linkedChildren[0].tenantId);
+      if (tenant) {
+        setAuthCode(tenant.enrollmentKey);
+      }
+    }
+    setShowAddChild(true);
+  };
+
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     setRegError(""); setRegSuccess("");
@@ -223,7 +233,7 @@ export function ParentPortal() {
           <span className="text-sm font-semibold">₦{topupSuccess.amount.toFixed(2)} added to {topupSuccess.name}'s wallet</span>
         </div>
       )}
-      <ParentSidebar activeTab={activeTab} setActiveTab={setActiveTab} onAddChild={() => setShowAddChild(true)} mobileOpen={mobileNav} onMobileOpenChange={setMobileNav} />
+      <ParentSidebar activeTab={activeTab} setActiveTab={setActiveTab} onAddChild={handleOpenAddChild} mobileOpen={mobileNav} onMobileOpenChange={setMobileNav} />
       <MobileTopBar title="Parent Portal" icon={ShieldCheck} onMenuClick={() => setMobileNav(true)} />
 
       <main className="flex-1 lg:ml-64 overflow-y-auto bg-background px-4 pb-6 pt-20 lg:px-8 lg:pb-8 lg:pt-8">
@@ -236,7 +246,7 @@ export function ParentPortal() {
                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3">
                   <LayoutDashboard className="text-primary" /> Family Overview
                 </h1>
-                <Button onClick={() => setShowAddChild(true)} className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-lg shadow-lg shadow-primary/20 w-full sm:w-auto">
+                <Button onClick={handleOpenAddChild} className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-lg shadow-lg shadow-primary/20 w-full sm:w-auto">
                   Link Child
                 </Button>
               </div>
@@ -246,7 +256,7 @@ export function ParentPortal() {
                   <LinkIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-xl font-bold text-foreground mb-2">No Children Linked</h3>
                   <p className="text-muted-foreground max-w-md mx-auto mb-6">Link your child's account using the Authorization Code and Student ID provided by their school.</p>
-                  <Button onClick={() => setShowAddChild(true)} className="bg-primary hover:bg-primary/90 text-white">Link Account Now</Button>
+                  <Button onClick={handleOpenAddChild} className="bg-primary hover:bg-primary/90 text-white">Link Account Now</Button>
                 </div>
               ) : (() => {
                 const allTx = transactions.filter(t => linkedChildren.some(c => c.id === t.studentId));

@@ -73,7 +73,7 @@ export function UnifiedLogin() {
           <div className="absolute top-0 right-0 w-[800px] h-[800px] rounded-full border border-slate-800/50 -translate-y-1/3 translate-x-1/3 pointer-events-none" />
           <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full border border-slate-800/50 -translate-y-1/4 translate-x-1/4 pointer-events-none" />
 
-          <div className="relative z-10 w-full h-full flex flex-col px-8 lg:px-16 py-6 lg:py-8 overflow-hidden">
+          <div className="relative z-10 w-full h-full flex flex-col px-8 lg:px-16 py-6 lg:py-10 overflow-hidden max-w-[560px] xl:max-w-[640px] 2xl:max-w-[720px] mx-auto">
             <div className="flex-shrink-0">
               <div className="flex items-center gap-3 mb-1">
                 <img src="/logo-new.png" alt="LSPay Logo" className="w-7 h-7 rounded-md object-cover" />
@@ -81,36 +81,36 @@ export function UnifiedLogin() {
               </div>
             </div>
 
-            <div className="max-w-[460px] my-auto py-4 flex-shrink-0">
-              <div className="inline-flex items-center px-3 py-1.5 rounded-full bg-emerald-950/40 text-emerald-400 text-xs font-medium mb-4 border border-emerald-900/50">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-2"></span>
+            <div className="max-w-[460px] xl:max-w-[540px] 2xl:max-w-[600px] my-auto py-8 flex-shrink-0">
+              <div className="inline-flex items-center px-3 py-1.5 xl:py-2 xl:px-4 rounded-full bg-emerald-950/40 text-emerald-400 text-xs xl:text-sm font-medium mb-4 xl:mb-6 border border-emerald-900/50">
+                <span className="w-1.5 h-1.5 xl:w-2 xl:h-2 rounded-full bg-emerald-400 mr-2 xl:mr-3"></span>
                 Trusted by 500+ schools
               </div>
 
-              <h1 className="text-[2.75rem] font-medium tracking-tight mb-3 leading-[1.1] text-slate-100">
+              <h1 className="text-[2.75rem] xl:text-[3.25rem] 2xl:text-[3.75rem] font-medium tracking-tight mb-3 xl:mb-5 leading-[1.1] text-slate-100">
                 Smart wallets. Safe campuses. Seamless school days.
               </h1>
 
-              <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+              <p className="text-slate-400 text-sm xl:text-base 2xl:text-lg mb-6 xl:mb-8 leading-relaxed">
                 Empower your school with a secure, cashless ecosystem where students use smart digital cards for frictionless campus purchases while parents effortlessly manage funds in real time.
               </p>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-[#0b172a] border border-[#1e293b] rounded-xl p-5">
-                  <div className="text-2xl font-bold text-white mb-1">14,417</div>
-                  <div className="text-xs text-slate-400">Active students</div>
+              <div className="grid grid-cols-2 gap-4 xl:gap-6">
+                <div className="bg-[#0b172a] border border-[#1e293b] rounded-xl p-5 xl:p-6 transition-transform hover:scale-105 duration-300">
+                  <div className="text-2xl xl:text-3xl font-bold text-white mb-1">14,417</div>
+                  <div className="text-xs xl:text-sm text-slate-400">Active students</div>
                 </div>
-                <div className="bg-[#0b172a] border border-[#1e293b] rounded-xl p-5">
-                  <div className="text-2xl font-bold text-white mb-1">12,363</div>
-                  <div className="text-xs text-slate-400">Processed payments</div>
+                <div className="bg-[#0b172a] border border-[#1e293b] rounded-xl p-5 xl:p-6 transition-transform hover:scale-105 duration-300">
+                  <div className="text-2xl xl:text-3xl font-bold text-white mb-1">12,363</div>
+                  <div className="text-xs xl:text-sm text-slate-400">Processed payments</div>
                 </div>
-                <div className="bg-[#0b172a] border border-[#1e293b] rounded-xl p-5">
-                  <div className="text-2xl font-bold text-white mb-1">6,987</div>
-                  <div className="text-xs text-slate-400">Meals served today</div>
+                <div className="bg-[#0b172a] border border-[#1e293b] rounded-xl p-5 xl:p-6 transition-transform hover:scale-105 duration-300">
+                  <div className="text-2xl xl:text-3xl font-bold text-white mb-1">6,987</div>
+                  <div className="text-xs xl:text-sm text-slate-400">Meals served today</div>
                 </div>
-                <div className="bg-[#0b172a] border border-[#1e293b] rounded-xl p-5">
-                  <div className="text-2xl font-bold text-white mb-1">2,654</div>
-                  <div className="text-xs text-slate-400">Connected parents</div>
+                <div className="bg-[#0b172a] border border-[#1e293b] rounded-xl p-5 xl:p-6 transition-transform hover:scale-105 duration-300">
+                  <div className="text-2xl xl:text-3xl font-bold text-white mb-1">2,654</div>
+                  <div className="text-xs xl:text-sm text-slate-400">Connected parents</div>
                 </div>
               </div>
             </div>
@@ -136,17 +136,17 @@ export function UnifiedLogin() {
         {/* Right Panel - Login Form */}
         <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 py-6 relative bg-[#f5f5f0] text-slate-900">
 
-          <div className="w-full max-w-[380px] mx-auto flex flex-col h-full justify-center items-center">
+          <div className="w-full max-w-[380px] xl:max-w-[420px] 2xl:max-w-[480px] mx-auto flex flex-col h-full justify-center items-center">
 
-            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-8 shadow-lg overflow-hidden border-4 border-[#f8fafc] shrink-0">
+            <div className="w-24 h-24 xl:w-28 xl:h-28 bg-white rounded-full flex items-center justify-center mb-8 xl:mb-10 shadow-lg overflow-hidden border-4 border-[#f8fafc] shrink-0">
               <img src="/logo-new.png" alt="LSPay Logo" className="w-full h-full object-cover" />
             </div>
 
-            <div className="mb-8 text-center w-full">
-              <h2 className="text-[1.75rem] font-medium text-slate-900 mb-2 tracking-tight">
+            <div className="mb-8 xl:mb-10 text-center w-full">
+              <h2 className="text-[1.75rem] xl:text-[2rem] font-medium text-slate-900 mb-2 xl:mb-3 tracking-tight">
                 {isRegistering ? "Create an account" : "Welcome back"}
               </h2>
-              <p className="text-slate-500 text-sm">
+              <p className="text-slate-500 text-sm xl:text-base">
                 {isRegistering ? "Sign up for an LSPay account to start tracking." : "Sign in to your LSPay account to continue managing payments."}
               </p>
             </div>
@@ -161,31 +161,31 @@ export function UnifiedLogin() {
             <div className="w-full text-left">
               {!isRegistering ? (
                 <form onSubmit={handleSignIn} className="space-y-5">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-500">Email address</Label>
+                  <div className="space-y-1.5 xl:space-y-2">
+                    <Label className="text-xs xl:text-sm text-slate-500">Email address</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 xl:h-5 xl:w-5 text-slate-400" />
                       <Input
                         type="email"
                         value={email}
                         onChange={e => setEmail(e.target.value)}
                         placeholder="parent@example.com"
-                        className="h-11 pl-10 bg-white border-slate-200 text-slate-900 focus-visible:ring-blue-500"
+                        className="h-11 xl:h-12 pl-10 xl:pl-11 bg-white border-slate-200 text-slate-900 focus-visible:ring-blue-500 text-sm xl:text-base"
                         required
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-500">Password</Label>
+                  <div className="space-y-1.5 xl:space-y-2">
+                    <Label className="text-xs xl:text-sm text-slate-500">Password</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 xl:h-5 xl:w-5 text-slate-400" />
                       <Input
                         type={showPassword ? "text" : "password"}
                         value={password}
                         onChange={e => setPassword(e.target.value)}
                         placeholder="••••••••"
-                        className="h-11 pl-10 pr-10 bg-white border-slate-200 text-slate-900 focus-visible:ring-blue-500"
+                        className="h-11 xl:h-12 pl-10 xl:pl-11 pr-10 xl:pr-11 bg-white border-slate-200 text-slate-900 focus-visible:ring-blue-500 text-sm xl:text-base"
                         required
                       />
                       <button
@@ -193,63 +193,63 @@ export function UnifiedLogin() {
                         onClick={() => setShowPassword(v => !v)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                       >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showPassword ? <EyeOff className="h-4 w-4 xl:h-5 xl:w-5" /> : <Eye className="h-4 w-4 xl:h-5 xl:w-5" />}
                       </button>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center justify-between pt-1 xl:pt-2">
                     <div className="flex items-center space-x-2">
-                      <Checkbox id="remember" className="h-4 w-4 border-slate-300 rounded" />
-                      <label htmlFor="remember" className="text-xs font-medium text-slate-500 cursor-pointer">
+                      <Checkbox id="remember" className="h-4 w-4 xl:h-5 xl:w-5 border-slate-300 rounded" />
+                      <label htmlFor="remember" className="text-xs xl:text-sm font-medium text-slate-500 cursor-pointer">
                         Remember me
                       </label>
                     </div>
-                    <button type="button" className="text-xs font-medium text-blue-600 hover:underline">
+                    <button type="button" className="text-xs xl:text-sm font-medium text-blue-600 hover:underline">
                       Forgot password?
                     </button>
                   </div>
 
-                  <Button type="submit" className="w-full h-11 bg-[#16274a] hover:bg-[#16274a]/90 text-white font-medium rounded-lg mt-2 flex items-center justify-center gap-2">
-                    <LogIn className="w-4 h-4" /> Sign in to dashboard
+                  <Button type="submit" className="w-full h-11 xl:h-12 bg-[#16274a] hover:bg-[#16274a]/90 text-white font-medium rounded-lg mt-2 xl:mt-4 flex items-center justify-center gap-2 xl:text-base">
+                    <LogIn className="w-4 h-4 xl:w-5 xl:h-5" /> Sign in to dashboard
                   </Button>
                 </form>
               ) : (
                 <form onSubmit={handleRegister} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-500">Full Name</Label>
+                  <div className="space-y-1.5 xl:space-y-2">
+                    <Label className="text-xs xl:text-sm text-slate-500">Full Name</Label>
                     <Input
                       value={regName}
                       onChange={e => setRegName(e.target.value)}
                       placeholder="John Doe"
-                      className="h-11 bg-white border-slate-200 text-slate-900 focus-visible:ring-blue-500"
+                      className="h-11 xl:h-12 bg-white border-slate-200 text-slate-900 focus-visible:ring-blue-500 text-sm xl:text-base"
                       required
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-500">Email address</Label>
+                  <div className="space-y-1.5 xl:space-y-2">
+                    <Label className="text-xs xl:text-sm text-slate-500">Email address</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 xl:h-5 xl:w-5 text-slate-400" />
                       <Input
                         type="email"
                         value={email}
                         onChange={e => setEmail(e.target.value)}
                         placeholder="you@example.com"
-                        className="h-11 pl-10 bg-white border-slate-200 text-slate-900 focus-visible:ring-blue-500"
+                        className="h-11 xl:h-12 pl-10 xl:pl-11 bg-white border-slate-200 text-slate-900 focus-visible:ring-blue-500 text-sm xl:text-base"
                         required
                       />
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-500">Password</Label>
+                  <div className="space-y-1.5 xl:space-y-2">
+                    <Label className="text-xs xl:text-sm text-slate-500">Password</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 xl:h-5 xl:w-5 text-slate-400" />
                       <Input
                         type={showPassword ? "text" : "password"}
                         value={password}
                         onChange={e => setPassword(e.target.value)}
                         placeholder="Min 6 chars"
-                        className="h-11 pl-10 pr-10 bg-white border-slate-200 text-slate-900 focus-visible:ring-blue-500"
+                        className="h-11 xl:h-12 pl-10 xl:pl-11 pr-10 xl:pr-11 bg-white border-slate-200 text-slate-900 focus-visible:ring-blue-500 text-sm xl:text-base"
                         required
                       />
                       <button
@@ -257,32 +257,32 @@ export function UnifiedLogin() {
                         onClick={() => setShowPassword(v => !v)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                       >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showPassword ? <EyeOff className="h-4 w-4 xl:h-5 xl:w-5" /> : <Eye className="h-4 w-4 xl:h-5 xl:w-5" />}
                       </button>
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-500">Confirm Password</Label>
+                  <div className="space-y-1.5 xl:space-y-2">
+                    <Label className="text-xs xl:text-sm text-slate-500">Confirm Password</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 xl:h-5 xl:w-5 text-slate-400" />
                       <Input
                         type="password"
                         value={regConfirm}
                         onChange={e => setRegConfirm(e.target.value)}
                         placeholder="Repeat password"
-                        className="h-11 pl-10 bg-white border-slate-200 text-slate-900 focus-visible:ring-blue-500"
+                        className="h-11 xl:h-12 pl-10 xl:pl-11 bg-white border-slate-200 text-slate-900 focus-visible:ring-blue-500 text-sm xl:text-base"
                         required
                       />
                     </div>
                   </div>
-                  <Button type="submit" className="w-full h-11 bg-[#16274a] hover:bg-[#16274a]/90 text-white font-medium rounded-lg mt-2 flex items-center justify-center gap-2">
-                    <LogIn className="w-4 h-4" /> Create Parent Account
+                  <Button type="submit" className="w-full h-11 xl:h-12 bg-[#16274a] hover:bg-[#16274a]/90 text-white font-medium rounded-lg mt-2 flex items-center justify-center gap-2 xl:text-base">
+                    <LogIn className="w-4 h-4 xl:w-5 xl:h-5" /> Create Parent Account
                   </Button>
                 </form>
               )}
 
-              <div className="text-center mt-6">
-                <p className="text-xs text-slate-500">
+              <div className="text-center mt-6 xl:mt-8">
+                <p className="text-xs xl:text-sm text-slate-500">
                   {isRegistering ? "Already have an account? " : "Need a parent account? "}
                   <button type="button" onClick={() => { setIsRegistering(!isRegistering); setError(""); }} className="font-semibold text-blue-600 hover:underline">
                     {isRegistering ? "Sign in instead" : "Create one free"}
