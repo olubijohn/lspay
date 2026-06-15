@@ -84,8 +84,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [stockMovements, setStockMovements] = useState<StockMovement[]>(initialStockMovements);
   const [notifications, setNotifications] = useState<AppNotification[]>(initialNotifications);
   
-  const [session, setSession] = useState<AuthSession>({ user: null, portal: null });
-  const [parentSession, setParentSession] = useState<ParentUser | null>(null);
+  const [session, setSession] = useState<AuthSession>(() => {
+    try {
+      const saved = localStorage.getItem('lspay_session');
+      return saved ? JSON.parse(saved) : { user: null, portal: null };
+    } catch { return { user: null, portal: null }; }
+  });
+  const [parentSession, setParentSession] = useState<ParentUser | null>(() => {
+    try {
+      const saved = localStorage.getItem('lspay_parent_session');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('lspay_session', JSON.stringify(session));
+  }, [session]);
+
+  useEffect(() => {
+    localStorage.setItem('lspay_parent_session', JSON.stringify(parentSession));
+  }, [parentSession]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
