@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, Legend } from "recharts";
 import { useChartTheme } from "@/theme";
 import { BarChart3, Filter } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -36,29 +36,111 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
     setAppliedEnd(endDate);
   };
 
+  const parseQty = (itemsString: string, itemName: string): number => {
+    const parts = itemsString.split(',').map(p => p.trim());
+    for (const part of parts) {
+      if (part.startsWith(itemName)) {
+        const match = part.match(/x(\d+)$/);
+        if (match) {
+          return parseInt(match[1], 10);
+        }
+      }
+    }
+    return 0;
+  };
+
   const periodTx = useMemo(() => {
-    return transactions.filter(t => 
-      t.tenantId === tenantId && 
-      t.date >= appliedStart && 
-      t.date <= appliedEnd &&
-      (selectedStudent === "all" || t.studentId === Number(selectedStudent))
-    );
-  }, [transactions, tenantId, appliedStart, appliedEnd, selectedStudent]);
+    return transactions.filter(t => {
+      const matchesTenant = t.tenantId === tenantId;
+      const matchesDate = t.date >= appliedStart && t.date <= appliedEnd;
+      const matchesStudent = selectedStudent === "all" || t.studentId === Number(selectedStudent);
+      
+      let matchesItem = true;
+      if (selectedStockItem !== "all") {
+        const item = tenantInventory.find(i => i.id === Number(selectedStockItem));
+        matchesItem = item ? t.itemsString.includes(item.name) : false;
+      }
+      
+      return matchesTenant && matchesDate && matchesStudent && matchesItem;
+    });
+  }, [transactions, tenantId, appliedStart, appliedEnd, selectedStudent, selectedStockItem, tenantInventory]);
 
   // Overview Stats
-  const totalRev = periodTx.reduce((sum, t) => sum + t.amount, 0);
-  const totalCogs = periodTx.reduce((sum, t) => sum + t.cost, 0);
-  const netProfit = totalRev - totalCogs;
-  const margin = totalRev > 0 ? (netProfit / totalRev) * 100 : 0;
+  const stats = useMemo(() => {
+    let rev = 0;
+    let cogs = 0;
+    let txCount = 0;
+    let itemsSold = 0;
+
+    if (selectedStockItem === "all") {
+      rev = periodTx.reduce((sum, t) => sum + t.amount, 0);
+      cogs = periodTx.reduce((sum, t) => sum + t.cost, 0);
+      txCount = periodTx.length;
+      periodTx.forEach(t => {
+        const parts = t.itemsString.split(',').map(p => p.trim());
+        parts.forEach(part => {
+          const match = part.match(/x(\d+)$/);
+          if (match) {
+            itemsSold += parseInt(match[1], 10);
+          }
+        });
+      });
+    } else {
+      const item = tenantInventory.find(i => i.id === Number(selectedStockItem));
+      if (item) {
+        periodTx.forEach(t => {
+          const qty = parseQty(t.itemsString, item.name);
+          if (qty > 0) {
+            rev += qty * item.sellingPrice;
+            cogs += qty * item.costPrice;
+            txCount += 1;
+            itemsSold += qty;
+          }
+        });
+      }
+    }
+    const profit = rev - cogs;
+    const margin = rev > 0 ? (profit / rev) * 100 : 0;
+    const avgOrderVal = txCount > 0 ? rev / txCount : 0;
+
+    return { rev, cogs, profit, margin, txCount, avgOrderVal, itemsSold };
+  }, [periodTx, selectedStockItem, tenantInventory]);
   
   // Daily Revenue (Line Chart)
   const dailyRevData = useMemo(() => {
-    const days: Record<string, number> = {};
-    periodTx.forEach(t => {
-      days[t.date] = (days[t.date] || 0) + t.amount;
-    });
-    return Object.entries(days).sort(([a], [b]) => a.localeCompare(b)).map(([date, revenue]) => ({ date, revenue }));
-  }, [periodTx]);
+    const days: Record<string, { revenue: number; quantity: number }> = {};
+    if (selectedStockItem === "all") {
+      periodTx.forEach(t => {
+        if (!days[t.date]) days[t.date] = { revenue: 0, quantity: 0 };
+        days[t.date].revenue += t.amount;
+        
+        const parts = t.itemsString.split(',').map(p => p.trim());
+        let totalQty = 0;
+        parts.forEach(part => {
+          const match = part.match(/x(\d+)$/);
+          if (match) {
+            totalQty += parseInt(match[1], 10);
+          }
+        });
+        days[t.date].quantity += totalQty;
+      });
+    } else {
+      const item = tenantInventory.find(i => i.id === Number(selectedStockItem));
+      if (item) {
+        periodTx.forEach(t => {
+          const qty = parseQty(t.itemsString, item.name);
+          if (qty > 0) {
+            if (!days[t.date]) days[t.date] = { revenue: 0, quantity: 0 };
+            days[t.date].revenue += qty * item.sellingPrice;
+            days[t.date].quantity += qty;
+          }
+        });
+      }
+    }
+    return Object.entries(days)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, data]) => ({ date, revenue: data.revenue, quantity: data.quantity }));
+  }, [periodTx, selectedStockItem, tenantInventory]);
 
   // Top Selling Items
   const topItemsData = useMemo(() => {
@@ -86,23 +168,63 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
     return Object.entries(cats).map(([name, value]) => ({ name, value }));
   }, [stockMovements, tenantId, tenantInventory, appliedStart, appliedEnd]);
 
+  // Student Spending on this specific item
+  const itemStudentData = useMemo(() => {
+    if (selectedStockItem === "all") return [];
+    const item = tenantInventory.find(i => i.id === Number(selectedStockItem));
+    if (!item) return [];
+    
+    const sMap: Record<string, { total: number, quantity: number }> = {};
+    periodTx.forEach(t => {
+      const qty = parseQty(t.itemsString, item.name);
+      if (qty > 0) {
+        if (!sMap[t.studentName]) sMap[t.studentName] = { total: 0, quantity: 0 };
+        sMap[t.studentName].total += qty * item.sellingPrice;
+        sMap[t.studentName].quantity += qty;
+      }
+    });
+    
+    return Object.entries(sMap)
+      .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 5)
+      .map(([name, stats]) => ({
+        name,
+        spend: stats.total,
+        quantity: stats.quantity
+      }));
+  }, [periodTx, selectedStockItem, tenantInventory]);
+
   // Student Spending
   const studentData = useMemo(() => {
-    const sMap: Record<string, { total: number, count: number }> = {};
+    const sMap: Record<string, { total: number, count: number, itemQty: number }> = {};
+    const selectedItem = selectedStockItem !== "all" ? tenantInventory.find(i => i.id === Number(selectedStockItem)) : null;
+
     periodTx.forEach(t => {
-      if (!sMap[t.studentName]) sMap[t.studentName] = { total: 0, count: 0 };
-      sMap[t.studentName].total += t.amount;
-      sMap[t.studentName].count += 1;
+      if (selectedItem) {
+        const qty = parseQty(t.itemsString, selectedItem.name);
+        if (qty > 0) {
+          if (!sMap[t.studentName]) sMap[t.studentName] = { total: 0, count: 0, itemQty: 0 };
+          sMap[t.studentName].total += qty * selectedItem.sellingPrice;
+          sMap[t.studentName].count += 1;
+          sMap[t.studentName].itemQty += qty;
+        }
+      } else {
+        if (!sMap[t.studentName]) sMap[t.studentName] = { total: 0, count: 0, itemQty: 0 };
+        sMap[t.studentName].total += t.amount;
+        sMap[t.studentName].count += 1;
+      }
     });
+
     return Object.entries(sMap)
       .sort((a, b) => b[1].total - a[1].total)
       .map(([name, stats]) => ({
         name,
         spend: stats.total,
         txCount: stats.count,
-        avg: stats.total / stats.count
+        itemQty: stats.itemQty,
+        avg: stats.count > 0 ? stats.total / stats.count : 0
       }));
-  }, [periodTx]);
+  }, [periodTx, selectedStockItem, tenantInventory]);
 
   // Specific Item Analysis
   const itemAnalysis = useMemo(() => {
@@ -156,43 +278,64 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
             </SelectContent>
           </Select>
         </div>
+
+        <div className="w-px h-10 bg-muted hidden md:block mx-2"></div>
+
+        <div className="space-y-2 flex-1 min-w-[200px]">
+          <Label className="text-muted-foreground font-bold uppercase tracking-wider text-xs flex items-center gap-1"><Filter className="w-3 h-3"/> Filter by Item</Label>
+          <Select value={selectedStockItem} onValueChange={setSelectedStockItem}>
+            <SelectTrigger className="bg-background border-border text-foreground h-10">
+              <SelectValue placeholder="All Items" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-border text-foreground">
+              <SelectItem value="all">All Items</SelectItem>
+              {tenantInventory.map(i => <SelectItem key={i.id} value={i.id.toString()}>{i.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Total Revenue</div>
-            <div className="text-2xl font-black text-primary">₦{totalRev.toFixed(2)}</div>
+            <div className="text-2xl font-black text-primary">₦{stats.rev.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Total COGS</div>
-            <div className="text-2xl font-black text-amber-400">₦{totalCogs.toFixed(2)}</div>
+            <div className="text-2xl font-black text-amber-400">₦{stats.cogs.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Net Profit</div>
-            <div className="text-2xl font-black text-blue-400">₦{netProfit.toFixed(2)}</div>
+            <div className="text-2xl font-black text-blue-400">₦{stats.profit.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Profit Margin</div>
-            <div className="text-2xl font-black text-foreground">{margin.toFixed(1)}%</div>
+            <div className="text-2xl font-black text-foreground">{stats.margin.toFixed(1)}%</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border shadow-lg">
+          <CardContent className="p-5">
+            <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Items Sold</div>
+            <div className="text-2xl font-black text-violet-400">{stats.itemsSold}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Transactions</div>
-            <div className="text-2xl font-black text-foreground">{periodTx.length}</div>
+            <div className="text-2xl font-black text-foreground">{stats.txCount}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Avg Order Val</div>
-            <div className="text-2xl font-black text-foreground">₦{periodTx.length ? (totalRev / periodTx.length).toFixed(2) : '0.00'}</div>
+            <div className="text-2xl font-black text-foreground">₦{stats.avgOrderVal.toFixed(2)}</div>
           </CardContent>
         </Card>
       </div>
@@ -200,22 +343,57 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card className="bg-card border-border shadow-xl">
           <CardHeader>
-            <CardTitle className="text-foreground">Daily Revenue Trend</CardTitle>
+            <CardTitle className="text-foreground">Daily Revenue & Quantity Trend</CardTitle>
           </CardHeader>
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={dailyRevData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
                 <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={12} tickMargin={10} />
-                <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={(val) => `₦${val}`} />
-                <RechartsTooltip contentStyle={chartTheme.tooltip} formatter={(value: number) => [`₦${value.toFixed(2)}`, 'Revenue']} />
-                <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 6 }} />
+                <YAxis yAxisId="left" stroke={chartTheme.axis} fontSize={12} tickFormatter={(val) => `₦${val}`} />
+                <YAxis yAxisId="right" orientation="right" stroke={chartTheme.axis} fontSize={12} tickFormatter={(val) => `${val}`} />
+                <RechartsTooltip 
+                  contentStyle={chartTheme.tooltip} 
+                  formatter={(value: any, name: string) => {
+                    if (name === "revenue") return [`₦${Number(value).toFixed(2)}`, 'Revenue'];
+                    if (name === "quantity") return [`${value} units`, 'Quantity Sold'];
+                    return [value, name];
+                  }} 
+                />
+                <Legend />
+                <Line yAxisId="left" type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 6 }} name="revenue" />
+                <Line yAxisId="right" type="monotone" dataKey="quantity" stroke="#8b5cf6" strokeWidth={2} strokeDasharray="3 3" dot={{ r: 3, fill: '#8b5cf6' }} name="quantity" />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {selectedStudent === "all" ? (
+        {selectedStockItem !== "all" ? (
+          <Card className="bg-card border-border shadow-xl">
+            <CardHeader>
+              <CardTitle className="text-foreground">Top Students Buying this Item</CardTitle>
+            </CardHeader>
+            <CardContent className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={itemStudentData} layout="vertical" margin={{ left: 50 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} horizontal={false} />
+                  <XAxis type="number" stroke={chartTheme.axis} fontSize={12} />
+                  <YAxis dataKey="name" type="category" stroke={chartTheme.axis} fontSize={12} width={100} tick={{ fill: chartTheme.tickText }} />
+                  <RechartsTooltip 
+                    contentStyle={chartTheme.tooltip} 
+                    cursor={{ fill: chartTheme.cursor }} 
+                    formatter={(value: any, name: string) => {
+                      if (name === "spend") return [`₦${Number(value).toFixed(2)}`, 'Total Spend'];
+                      if (name === "quantity") return [`${value} units`, 'Quantity Bought'];
+                      return [value, name];
+                    }}
+                  />
+                  <Bar dataKey="quantity" fill="#f59e0b" radius={[0, 4, 4, 0]} name="quantity" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        ) : selectedStudent === "all" ? (
           <Card className="bg-card border-border shadow-xl">
             <CardHeader>
               <CardTitle className="text-foreground">Revenue by Category</CardTitle>
@@ -319,8 +497,12 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
                 <TableHeader className="bg-card/80 sticky top-0">
                   <TableRow className="border-border">
                     <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Student Name</TableHead>
-                    <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs text-right">Transactions</TableHead>
-                    <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs text-right">Total Spend</TableHead>
+                    <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs text-right">
+                      {selectedStockItem === "all" ? "Transactions" : "Qty Purchased"}
+                    </TableHead>
+                    <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs text-right">
+                      {selectedStockItem === "all" ? "Total Spend" : "Spend on Item"}
+                    </TableHead>
                     <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs text-right">Avg Transaction</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -328,7 +510,9 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
                   {studentData.map((s, idx) => (
                     <TableRow key={idx} className="border-border/50 hover:bg-muted/50">
                       <TableCell className="text-foreground font-medium">{s.name}</TableCell>
-                      <TableCell className="text-right text-foreground font-mono">{s.txCount}</TableCell>
+                      <TableCell className="text-right text-foreground font-mono">
+                        {selectedStockItem === "all" ? s.txCount : s.itemQty}
+                      </TableCell>
                       <TableCell className="text-right text-primary font-bold">₦{s.spend.toFixed(2)}</TableCell>
                       <TableCell className="text-right text-muted-foreground">₦{s.avg.toFixed(2)}</TableCell>
                     </TableRow>
