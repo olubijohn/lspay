@@ -92,13 +92,20 @@ export function ParentPortal() {
       return;
     }
 
-    if (!isPaystackConfigured()) {
-      setRegError("Payments are not available yet — the payment gateway has not been configured.");
+    const tenant = tenants.find(t => t.enrollmentKey === authCode.toUpperCase());
+    if (!tenant) {
+      setRegError("Invalid Authorization Code — school not found.");
+      return;
+    }
+
+    if (!isPaystackConfigured(tenant.paystackPublicKey)) {
+      setRegError("Payments are not available yet — the school has not configured their Paystack integration.");
       return;
     }
 
     setRegProcessing(true);
     launchPaystack({
+      paystackPublicKey: tenant.paystackPublicKey,
       email: parentSession!.email,
       amountMajor: 1000,
       metadata: {
@@ -145,8 +152,14 @@ export function ParentPortal() {
     const child = students.find(s => s.id === showTopupModal);
     if (!child) return;
 
-    if (!isPaystackConfigured()) {
-      setTopupError("Payments are not available yet — the payment gateway has not been configured.");
+    const tenant = tenants.find(t => t.id === child.tenantId);
+    if (!tenant) {
+      setTopupError("School not found.");
+      return;
+    }
+
+    if (!isPaystackConfigured(tenant.paystackPublicKey)) {
+      setTopupError("Payments are not available yet — the school has not configured their Paystack integration.");
       return;
     }
 
@@ -155,6 +168,7 @@ export function ParentPortal() {
 
     setTopupProcessing(true);
     launchPaystack({
+      paystackPublicKey: tenant.paystackPublicKey,
       email: parentSession!.email,
       amountMajor: amount,
       metadata: {

@@ -9,9 +9,9 @@
 -- ============================================================================
 
 -- Tenants ------------------------------------------------------------------
-insert into tenants (name, code, address, contact_name, contact_email, enrollment_key) values
-  ('Greenwood Academy', 'GRE', '12 Oak Lane, London', 'Sarah Mitchell', 'sarah@greenwood.edu', 'SCH-GRE-2026'),
-  ('Riverside Primary',  'RIV', '45 Thames St, Oxford', 'Lisa Chen',      'lisa@riverside.edu',  'SCH-RIV-2026');
+insert into tenants (name, code, address, contact_name, contact_email, enrollment_key, paystack_public_key) values
+  ('Greenwood Academy', 'GRE', '12 Oak Lane, London', 'Sarah Mitchell', 'sarah@greenwood.edu', 'SCH-GRE-2026', 'pk_live_edb8e52140a0da4881f5e029db11a7528be8ceb9'),
+  ('Riverside Primary',  'RIV', '45 Thames St, Oxford', 'Lisa Chen',      'lisa@riverside.edu',  'SCH-RIV-2026', 'pk_live_edb8e52140a0da4881f5e029db11a7528be8ceb9');
 
 -- System users -------------------------------------------------------------
 insert into system_users (name, email, password_hash, role, tenant_id, is_active) values

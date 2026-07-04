@@ -3,8 +3,8 @@ import { AppState, Tenant, Student, InventoryItem, Transaction, SystemUser, Pare
 import { getSupabase, isSupabaseConfigured } from "./lib/supabaseClient";
 
 const initialTenants: Tenant[] = [
-  { id: 1, name: "Greenwood Academy", code: "GRE", address: "12 Oak Lane, London", contactName: "Sarah Mitchell", contactEmail: "sarah@greenwood.edu", enrollmentKey: "SCH-GRE-2026" },
-  { id: 2, name: "Riverside Primary", code: "RIV", address: "45 Thames St, Oxford", contactName: "Lisa Chen", contactEmail: "lisa@riverside.edu", enrollmentKey: "SCH-RIV-2026" }
+  { id: 1, name: "Greenwood Academy", code: "GRE", address: "12 Oak Lane, London", contactName: "Sarah Mitchell", contactEmail: "sarah@greenwood.edu", enrollmentKey: "SCH-GRE-2026", paystackPublicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "" },
+  { id: 2, name: "Riverside Primary", code: "RIV", address: "45 Thames St, Oxford", contactName: "Lisa Chen", contactEmail: "lisa@riverside.edu", enrollmentKey: "SCH-RIV-2026", paystackPublicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "" }
 ];
 
 const initialStudents: Student[] = [
@@ -110,7 +110,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabase();
     (async () => {
       const { data: tData } = await supabase.from('tenants').select('*');
-      if (tData) setTenants(tData.map(r => ({ id: r.id, name: r.name, code: r.code, address: r.address, contactName: r.contact_name, contactEmail: r.contact_email, enrollmentKey: r.enrollment_key })));
+      if (tData) setTenants(tData.map(r => ({ id: r.id, name: r.name, code: r.code, address: r.address, contactName: r.contact_name, contactEmail: r.contact_email, enrollmentKey: r.enrollment_key, paystackPublicKey: r.paystack_public_key })));
 
       const { data: sData } = await supabase.from('students').select('*');
       if (sData) setStudents(sData.map(r => ({
@@ -259,12 +259,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setTenants(prev => [...prev, newTenant]);
     if (isSupabaseConfigured) {
       getSupabase().from('tenants').insert({
-        name: t.name, code: t.code, address: t.address, contact_name: t.contactName, contact_email: t.contactEmail, enrollment_key: t.enrollmentKey
+        name: t.name, code: t.code, address: t.address, contact_name: t.contactName, contact_email: t.contactEmail, enrollment_key: t.enrollmentKey, paystack_public_key: t.paystackPublicKey
       }).select().single().then(({ data }) => {
         if (data) setTenants(prev => prev.map(tn => tn.id === newTenant.id ? { ...tn, id: data.id } : tn));
       });
     }
     return newTenant;
+  };
+
+  const updateTenant = (id: number, updates: Partial<Tenant>) => {
+    setTenants(prev => prev.map(tn => tn.id === id ? { ...tn, ...updates } : tn));
+    if (isSupabaseConfigured) {
+      const dbUpdates: any = {};
+      if (updates.name !== undefined) dbUpdates.name = updates.name;
+      if (updates.code !== undefined) dbUpdates.code = updates.code;
+      if (updates.address !== undefined) dbUpdates.address = updates.address;
+      if (updates.contactName !== undefined) dbUpdates.contact_name = updates.contactName;
+      if (updates.contactEmail !== undefined) dbUpdates.contact_email = updates.contactEmail;
+      if (updates.paystackPublicKey !== undefined) dbUpdates.paystack_public_key = updates.paystackPublicKey;
+      getSupabase().from('tenants').update(dbUpdates).eq('id', id).then();
+    }
   };
 
   const assignCard = (studentId: number, cardType: string, hardwareId: string) => {
@@ -530,7 +544,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tenants, students, inventory, transactions, systemUsers, parentUsers, stockMovements, notifications,
       session, parentSession,
       login, loginParent, logout, logoutParent, registerParent, updateParentUser, createSystemUser, updateSystemUser,
-      addTenant, assignCard, replaceCard, removeCard, createStudent, updateStudent, addInventory, updateInventory, deleteInventory, addTransaction, cancelTransaction, deductBalanceAndStock,
+      addTenant, updateTenant, assignCard, replaceCard, removeCard, createStudent, updateStudent, addInventory, updateInventory, deleteInventory, addTransaction, cancelTransaction, deductBalanceAndStock,
       addStockMovement, addParentChild, addNotification, markNotificationRead, markCardReady, markCardDelivered, activateCard
     }}>
       {children}

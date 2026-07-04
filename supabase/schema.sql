@@ -13,14 +13,15 @@
 -- tenants  (schools)
 -- ---------------------------------------------------------------------------
 create table if not exists tenants (
-  id             bigint generated always as identity primary key,
-  name           text        not null,
-  code           text        not null,
-  address        text        not null default '',
-  contact_name   text        not null default '',
-  contact_email  text        not null default '',
-  enrollment_key text        not null unique,
-  created_at     timestamptz not null default now()
+  id                  bigint generated always as identity primary key,
+  name                text        not null,
+  code                text        not null,
+  address             text        not null default '',
+  contact_name        text        not null default '',
+  contact_email       text        not null default '',
+  enrollment_key      text        not null unique,
+  paystack_public_key text        not null default '',
+  created_at          timestamptz not null default now()
 );
 
 -- ---------------------------------------------------------------------------

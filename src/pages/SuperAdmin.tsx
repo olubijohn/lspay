@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CheckCircle2, Shield, ShieldAlert, Building2, Users, Bell, CreditCard, LayoutDashboard, Plus, ChevronDown, ChevronRight, Receipt, AlertTriangle, RefreshCw, Trash2 } from "lucide-react";
+import { CheckCircle2, Shield, ShieldAlert, Building2, Users, Bell, CreditCard, LayoutDashboard, Plus, ChevronDown, ChevronRight, Receipt, AlertTriangle, RefreshCw, Trash2, ArrowLeft, Upload, Download } from "lucide-react";
 import { SystemUser, AppNotification, CardLifecycleStatus, cardLifecycleLabel } from "@/lib/types";
 import { SuperAdminSidebar } from "@/components/layout/SuperAdminSidebar";
 import { MobileTopBar } from "@/components/layout/MobileTopBar";
@@ -22,7 +22,7 @@ import { Wifi } from "lucide-react";
 
 export function SuperAdmin() {
   const chartTheme = useChartTheme();
-  const { tenants, students, transactions, addTenant, assignCard, replaceCard, removeCard, systemUsers, createSystemUser, updateSystemUser, notifications, markNotificationRead, markCardReady } = useStore();
+  const { tenants, students, transactions, addTenant, updateTenant, createStudent, assignCard, replaceCard, removeCard, systemUsers, createSystemUser, updateSystemUser, notifications, markNotificationRead, markCardReady } = useStore();
   const [activeTab, setActiveTab] = useState("overview");
   const [successMsg, setSuccessMsg] = useState("");
   const [mobileNav, setMobileNav] = useState(false);
@@ -61,6 +61,26 @@ export function SuperAdmin() {
   const [newSchoolAddress, setNewSchoolAddress] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
+  const [newSchoolPaystackKey, setNewSchoolPaystackKey] = useState("");
+
+  // Edit School State
+  const [editingSchool, setEditingSchool] = useState<typeof tenants[0] | null>(null);
+  const [editSchoolName, setEditSchoolName] = useState("");
+  const [editSchoolCode, setEditSchoolCode] = useState("");
+  const [editSchoolAddress, setEditSchoolAddress] = useState("");
+  const [editContactName, setEditContactName] = useState("");
+  const [editContactEmail, setEditContactEmail] = useState("");
+  const [editSchoolPaystackKey, setEditSchoolPaystackKey] = useState("");
+  
+  // Selected school profile state
+  const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(null);
+
+  // CSV Import State
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [csvText, setCsvText] = useState("");
+  const [importError, setImportError] = useState("");
+  const [importSuccess, setImportSuccess] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
 
   // Platform User Modal
   const [showPlatformUserModal, setShowPlatformUserModal] = useState(false);
@@ -95,14 +115,166 @@ export function SuperAdmin() {
 
   const handleAddSchool = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSchoolName || !newSchoolCode || !newSchoolAddress || !contactName || !contactEmail) return;
+    if (!newSchoolName || !newSchoolCode || !newSchoolAddress || !contactName || !contactEmail || !newSchoolPaystackKey) return;
     const enrollmentKey = `SCH-${newSchoolCode.toUpperCase()}-2026`;
-    const newTenant = addTenant({ name: newSchoolName, code: newSchoolCode.toUpperCase(), address: newSchoolAddress, contactName, contactEmail, enrollmentKey });
+    const newTenant = addTenant({ name: newSchoolName, code: newSchoolCode.toUpperCase(), address: newSchoolAddress, contactName, contactEmail, enrollmentKey, paystackPublicKey: newSchoolPaystackKey });
     const tempPassword = enrollmentKey.substring(0, 6).toLowerCase();
     createSystemUser({ name: contactName, email: contactEmail, passwordHash: tempPassword, role: "tenant_admin", tenantId: newTenant.id, isActive: true });
     showSuccess(`School provisioned! Enrollment Key: ${enrollmentKey} | Admin password: ${tempPassword}`);
-    setNewSchoolName(""); setNewSchoolCode(""); setNewSchoolAddress(""); setContactName(""); setContactEmail("");
+    setNewSchoolName(""); setNewSchoolCode(""); setNewSchoolAddress(""); setContactName(""); setContactEmail(""); setNewSchoolPaystackKey("");
     setShowSchoolModal(false);
+  };
+
+  const handleEditSchoolClick = (tenant: typeof tenants[0]) => {
+    setEditingSchool(tenant);
+    setEditSchoolName(tenant.name);
+    setEditSchoolCode(tenant.code);
+    setEditSchoolAddress(tenant.address);
+    setEditContactName(tenant.contactName);
+    setEditContactEmail(tenant.contactEmail);
+    setEditSchoolPaystackKey(tenant.paystackPublicKey || "");
+  };
+
+  const handleEditSchoolSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSchool || !editSchoolName || !editSchoolCode || !editSchoolAddress || !editContactName || !editContactEmail || !editSchoolPaystackKey) return;
+    updateTenant(editingSchool.id, {
+      name: editSchoolName,
+      code: editSchoolCode.toUpperCase(),
+      address: editSchoolAddress,
+      contactName: editContactName,
+      contactEmail: editContactEmail,
+      paystackPublicKey: editSchoolPaystackKey
+    });
+    showSuccess("School details updated successfully!");
+    setEditingSchool(null);
+  };
+
+  const parseCSV = (text: string) => {
+    const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length < 2) return { error: "CSV must have a header row and at least one data row." };
+    
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const required = ["name", "studentid", "classname", "parentname", "parentemail"];
+    const missing = required.filter(r => !headers.includes(r));
+    if (missing.length > 0) {
+      return { error: `Missing required headers: ${missing.join(", ")}. Required headers are: name, studentId, className, parentName, parentEmail` };
+    }
+    
+    const parsedStudents: any[] = [];
+    const nameIdx = headers.indexOf("name");
+    const idIdx = headers.indexOf("studentid");
+    const classIdx = headers.indexOf("classname");
+    const parentNameIdx = headers.indexOf("parentname");
+    const parentEmailIdx = headers.indexOf("parentemail");
+    const homeAddressIdx = headers.indexOf("homeaddress");
+    const walletBalanceIdx = headers.indexOf("walletbalance");
+    
+    for (let i = 1; i < lines.length; i++) {
+      const row = lines[i].split(',').map(r => r.trim());
+      if (row.length < required.length) continue;
+      
+      const name = row[nameIdx];
+      const studentId = row[idIdx];
+      const className = row[classIdx];
+      const parentName = row[parentNameIdx];
+      const parentEmail = row[parentEmailIdx];
+      const homeAddress = homeAddressIdx !== -1 ? row[homeAddressIdx] : "";
+      const walletBalance = walletBalanceIdx !== -1 ? (Number(row[walletBalanceIdx]) || 0) : 0;
+      
+      if (!name || !studentId || !parentEmail) continue;
+      
+      parsedStudents.push({
+        name,
+        studentId,
+        className,
+        parentName,
+        parentEmail,
+        homeAddress,
+        billingAddress: homeAddress,
+        imageUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`,
+        cardStatus: "Unassigned" as const,
+        cardHardwareId: "",
+        cardType: "NFC",
+        walletBalance,
+        dailyLimit: 10,
+        monthlyLimit: 100,
+        pin: "",
+        parentNotificationSent: false
+      });
+    }
+    
+    return { data: parsedStudents };
+  };
+
+  const handleCSVImportSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setImportError("");
+    setImportSuccess("");
+    if (!selectedSchoolId) return;
+
+    if (!csvText.trim()) {
+      setImportError("Please provide CSV data.");
+      return;
+    }
+
+    setIsImporting(true);
+    const result = parseCSV(csvText);
+    if (result.error) {
+      setImportError(result.error);
+      setIsImporting(false);
+      return;
+    }
+
+    if (result.data) {
+      let count = 0;
+      result.data.forEach(s => {
+        const exists = students.some(st => st.studentId.toUpperCase() === s.studentId.toUpperCase());
+        if (!exists) {
+          createStudent({
+            ...s,
+            tenantId: selectedSchoolId
+          });
+          count++;
+        }
+      });
+      
+      setImportSuccess(`Successfully imported ${count} new student records!`);
+      setCsvText("");
+      setIsImporting(false);
+      setTimeout(() => {
+        setShowImportModal(false);
+        setImportSuccess("");
+      }, 2500);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      if (text) {
+        setCsvText(text);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const downloadSampleCSV = () => {
+    const csvContent = "name,studentId,className,parentName,parentEmail,homeAddress,walletBalance\n" +
+      "John Doe,STU-102,Year 8A,Jane Doe,jane@example.com,12 Elm Road,50\n" +
+      "Alice Smith,STU-103,Year 9B,Bob Smith,bob@example.com,14 Oak Lane,75";
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "students_import_template.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleAssignCard = () => {
@@ -450,52 +622,211 @@ export function SuperAdmin() {
 
           {/* ─── SCHOOLS ──────────────────────────────────────────── */}
           {activeTab === "schools" && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-                  <Building2 className="text-primary" /> Schools
-                </h1>
-                <Button onClick={() => setShowSchoolModal(true)} className="bg-primary hover:bg-primary/90 text-white" data-testid="btn-provision-school">
-                  <Plus className="h-4 w-4 mr-2" /> Provision School
-                </Button>
-              </div>
+            selectedSchoolId ? (
+              (() => {
+                const school = tenants.find(t => t.id === selectedSchoolId);
+                if (!school) return null;
+                const schoolStudents = students.filter(s => s.tenantId === school.id);
+                const schoolTransactions = transactions.filter(t => t.tenantId === school.id);
 
-              <Card className="bg-card border-border">
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader className="bg-background">
-                      <TableRow className="border-border">
-                        <TableHead className="text-muted-foreground px-6 py-4">School</TableHead>
-                        <TableHead className="text-muted-foreground py-4">Enrollment Key</TableHead>
-                        <TableHead className="text-muted-foreground py-4">Contact</TableHead>
-                        <TableHead className="text-muted-foreground py-4 text-right pr-6">Students</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {tenants.map(t => (
-                        <TableRow key={t.id} className="border-border/50">
-                          <TableCell className="px-6 py-4">
-                            <div className="text-foreground font-bold">{t.name}</div>
-                            <div className="text-xs text-muted-foreground">{t.address}</div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="bg-background text-primary border-primary/50 font-mono">{t.enrollmentKey}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-foreground">{t.contactName}</div>
-                            <div className="text-xs text-muted-foreground">{t.contactEmail}</div>
-                          </TableCell>
-                          <TableCell className="text-foreground font-bold text-right pr-6">{students.filter(s => s.tenantId === t.id).length}</TableCell>
+                return (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                    <div className="flex items-center justify-between">
+                      <Button variant="ghost" onClick={() => setSelectedSchoolId(null)} className="text-muted-foreground hover:text-foreground -ml-4" data-testid="btn-back-to-schools">
+                        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Schools
+                      </Button>
+                      <div className="flex gap-3">
+                        <Button onClick={() => handleEditSchoolClick(school)} variant="outline" className="border-border text-foreground hover:bg-muted" data-testid="btn-profile-edit-school">
+                          Edit Details
+                        </Button>
+                        <Button onClick={() => setShowImportModal(true)} className="bg-primary hover:bg-primary/90 text-white font-bold" data-testid="btn-open-import-students">
+                          <Plus className="h-4 w-4 mr-2" /> Import Students (CSV)
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* School Details Card */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <Card className="bg-card border-border md:col-span-2 shadow-lg">
+                        <CardHeader>
+                          <CardTitle className="text-xl font-bold text-foreground">School Information</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">School Name</span>
+                              <p className="text-foreground font-semibold">{school.name}</p>
+                            </div>
+                            <div>
+                              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">3-Letter Code</span>
+                              <p className="text-foreground font-semibold">{school.code}</p>
+                            </div>
+                            <div>
+                              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Enrollment Key</span>
+                              <p className="text-primary font-semibold font-mono">{school.enrollmentKey}</p>
+                            </div>
+                            <div>
+                              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Contact Person</span>
+                              <p className="text-foreground">{school.contactName} ({school.contactEmail})</p>
+                            </div>
+                            <div className="col-span-2">
+                              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">School Address</span>
+                              <p className="text-foreground">{school.address || "No address configured"}</p>
+                            </div>
+                            <div className="col-span-2">
+                              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Paystack Public Key</span>
+                              <p className="text-muted-foreground font-mono text-sm truncate bg-background p-2 rounded border border-border">{school.paystackPublicKey || "None configured"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* School Stats Card */}
+                      <Card className="bg-card border-border shadow-lg">
+                        <CardHeader>
+                          <CardTitle className="text-xl font-bold text-foreground">Overview & Stats</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                          <div className="flex justify-between items-center pb-3 border-b border-border">
+                            <span className="text-muted-foreground">Total Enrolled Students</span>
+                            <span className="text-foreground font-black text-2xl">{schoolStudents.length}</span>
+                          </div>
+                          <div className="flex justify-between items-center pb-3 border-b border-border">
+                            <span className="text-muted-foreground">Active Cards</span>
+                            <span className="text-primary font-black text-2xl">{schoolStudents.filter(s => s.cardStatus === "Active").length}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">Total Transactions</span>
+                            <span className="text-blue-400 font-black text-2xl">{schoolTransactions.length}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Students Directory (Filtered for this school) */}
+                    <div className="space-y-4">
+                      <h2 className="text-2xl font-bold text-foreground">Students Directory</h2>
+                      <Card className="bg-card border-border overflow-hidden shadow-lg">
+                        <CardContent className="p-0">
+                          <Table>
+                            <TableHeader className="bg-background">
+                              <TableRow className="border-border">
+                                <TableHead className="text-muted-foreground px-6 py-4">Student</TableHead>
+                                <TableHead className="text-muted-foreground py-4">Class</TableHead>
+                                <TableHead className="text-muted-foreground py-4">Parent Details</TableHead>
+                                <TableHead className="text-muted-foreground py-4">Card Status</TableHead>
+                                <TableHead className="text-muted-foreground py-4 text-right pr-6">Wallet Balance</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {schoolStudents.map(s => (
+                                <TableRow key={s.id} className="border-border/50 hover:bg-muted/30">
+                                  <TableCell className="px-6 py-4">
+                                    <div className="text-foreground font-bold">{s.name}</div>
+                                    <div className="text-xs font-mono text-muted-foreground">{s.studentId}</div>
+                                  </TableCell>
+                                  <TableCell className="text-foreground">{s.className}</TableCell>
+                                  <TableCell>
+                                    <div className="text-foreground">{s.parentName}</div>
+                                    <div className="text-xs text-muted-foreground">{s.parentEmail}</div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline" className={s.cardStatus === "Active" ? "text-primary border-primary bg-primary/10" : s.cardStatus === "Blocked" ? "text-red-400 border-red-500 bg-red-950/20" : "text-amber-400 border-amber-500 bg-amber-950/20"}>
+                                      {s.cardStatus}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-foreground font-bold text-right pr-6">₦{s.walletBalance.toFixed(2)}</TableCell>
+                                </TableRow>
+                              ))}
+                              {schoolStudents.length === 0 && (
+                                <TableRow>
+                                  <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                                    No students registered for this school yet. Click "Import Students" to bulk upload.
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </TableBody>
+                          </Table>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+                    <Building2 className="text-primary" /> Schools
+                  </h1>
+                  <Button onClick={() => setShowSchoolModal(true)} className="bg-primary hover:bg-primary/90 text-white" data-testid="btn-provision-school">
+                    <Plus className="h-4 w-4 mr-2" /> Provision School
+                  </Button>
+                </div>
+
+                <Card className="bg-card border-border">
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader className="bg-background">
+                        <TableRow className="border-border">
+                          <TableHead className="text-muted-foreground px-6 py-4">School</TableHead>
+                          <TableHead className="text-muted-foreground py-4">Enrollment Key</TableHead>
+                          <TableHead className="text-muted-foreground py-4">Contact</TableHead>
+                          <TableHead className="text-muted-foreground py-4 text-right pr-6">Students</TableHead>
+                          <TableHead className="text-muted-foreground py-4 text-center">Actions</TableHead>
                         </TableRow>
-                      ))}
-                      {tenants.length === 0 && (
-                        <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground">No schools provisioned yet.</TableCell></TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </div>
+                      </TableHeader>
+                      <TableBody>
+                        {tenants.map(t => (
+                          <TableRow key={t.id} className="border-border/50">
+                            <TableCell
+                              className="px-6 py-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                              onClick={() => setSelectedSchoolId(t.id)}
+                            >
+                              <div className="text-foreground font-bold hover:text-primary transition-colors">{t.name}</div>
+                              <div className="text-xs text-muted-foreground">{t.address}</div>
+                            </TableCell>
+                            <TableCell
+                              className="cursor-pointer hover:bg-muted/50 transition-colors"
+                              onClick={() => setSelectedSchoolId(t.id)}
+                            >
+                              <Badge variant="outline" className="bg-background text-primary border-primary/50 font-mono">{t.enrollmentKey}</Badge>
+                            </TableCell>
+                            <TableCell
+                              className="cursor-pointer hover:bg-muted/50 transition-colors"
+                              onClick={() => setSelectedSchoolId(t.id)}
+                            >
+                              <div className="text-foreground">{t.contactName}</div>
+                              <div className="text-xs text-muted-foreground">{t.contactEmail}</div>
+                            </TableCell>
+                            <TableCell
+                              className="text-foreground font-bold text-right pr-6 cursor-pointer hover:bg-muted/50 transition-colors"
+                              onClick={() => setSelectedSchoolId(t.id)}
+                            >
+                              {students.filter(s => s.tenantId === t.id).length}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditSchoolClick(t)}
+                                className="border-border hover:bg-muted text-foreground"
+                                data-testid={`btn-edit-school-${t.id}`}
+                              >
+                                Edit
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {tenants.length === 0 && (
+                          <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">No schools provisioned yet.</TableCell></TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </div>
+            )
           )}
 
           {/* ─── CARD ASSIGNMENT ──────────────────────────────────── */}
@@ -928,28 +1259,73 @@ export function SuperAdmin() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-foreground">School Name</Label>
-                <Input value={newSchoolName} onChange={e => setNewSchoolName(e.target.value)} placeholder="Oakwood High" className="bg-background border-border text-foreground" data-testid="input-school-name" />
+                <Input value={newSchoolName} onChange={e => setNewSchoolName(e.target.value)} placeholder="Oakwood High" className="bg-background border-border text-foreground" data-testid="input-school-name" required />
               </div>
               <div className="space-y-2">
                 <Label className="text-foreground">3-Letter Code</Label>
-                <Input value={newSchoolCode} onChange={e => setNewSchoolCode(e.target.value.toUpperCase())} maxLength={3} placeholder="OAK" className="bg-background border-border text-foreground uppercase" data-testid="input-school-code" />
+                <Input value={newSchoolCode} onChange={e => setNewSchoolCode(e.target.value.toUpperCase())} maxLength={3} placeholder="OAK" className="bg-background border-border text-foreground uppercase" data-testid="input-school-code" required />
               </div>
             </div>
             <div className="space-y-2">
               <Label className="text-foreground">Address</Label>
-              <Input value={newSchoolAddress} onChange={e => setNewSchoolAddress(e.target.value)} placeholder="123 Education Lane" className="bg-background border-border text-foreground" data-testid="input-school-address" />
+              <Input value={newSchoolAddress} onChange={e => setNewSchoolAddress(e.target.value)} placeholder="123 Education Lane" className="bg-background border-border text-foreground" data-testid="input-school-address" required />
             </div>
             <div className="space-y-2">
               <Label className="text-foreground">Contact Person Name</Label>
-              <Input value={contactName} onChange={e => setContactName(e.target.value)} placeholder="Jane Doe" className="bg-background border-border text-foreground" data-testid="input-contact-name" />
+              <Input value={contactName} onChange={e => setContactName(e.target.value)} placeholder="Jane Doe" className="bg-background border-border text-foreground" data-testid="input-contact-name" required />
             </div>
             <div className="space-y-2">
               <Label className="text-foreground">Contact Email (becomes Tenant Admin)</Label>
-              <Input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="jane@school.edu" className="bg-background border-border text-foreground" data-testid="input-contact-email" />
+              <Input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="jane@school.edu" className="bg-background border-border text-foreground" data-testid="input-contact-email" required />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-foreground">Paystack Public Key</Label>
+              <Input value={newSchoolPaystackKey} onChange={e => setNewSchoolPaystackKey(e.target.value)} placeholder="pk_live_..." className="bg-background border-border text-foreground font-mono" data-testid="input-school-paystack-key" required />
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="ghost" onClick={() => setShowSchoolModal(false)} className="text-muted-foreground">Cancel</Button>
               <Button type="submit" className="bg-primary hover:bg-primary/90 text-white px-6">Provision School</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── EDIT SCHOOL MODAL ────────────────────────────────────── */}
+      <Dialog open={editingSchool !== null} onOpenChange={(open) => { if (!open) setEditingSchool(null); }}>
+        <DialogContent className="bg-card border-border text-foreground max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-foreground">Edit School Details</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSchoolSubmit} className="space-y-4 mt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-foreground">School Name</Label>
+                <Input value={editSchoolName} onChange={e => setEditSchoolName(e.target.value)} className="bg-background border-border text-foreground" data-testid="edit-school-name" required />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-foreground">3-Letter Code</Label>
+                <Input value={editSchoolCode} onChange={e => setEditSchoolCode(e.target.value.toUpperCase())} maxLength={3} className="bg-background border-border text-foreground uppercase" data-testid="edit-school-code" required />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-foreground">Address</Label>
+              <Input value={editSchoolAddress} onChange={e => setEditSchoolAddress(e.target.value)} className="bg-background border-border text-foreground" data-testid="edit-school-address" required />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-foreground">Contact Person Name</Label>
+              <Input value={editContactName} onChange={e => setEditContactName(e.target.value)} className="bg-background border-border text-foreground" data-testid="edit-contact-name" required />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-foreground">Contact Email</Label>
+              <Input type="email" value={editContactEmail} onChange={e => setEditContactEmail(e.target.value)} className="bg-background border-border text-foreground" data-testid="edit-contact-email" required />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-foreground">Paystack Public Key</Label>
+              <Input value={editSchoolPaystackKey} onChange={e => setEditSchoolPaystackKey(e.target.value)} placeholder="pk_live_..." className="bg-background border-border text-foreground font-mono" data-testid="edit-school-paystack-key" required />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button type="button" variant="ghost" onClick={() => setEditingSchool(null)} className="text-muted-foreground">Cancel</Button>
+              <Button type="submit" className="bg-primary hover:bg-primary/90 text-white px-6">Save Changes</Button>
             </div>
           </form>
         </DialogContent>
@@ -1017,6 +1393,79 @@ export function SuperAdmin() {
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="ghost" onClick={() => setShowTenantUserModal(false)} className="text-muted-foreground">Cancel</Button>
               <Button type="submit" className="bg-primary hover:bg-primary/90 text-white px-6">Create User</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── CSV IMPORT DIALOG ─────────────────────────────────────── */}
+      <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
+        <DialogContent className="bg-card border-border text-foreground max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-foreground">Import Students via CSV</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCSVImportSubmit} className="space-y-4 mt-2">
+            {importError && (
+              <Alert className="bg-red-950/20 border-red-900/50 text-red-400">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{importError}</AlertDescription>
+              </Alert>
+            )}
+            {importSuccess && (
+              <Alert className="bg-primary/20 border-primary/50 text-primary">
+                <CheckCircle2 className="h-4 w-4" />
+                <AlertDescription>{importSuccess}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-2">
+              <Label className="text-foreground">Upload CSV File</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  className="bg-background border-border text-foreground file:bg-muted file:text-foreground file:border-0 file:rounded-md cursor-pointer file:cursor-pointer flex-1"
+                  data-testid="csv-file-upload"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={downloadSampleCSV}
+                  className="border-primary text-primary hover:bg-primary/10 gap-2 shrink-0"
+                  data-testid="btn-download-sample-csv"
+                >
+                  <Download className="h-4 w-4" /> Download Template
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-foreground">Or Paste CSV Data Below</Label>
+              <textarea
+                value={csvText}
+                onChange={e => setCsvText(e.target.value)}
+                placeholder="name,studentId,className,parentName,parentEmail,homeAddress,walletBalance&#10;John Doe,STU-102,Year 8A,Jane Doe,jane@example.com,12 Elm Road,50"
+                rows={6}
+                className="w-full bg-background border border-border text-foreground rounded-md p-3 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                data-testid="csv-textarea"
+              />
+            </div>
+
+            <div className="text-xs text-muted-foreground bg-muted/30 p-3 rounded-md space-y-1">
+              <p className="font-bold text-foreground">CSV Requirements & Columns:</p>
+              <ul className="list-disc list-inside space-y-0.5">
+                <li>First row must be the headers: <code className="font-mono text-primary bg-background px-1 py-0.5 rounded">name, studentId, className, parentName, parentEmail</code></li>
+                <li>Optional columns: <code className="font-mono text-muted-foreground bg-background px-1 py-0.5 rounded">homeAddress, walletBalance</code></li>
+                <li>Existing student IDs will be skipped during import.</li>
+              </ul>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button type="button" variant="ghost" onClick={() => { setShowImportModal(false); setCsvText(""); setImportError(""); setImportSuccess(""); }} className="text-muted-foreground">Cancel</Button>
+              <Button type="submit" disabled={isImporting} className="bg-primary hover:bg-primary/90 text-white px-6">
+                {isImporting ? "Importing..." : "Start Import"}
+              </Button>
             </div>
           </form>
         </DialogContent>

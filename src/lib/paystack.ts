@@ -3,10 +3,13 @@ import PaystackPop from "@paystack/inline-js";
 export const PAYSTACK_PUBLIC_KEY =
   (import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string | undefined) ?? "";
 
-export const isPaystackConfigured = () => 
-  PAYSTACK_PUBLIC_KEY.trim().length > 0 && !PAYSTACK_PUBLIC_KEY.includes("xxx");
+export const isPaystackConfigured = (key?: string) => {
+  const finalKey = key || PAYSTACK_PUBLIC_KEY;
+  return finalKey.trim().length > 0 && !finalKey.includes("xxx");
+};
 
 interface LaunchOptions {
+  paystackPublicKey?: string;
   email: string;
   amountMajor: number;
   reference?: string;
@@ -17,6 +20,7 @@ interface LaunchOptions {
 }
 
 export function launchPaystack({
+  paystackPublicKey,
   email,
   amountMajor,
   reference,
@@ -25,15 +29,16 @@ export function launchPaystack({
   onCancel,
   onError,
 }: LaunchOptions) {
-  if (!isPaystackConfigured()) {
-    onError?.("Payment gateway is not configured. Add VITE_PAYSTACK_PUBLIC_KEY to enable top-ups.");
+  const finalKey = paystackPublicKey || PAYSTACK_PUBLIC_KEY;
+  if (!isPaystackConfigured(finalKey)) {
+    onError?.("Payment gateway is not configured for this school. Please contact school administrator.");
     return;
   }
 
   try {
     const popup = new PaystackPop();
     popup.newTransaction({
-      key: PAYSTACK_PUBLIC_KEY,
+      key: finalKey,
       email,
       amount: Math.round(amountMajor * 100),
       reference: reference ?? `LSPAY-${Date.now()}`,

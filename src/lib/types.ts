@@ -19,6 +19,7 @@ export interface Tenant {
   contactName: string;
   contactEmail: string;
   enrollmentKey: string;
+  paystackPublicKey?: string;
 }
 
 export type CardStatus = "Active" | "Issued" | "Unassigned" | "Blocked";
@@ -152,6 +153,7 @@ export interface AppState {
   updateSystemUser: (id: number, data: Partial<SystemUser>) => void;
   
   addTenant: (t: Omit<Tenant, "id">) => Tenant;
+  updateTenant: (id: number, updates: Partial<Tenant>) => void;
   createStudent: (s: Omit<Student, "id">) => Student;
   updateStudent: (studentId: number, updates: Partial<Student>) => void;
   assignCard: (studentId: number, cardType: string, hardwareId: string) => void;
