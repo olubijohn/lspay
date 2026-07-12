@@ -369,7 +369,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
 
                 <form onSubmit={handleScan} className="w-full max-w-sm space-y-3">
                   <Input 
-                    type="password"
+                    type="text"
                     value={scanInput} 
                     onChange={e => setScanInput(e.target.value)} 
                     placeholder={nfcSupported ? "Or enter Hardware ID manually" : "Hardware ID (NFC-9982)"}
