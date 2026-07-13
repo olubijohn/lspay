@@ -1,0 +1,14 @@
+==================================================
+LSPay NFC Keyboard Wedge Utility (ACR122U Support)
+==================================================
+This program runs in the background.
+When a card is tapped, it types the card's UID
+and presses Enter automatically.
+Press Ctrl+C to exit.
+
+Found reader: ACS ACR122 0
+Waiting for card scan...
+[23:04:33] Card Scanned UID: 4985CF3D
+[23:05:37] Card Scanned UID: 511DE23D
+[23:05:44] Card Scanned UID: 434BD03D
+[23:05:52] Card Scanned UID: E214D03D

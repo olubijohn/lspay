@@ -49,6 +49,12 @@ export function useNfcScanner(onScan: (id: string) => void) {
 
   const start = useCallback(async () => {
     setError("");
+    
+    // Blur any focused element (like the click target button) to prevent Enter key conflicts
+    if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
     if (!hasNativeNfc) {
       // On desktop, directly transition to scanning state so keyboard wedge & simulator will activate
       setStatus("scanning");
@@ -89,26 +95,39 @@ export function useNfcScanner(onScan: (id: string) => void) {
 
   // Global Keyboard Wedge scanner listener
   useEffect(() => {
+    console.log("NFC scanner useEffect triggered. Current status:", status);
     if (status !== "scanning") return;
 
     let buffer = "";
     let lastKeyTime = Date.now();
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      console.log("NFC scanner keydown received:", {
+        key: e.key,
+        code: e.code,
+        target: e.target ? (e.target as HTMLElement).tagName : "unknown",
+        activeElement: document.activeElement ? document.activeElement.tagName : "none"
+      });
+
       if (e.ctrlKey || e.altKey || e.metaKey) return;
 
       // Do not intercept if focused on a text input/textarea (allow normal typing there)
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+        console.log("NFC scanner: skipped intercept because focus is on input/textarea");
         return;
       }
 
       if (e.key === "Enter") {
+        console.log("NFC scanner: Enter pressed. Buffer:", buffer);
         if (buffer.trim()) {
           const scannedId = buffer.trim();
           buffer = "";
           setStatus("success");
+          console.log("NFC scanner: triggering onScan with ID:", scannedId);
           onScanRef.current(scannedId);
+          e.preventDefault();
+          e.stopPropagation();
         }
       } else if (e.key === "Escape") {
         stop();
@@ -116,16 +135,19 @@ export function useNfcScanner(onScan: (id: string) => void) {
         const now = Date.now();
         // Clear buffer if there is a long pause (> 1 second) since last keystroke (indicating normal typing)
         if (now - lastKeyTime > 1000) {
+          console.log("NFC scanner: clearing buffer due to timeout. Previous buffer:", buffer);
           buffer = "";
         }
         buffer += e.key;
         lastKeyTime = now;
+        console.log("NFC scanner: buffered key:", e.key, "New buffer:", buffer);
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true); // Use capture phase to intercept early
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
+      console.log("NFC scanner removing keydown listener");
+      window.removeEventListener("keydown", handleKeyDown, true);
     };
   }, [status, stop]);
 
