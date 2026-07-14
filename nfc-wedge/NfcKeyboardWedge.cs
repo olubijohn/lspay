@@ -38,9 +38,18 @@ public class NfcWedge {
     [DllImport("winscard.dll")]
     public static extern int SCardReleaseContext(IntPtr hContext);
     
+    private static Mutex mutex = null;
+
     // Program entry point
     [STAThread]
     public static void Main(string[] args) {
+        bool createdNew;
+        mutex = new Mutex(true, "LSPayNfcKeyboardWedgeMutex", out createdNew);
+        if (!createdNew) {
+            // Already running, exit silently
+            return;
+        }
+
         Console.WriteLine("==================================================");
         Console.WriteLine("LSPay NFC Keyboard Wedge Utility (ACR122U Support)");
         Console.WriteLine("==================================================");
