@@ -459,17 +459,23 @@ export function ParentPortal() {
 
                     <div className="flex flex-wrap gap-2 justify-center md:justify-start">
                       <Badge className={
-                        child.cardLifecycleStatus === 'pending_assignment' ? 'bg-amber-500/20 text-amber-400 border-0' :
-                          child.cardLifecycleStatus === 'assigned' ? 'bg-blue-500/20 text-blue-400 border-0' :
-                            child.cardLifecycleStatus === 'ready' ? 'bg-cyan-500/20 text-cyan-400 border-0' :
-                              child.cardLifecycleStatus === 'delivered' ? 'bg-purple-500/20 text-purple-400 border-0' :
-                                'bg-primary/20 text-primary border-0'
-                      }>
-                        {cardLifecycleLabel(child.cardLifecycleStatus)}
-                      </Badge>
-                      <Badge variant="outline" className={child.cardStatus === 'Active' ? 'text-primary border-primary/50 bg-primary/30' : child.cardStatus === 'Blocked' ? 'text-red-400 border-red-900/50 bg-red-950/30' : 'text-amber-400 border-amber-900/50 bg-amber-950/30'}>
-                        Card: {child.cardStatus}
-                      </Badge>
+                         child.cardLifecycleStatus === 'pending_assignment' ? 'text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 font-medium' :
+                           child.cardLifecycleStatus === 'assigned' ? 'text-blue-700 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 font-medium' :
+                             child.cardLifecycleStatus === 'ready' ? 'text-cyan-700 bg-cyan-50 dark:text-cyan-400 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-800/30 font-medium' :
+                               child.cardLifecycleStatus === 'delivered' ? 'text-purple-700 bg-purple-50 dark:text-purple-400 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800/30 font-medium' :
+                                 'text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-905/30 font-medium'
+                       }>
+                         {cardLifecycleLabel(child.cardLifecycleStatus)}
+                       </Badge>
+                       <Badge variant="outline" className={
+                         child.cardStatus === 'Active'
+                           ? 'text-emerald-700 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800/30 dark:bg-emerald-950/20'
+                           : child.cardStatus === 'Blocked'
+                           ? 'text-red-700 border-red-200 bg-red-50 dark:text-red-400 dark:border-red-800/30 dark:bg-red-950/20'
+                           : 'text-amber-700 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-800/30 dark:bg-amber-950/20'
+                       }>
+                         Card: {child.cardStatus}
+                       </Badge>
                     </div>
                   </div>
 

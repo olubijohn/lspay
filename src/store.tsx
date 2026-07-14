@@ -110,7 +110,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabase();
     (async () => {
       const { data: tData } = await supabase.from('tenants').select('*');
-      if (tData) setTenants(tData.map(r => ({ id: r.id, name: r.name, code: r.code, address: r.address, contactName: r.contact_name, contactEmail: r.contact_email, enrollmentKey: r.enrollment_key, paystackPublicKey: r.paystack_public_key })));
+      if (tData) setTenants(tData.map(r => ({ id: r.id, name: r.name, code: r.code, address: r.address, contactName: r.contact_name, contactEmail: r.contact_email, enrollmentKey: r.enrollment_key, paystackPublicKey: r.paystack_public_key, logoUrl: r.logo_url })));
 
       const { data: sData } = await supabase.from('students').select('*');
       if (sData) setStudents(sData.map(r => ({
@@ -259,7 +259,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setTenants(prev => [...prev, newTenant]);
     if (isSupabaseConfigured) {
       getSupabase().from('tenants').insert({
-        name: t.name, code: t.code, address: t.address, contact_name: t.contactName, contact_email: t.contactEmail, enrollment_key: t.enrollmentKey, paystack_public_key: t.paystackPublicKey
+        name: t.name, code: t.code, address: t.address, contact_name: t.contactName, contact_email: t.contactEmail, enrollment_key: t.enrollmentKey, paystack_public_key: t.paystackPublicKey, logo_url: t.logoUrl
       }).select().single().then(({ data }) => {
         if (data) setTenants(prev => prev.map(tn => tn.id === newTenant.id ? { ...tn, id: data.id } : tn));
       });
@@ -277,6 +277,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (updates.contactName !== undefined) dbUpdates.contact_name = updates.contactName;
       if (updates.contactEmail !== undefined) dbUpdates.contact_email = updates.contactEmail;
       if (updates.paystackPublicKey !== undefined) dbUpdates.paystack_public_key = updates.paystackPublicKey;
+      if (updates.logoUrl !== undefined) dbUpdates.logo_url = updates.logoUrl;
       getSupabase().from('tenants').update(dbUpdates).eq('id', id).then();
     }
   };

@@ -20,6 +20,7 @@ export interface Tenant {
   contactEmail: string;
   enrollmentKey: string;
   paystackPublicKey?: string;
+  logoUrl?: string;
 }
 
 export type CardStatus = "Active" | "Issued" | "Unassigned" | "Blocked";

@@ -9,9 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CheckCircle2, Shield, ShieldAlert, Building2, Users, Bell, CreditCard, LayoutDashboard, Plus, ChevronDown, ChevronRight, Receipt, AlertTriangle, RefreshCw, Trash2, ArrowLeft, Upload, Download } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CheckCircle2, Shield, ShieldAlert, Building2, Users, Bell, CreditCard, LayoutDashboard, Plus, ChevronDown, ChevronRight, Receipt, AlertTriangle, RefreshCw, Trash2, ArrowLeft, Upload, Download, Printer } from "lucide-react";
 import { SystemUser, AppNotification, CardLifecycleStatus, cardLifecycleLabel } from "@/lib/types";
 import { SuperAdminSidebar } from "@/components/layout/SuperAdminSidebar";
+import { CardPrintStudio } from "@/components/CardPrintStudio";
 import { MobileTopBar } from "@/components/layout/MobileTopBar";
 import { Wallet } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
@@ -26,6 +28,7 @@ export function SuperAdmin() {
   const [activeTab, setActiveTab] = useState("overview");
   const [successMsg, setSuccessMsg] = useState("");
   const [mobileNav, setMobileNav] = useState(false);
+  const [showPrintStudio, setShowPrintStudio] = useState(false);
 
   // Overview Filters
   const [filterSchool, setFilterSchool] = useState<string>("all");
@@ -49,6 +52,8 @@ export function SuperAdmin() {
   const [cardFilterStatus, setCardFilterStatus] = useState<string>("all");
   const [cardActivatedStart, setCardActivatedStart] = useState("");
   const [cardActivatedEnd, setCardActivatedEnd] = useState("");
+  const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
+  const [bulkPrintStudents, setBulkPrintStudents] = useState<any[] | null>(null);
   const { supported: nfcSupported, status: nfcStatus, error: nfcError, start: startNfc } = useNfcScanner((id) => {
     setHardwareId(id);
     setCardType("NFC");
@@ -62,6 +67,7 @@ export function SuperAdmin() {
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [newSchoolPaystackKey, setNewSchoolPaystackKey] = useState("");
+  const [newSchoolLogoUrl, setNewSchoolLogoUrl] = useState("");
 
   // Edit School State
   const [editingSchool, setEditingSchool] = useState<typeof tenants[0] | null>(null);
@@ -71,6 +77,24 @@ export function SuperAdmin() {
   const [editContactName, setEditContactName] = useState("");
   const [editContactEmail, setEditContactEmail] = useState("");
   const [editSchoolPaystackKey, setEditSchoolPaystackKey] = useState("");
+  const [editSchoolLogoUrl, setEditSchoolLogoUrl] = useState("");
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === "string") {
+          if (isEdit) {
+            setEditSchoolLogoUrl(reader.result);
+          } else {
+            setNewSchoolLogoUrl(reader.result);
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
   
   // Selected school profile state
   const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(null);
@@ -117,11 +141,11 @@ export function SuperAdmin() {
     e.preventDefault();
     if (!newSchoolName || !newSchoolCode || !newSchoolAddress || !contactName || !contactEmail || !newSchoolPaystackKey) return;
     const enrollmentKey = `SCH-${newSchoolCode.toUpperCase()}-2026`;
-    const newTenant = addTenant({ name: newSchoolName, code: newSchoolCode.toUpperCase(), address: newSchoolAddress, contactName, contactEmail, enrollmentKey, paystackPublicKey: newSchoolPaystackKey });
+    const newTenant = addTenant({ name: newSchoolName, code: newSchoolCode.toUpperCase(), address: newSchoolAddress, contactName, contactEmail, enrollmentKey, paystackPublicKey: newSchoolPaystackKey, logoUrl: newSchoolLogoUrl });
     const tempPassword = enrollmentKey.substring(0, 6).toLowerCase();
     createSystemUser({ name: contactName, email: contactEmail, passwordHash: tempPassword, role: "tenant_admin", tenantId: newTenant.id, isActive: true });
     showSuccess(`School provisioned! Enrollment Key: ${enrollmentKey} | Admin password: ${tempPassword}`);
-    setNewSchoolName(""); setNewSchoolCode(""); setNewSchoolAddress(""); setContactName(""); setContactEmail(""); setNewSchoolPaystackKey("");
+    setNewSchoolName(""); setNewSchoolCode(""); setNewSchoolAddress(""); setContactName(""); setContactEmail(""); setNewSchoolPaystackKey(""); setNewSchoolLogoUrl("");
     setShowSchoolModal(false);
   };
 
@@ -133,6 +157,7 @@ export function SuperAdmin() {
     setEditContactName(tenant.contactName);
     setEditContactEmail(tenant.contactEmail);
     setEditSchoolPaystackKey(tenant.paystackPublicKey || "");
+    setEditSchoolLogoUrl(tenant.logoUrl || "");
   };
 
   const handleEditSchoolSubmit = (e: React.FormEvent) => {
@@ -144,7 +169,8 @@ export function SuperAdmin() {
       address: editSchoolAddress,
       contactName: editContactName,
       contactEmail: editContactEmail,
-      paystackPublicKey: editSchoolPaystackKey
+      paystackPublicKey: editSchoolPaystackKey,
+      logoUrl: editSchoolLogoUrl
     });
     showSuccess("School details updated successfully!");
     setEditingSchool(null);
@@ -277,6 +303,51 @@ export function SuperAdmin() {
     document.body.removeChild(link);
   };
 
+  const handleExportCSV = (selectedList: any[]) => {
+    if (selectedList.length === 0) return;
+    const headers = [
+      "Student ID",
+      "Full Name",
+      "Class",
+      "School",
+      "Card Status",
+      "Card Hardware ID",
+      "Wallet Balance",
+      "Daily Limit",
+      "Monthly Limit",
+      "Parent Name",
+      "Parent Email"
+    ];
+    const rows = selectedList.map(s => {
+      const tenant = tenants.find(t => t.id === s.tenantId);
+      return [
+        s.studentId,
+        s.name,
+        s.className || "",
+        tenant ? tenant.name : "",
+        s.cardStatus,
+        s.cardHardwareId || "",
+        s.walletBalance,
+        s.dailyLimit,
+        s.monthlyLimit,
+        s.parentName || "",
+        s.parentEmail || ""
+      ];
+    });
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `lspay_superadmin_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleAssignCard = () => {
     if (!selectedStudentId || !hardwareId) return;
     assignCard(Number(selectedStudentId), cardType, hardwareId);
@@ -374,12 +445,12 @@ export function SuperAdmin() {
   }, [students, cardFilterSchool, cardFilterStatus, cardActivatedStart, cardActivatedEnd, cardSearch]);
 
   const cardStatusBadgeClass = (status: CardLifecycleStatus) =>
-    status === "pending_assignment" ? "bg-amber-500/20 text-amber-400 border-0" :
-    status === "assigned" ? "bg-blue-500/20 text-blue-400 border-0" :
-    status === "ready" ? "bg-cyan-500/20 text-cyan-400 border-0" :
-    status === "delivered" ? "bg-purple-500/20 text-purple-400 border-0" :
-    status === "activated" ? "bg-primary/20 text-primary border-0" :
-    "bg-muted text-muted-foreground border-0";
+    status === "pending_assignment" ? "text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 font-medium" :
+    status === "assigned" ? "text-blue-700 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 font-medium" :
+    status === "ready" ? "text-cyan-700 bg-cyan-50 dark:text-cyan-400 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-900/30 font-medium" :
+    status === "delivered" ? "text-purple-700 bg-purple-50 dark:text-purple-400 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/30 font-medium" :
+    status === "activated" ? "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 font-medium" :
+    "bg-muted text-muted-foreground border border-border font-medium";
 
   const cardStatusFilterOptions: { value: string; label: string }[] = [
     { value: "all", label: "All Statuses" },
@@ -648,8 +719,29 @@ export function SuperAdmin() {
                     {/* School Details Card */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <Card className="bg-card border-border md:col-span-2 shadow-lg">
-                        <CardHeader>
-                          <CardTitle className="text-xl font-bold text-foreground">School Information</CardTitle>
+                        <CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-4 border-b border-border/50">
+                          <div className="w-12 h-12 rounded-xl border border-border bg-muted flex items-center justify-center shadow-xs shrink-0 overflow-hidden bg-white">
+                            {school.logoUrl ? (
+                              <img src={school.logoUrl} alt="School Logo" className="w-full h-full object-cover" />
+                            ) : school.name.toLowerCase().includes("demonstration") ? (
+                              <svg className="w-8 h-8 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" strokeWidth="1.5" />
+                                <circle cx="12" cy="9" r="2.5" fill="#ef4444"/>
+                                <path d="M8 15c0-2.5 1.8-4 4-4s4 1.5 4 4" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round"/>
+                              </svg>
+                            ) : (
+                              <img 
+                                src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(school.name)}&backgroundColor=0284c7&textColor=ffffff`} 
+                                alt="School Logo" 
+                                className="w-full h-full object-cover" 
+                              />
+                            )}
+                          </div>
+                          <div>
+                            <CardTitle className="text-xl font-bold text-foreground">School Information</CardTitle>
+                            <p className="text-xs text-muted-foreground mt-0.5">{school.name} Profile</p>
+                          </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
                           <div className="grid grid-cols-2 gap-4">
@@ -731,7 +823,13 @@ export function SuperAdmin() {
                                     <div className="text-xs text-muted-foreground">{s.parentEmail}</div>
                                   </TableCell>
                                   <TableCell>
-                                    <Badge variant="outline" className={s.cardStatus === "Active" ? "text-primary border-primary bg-primary/10" : s.cardStatus === "Blocked" ? "text-red-400 border-red-500 bg-red-950/20" : "text-amber-400 border-amber-500 bg-amber-950/20"}>
+                                    <Badge variant="outline" className={
+                                      s.cardStatus === "Active"
+                                        ? "text-emerald-700 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800/30 dark:bg-emerald-950/20"
+                                        : s.cardStatus === "Blocked"
+                                        ? "text-red-700 border-red-200 bg-red-50 dark:text-red-400 dark:border-red-800/30 dark:bg-red-950/20"
+                                        : "text-amber-700 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-800/30 dark:bg-amber-950/20"
+                                    }>
                                       {s.cardStatus}
                                     </Badge>
                                   </TableCell>
@@ -835,6 +933,57 @@ export function SuperAdmin() {
               <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
                 <CreditCard className="text-primary" /> Card Assignment Studio
               </h1>
+
+              {selectedStudentIds.length > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-primary/5 border border-primary/20 rounded-xl animate-in fade-in slide-in-from-top-4 duration-300">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-primary/10 text-primary p-2 rounded-lg">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-foreground font-bold text-sm">
+                        {selectedStudentIds.length} {selectedStudentIds.length === 1 ? 'student' : 'students'} selected
+                      </h3>
+                      <p className="text-muted-foreground text-xs">
+                        Bulk actions will apply to all selected student records.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        const selectedStudents = students.filter(s => selectedStudentIds.includes(s.id));
+                        setBulkPrintStudents(selectedStudents);
+                      }}
+                      className="flex-1 sm:flex-none border-primary/20 hover:bg-primary/5 text-primary font-semibold"
+                    >
+                      <Printer className="w-4 h-4 mr-2" /> Bulk Print Cards
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        const selectedStudents = students.filter(s => selectedStudentIds.includes(s.id));
+                        handleExportCSV(selectedStudents);
+                      }}
+                      className="flex-1 sm:flex-none border-border hover:bg-muted font-semibold text-foreground"
+                    >
+                      <Download className="w-4 h-4 mr-2" /> Export Selected
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setSelectedStudentIds([])}
+                      className="text-muted-foreground hover:text-foreground font-semibold"
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1">
                 <div className="lg:col-span-7 bg-card border border-border rounded-xl flex flex-col overflow-hidden shadow-xl">
                   <div className="p-4 border-b border-border space-y-3">
@@ -849,48 +998,71 @@ export function SuperAdmin() {
                       className="bg-background border-border text-foreground h-10"
                       data-testid="input-card-search"
                     />
-                    <div className="flex flex-wrap gap-2">
-                      <Select value={cardFilterSchool} onValueChange={setCardFilterSchool}>
-                        <SelectTrigger className="w-full sm:w-44 bg-background border-border text-foreground" data-testid="select-card-school">
-                          <SelectValue placeholder="All Schools" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-card border-border text-foreground">
-                          <SelectItem value="all">All Schools</SelectItem>
-                          {tenants.map(t => <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <Select value={cardFilterStatus} onValueChange={setCardFilterStatus}>
-                        <SelectTrigger className="w-full sm:w-44 bg-background border-border text-foreground" data-testid="select-card-status">
-                          <SelectValue placeholder="All Statuses" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-card border-border text-foreground">
-                          {cardStatusFilterOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mt-1">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">School</span>
+                        <Select value={cardFilterSchool} onValueChange={setCardFilterSchool}>
+                          <SelectTrigger className="w-full bg-background border-border text-foreground h-9" data-testid="select-card-school">
+                            <SelectValue placeholder="All Schools" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-card border-border text-foreground">
+                            <SelectItem value="all">All Schools</SelectItem>
+                            {tenants.map(t => <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Status</span>
+                        <Select value={cardFilterStatus} onValueChange={setCardFilterStatus}>
+                          <SelectTrigger className="w-full bg-background border-border text-foreground h-9" data-testid="select-card-status">
+                            <SelectValue placeholder="All Statuses" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-card border-border text-foreground">
+                            {cardStatusFilterOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Activated From</span>
+                        <Input type="date" value={cardActivatedStart} onChange={e => setCardActivatedStart(e.target.value)} className="w-full bg-background border-border text-foreground h-9" data-testid="input-card-activated-start" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Activated To</span>
+                        <Input type="date" value={cardActivatedEnd} onChange={e => setCardActivatedEnd(e.target.value)} className="w-full bg-background border-border text-foreground h-9" data-testid="input-card-activated-end" />
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs text-muted-foreground w-full sm:w-auto">Activated between</span>
-                      <Input type="date" value={cardActivatedStart} onChange={e => setCardActivatedStart(e.target.value)} className="flex-1 min-w-[8rem] sm:flex-none sm:w-40 bg-background border-border text-foreground" data-testid="input-card-activated-start" />
-                      <span className="text-xs text-muted-foreground">to</span>
-                      <Input type="date" value={cardActivatedEnd} onChange={e => setCardActivatedEnd(e.target.value)} className="flex-1 min-w-[8rem] sm:flex-none sm:w-40 bg-background border-border text-foreground" data-testid="input-card-activated-end" />
+                    <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/30 mt-2">
+                      <span data-testid="text-card-result-count">{cardFilteredStudents.length} student{cardFilteredStudents.length === 1 ? "" : "s"} found</span>
                       {(cardSearch || cardFilterSchool !== "all" || cardFilterStatus !== "all" || cardActivatedStart || cardActivatedEnd) && (
                         <Button
                           type="button"
                           variant="ghost"
-                          className="h-9 text-muted-foreground hover:text-foreground"
+                          className="h-7 text-primary hover:text-primary/80 font-bold px-2 text-xs"
                           onClick={() => { setCardSearch(""); setCardFilterSchool("all"); setCardFilterStatus("all"); setCardActivatedStart(""); setCardActivatedEnd(""); }}
                           data-testid="btn-clear-card-filters"
                         >
-                          Clear
+                          Clear Filters
                         </Button>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground" data-testid="text-card-result-count">{cardFilteredStudents.length} student{cardFilteredStudents.length === 1 ? "" : "s"}</p>
                   </div>
                   <div className="flex-1 overflow-auto bg-background">
                     <Table>
                       <TableHeader className="bg-card/80 sticky top-0">
                         <TableRow className="border-border">
+                          <TableHead className="w-[40px] pl-4">
+                            <Checkbox 
+                              checked={selectedStudentIds.length === cardFilteredStudents.length && cardFilteredStudents.length > 0}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedStudentIds(cardFilteredStudents.map(s => s.id));
+                                } else {
+                                  setSelectedStudentIds([]);
+                                }
+                              }}
+                              className="border-border data-[state=checked]:bg-primary"
+                            />
+                          </TableHead>
                           <TableHead className="text-muted-foreground">School</TableHead>
                           <TableHead className="text-muted-foreground">Student</TableHead>
                           <TableHead className="text-muted-foreground">Status</TableHead>
@@ -905,26 +1077,41 @@ export function SuperAdmin() {
                             className={`cursor-pointer border-border/50 transition-colors ${selectedStudentId === s.id.toString() ? "bg-primary/20" : "hover:bg-card/50"}`}
                             data-testid={`row-student-${s.id}`}
                           >
-                            <TableCell className="text-foreground text-sm">{tenants.find(t => t.id === s.tenantId)?.name}</TableCell>
-                            <TableCell>
+                            <TableCell className="w-[40px] pl-4" onClick={(e) => e.stopPropagation()}>
+                              <Checkbox 
+                                checked={selectedStudentIds.includes(s.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedStudentIds(prev => [...prev, s.id]);
+                                  } else {
+                                    setSelectedStudentIds(prev => prev.filter(id => id !== s.id));
+                                  }
+                                }}
+                                className="border-border data-[state=checked]:bg-primary"
+                              />
+                            </TableCell>
+                            <TableCell className="text-foreground text-sm whitespace-nowrap">{tenants.find(t => t.id === s.tenantId)?.name}</TableCell>
+                            <TableCell className="whitespace-nowrap">
                               <div className="flex items-center gap-2">
-                                <img src={s.imageUrl} alt="" className="w-8 h-8 rounded-full bg-muted" onError={e => { (e.target as HTMLImageElement).src = `https://placehold.co/32x32/1e293b/94a3b8?text=${s.name[0]}`; }} />
+                                <img src={s.imageUrl} alt="" className="w-8 h-8 rounded-full bg-muted shrink-0" onError={e => { (e.target as HTMLImageElement).src = `https://placehold.co/32x32/1e293b/94a3b8?text=${s.name[0]}`; }} />
                                 <div>
-                                  <div className="text-foreground font-medium">{s.name}</div>
-                                  <div className="text-xs text-muted-foreground font-mono">{s.studentId}</div>
+                                  <div className="text-foreground font-medium whitespace-nowrap">{s.name}</div>
+                                  <div className="text-xs text-muted-foreground font-mono whitespace-nowrap">{s.studentId}</div>
                                 </div>
                               </div>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="whitespace-nowrap">
                               <Badge className={cardStatusBadgeClass(s.cardLifecycleStatus)}>
                                 {cardLifecycleLabel(s.cardLifecycleStatus)}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-muted-foreground text-sm font-mono">{s.activatedAt ?? "—"}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm font-mono whitespace-nowrap">
+                              {s.activatedAt ? s.activatedAt.split('T')[0] : "—"}
+                            </TableCell>
                           </TableRow>
                         ))}
                         {cardFilteredStudents.length === 0 && (
-                          <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground">No students match your filters.</TableCell></TableRow>
+                          <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">No students match your filters.</TableCell></TableRow>
                         )}
                       </TableBody>
                     </Table>
@@ -975,8 +1162,11 @@ export function SuperAdmin() {
                                 {nfcSupported && nfcError && <p className="text-xs text-red-400">{nfcError}</p>}
                                 {nfcSupported && nfcStatus === "success" && hardwareId && <p className="text-xs text-primary">Card captured ✓ — review and assign below.</p>}
                               </div>
-                              <Button onClick={handleAssignCard} className="w-full bg-primary hover:bg-primary/90 text-white h-11 font-bold" data-testid="btn-assign-card">
+                              <Button onClick={handleAssignCard} className="w-full bg-primary hover:bg-primary/90 text-white h-11 font-bold mb-2" data-testid="btn-assign-card">
                                 Assign & Map Card
+                              </Button>
+                              <Button disabled variant="outline" className="w-full border-border text-muted-foreground h-11 font-bold opacity-50 cursor-not-allowed">
+                                <Printer className="mr-2 h-4 w-4" /> Print Card (Restricted)
                               </Button>
                             </>
                           ) : (
@@ -988,10 +1178,13 @@ export function SuperAdmin() {
                                   </div>
                                   <h3 className="text-lg font-bold text-foreground">Card Assigned</h3>
                                   <p className="text-muted-foreground text-sm">Hardware: <span className="font-mono text-foreground">{student.cardHardwareId}</span> ({student.cardType})</p>
-                                  <Button onClick={() => handleMarkReady(student.id)} className="w-full bg-blue-600 hover:bg-blue-700 text-white h-11 font-bold" data-testid="btn-mark-ready">
+                                  <Button onClick={() => handleMarkReady(student.id)} className="w-full bg-blue-600 hover:bg-blue-700 text-white h-11 font-bold mb-2" data-testid="btn-mark-ready">
                                     Mark as Ready for Pickup
                                   </Button>
-                                  <p className="text-xs text-muted-foreground">This notifies the school tenant.</p>
+                                  <Button onClick={() => setShowPrintStudio(true)} variant="outline" className="w-full border-border text-foreground hover:bg-muted h-11 font-bold">
+                                    <Printer className="mr-2 h-4 w-4" /> Print Card
+                                  </Button>
+                                  <p className="text-xs text-muted-foreground mt-1">This notifies the school tenant.</p>
                                 </div>
                               ) : (
                                 <div className="space-y-4 bg-background/50 p-6 rounded-xl border border-border text-center">
@@ -1012,6 +1205,9 @@ export function SuperAdmin() {
                                       ? "Collected — awaiting activation by the parent."
                                       : "Card is active and ready for purchases."}
                                   </p>
+                                  <Button onClick={() => setShowPrintStudio(true)} variant="outline" className="w-full border-border text-foreground hover:bg-muted h-11 font-bold mt-4">
+                                    <Printer className="mr-2 h-4 w-4" /> Print Card
+                                  </Button>
                                 </div>
                               )}
 
@@ -1282,6 +1478,23 @@ export function SuperAdmin() {
               <Label className="text-foreground">Paystack Public Key</Label>
               <Input value={newSchoolPaystackKey} onChange={e => setNewSchoolPaystackKey(e.target.value)} placeholder="pk_live_..." className="bg-background border-border text-foreground font-mono" data-testid="input-school-paystack-key" required />
             </div>
+            <div className="space-y-2">
+              <Label className="text-foreground">School Logo</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => handleLogoUpload(e, false)}
+                  className="bg-background border-border text-foreground file:bg-muted file:text-foreground file:border-0 file:rounded-md cursor-pointer file:cursor-pointer flex-1"
+                />
+                {newSchoolLogoUrl && (
+                  <div className="w-10 h-10 rounded border border-border bg-white flex items-center justify-center overflow-hidden shrink-0">
+                    <img src={newSchoolLogoUrl} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">Upload school logo image (PNG/JPG).</p>
+            </div>
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="ghost" onClick={() => setShowSchoolModal(false)} className="text-muted-foreground">Cancel</Button>
               <Button type="submit" className="bg-primary hover:bg-primary/90 text-white px-6">Provision School</Button>
@@ -1322,6 +1535,23 @@ export function SuperAdmin() {
             <div className="space-y-2">
               <Label className="text-foreground">Paystack Public Key</Label>
               <Input value={editSchoolPaystackKey} onChange={e => setEditSchoolPaystackKey(e.target.value)} placeholder="pk_live_..." className="bg-background border-border text-foreground font-mono" data-testid="edit-school-paystack-key" required />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-foreground">School Logo</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => handleLogoUpload(e, true)}
+                  className="bg-background border-border text-foreground file:bg-muted file:text-foreground file:border-0 file:rounded-md cursor-pointer file:cursor-pointer flex-1"
+                />
+                {editSchoolLogoUrl && (
+                  <div className="w-10 h-10 rounded border border-border bg-white flex items-center justify-center overflow-hidden shrink-0">
+                    <img src={editSchoolLogoUrl} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground font-normal">Upload a new school logo to replace the current one.</p>
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="ghost" onClick={() => setEditingSchool(null)} className="text-muted-foreground">Cancel</Button>
@@ -1470,6 +1700,28 @@ export function SuperAdmin() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {selectedStudentId && (() => {
+        const student = students.find(s => s.id === Number(selectedStudentId));
+        if (!student) return null;
+        const tenant = tenants.find(t => t.id === student.tenantId);
+        return (
+          <CardPrintStudio
+            student={student}
+            tenant={tenant}
+            isOpen={showPrintStudio}
+            onClose={() => setShowPrintStudio(false)}
+          />
+        );
+      })()}
+
+      {bulkPrintStudents && (
+        <CardPrintStudio
+          students={bulkPrintStudents}
+          isOpen={!!bulkPrintStudents}
+          onClose={() => setBulkPrintStudents(null)}
+        />
+      )}
     </div>
   );
 }
