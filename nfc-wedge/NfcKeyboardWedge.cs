@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -6,6 +7,7 @@ using System.Windows.Forms;
 
 public class NfcWedge {
     // Win32 constants
+    public const uint SCARD_SCOPE_USER = 0;
     public const uint SCARD_SCOPE_SYSTEM = 2;
     public const uint SCARD_SHARE_SHARED = 2;
     public const uint SCARD_PROTOCOL_T0 = 1;
@@ -39,6 +41,17 @@ public class NfcWedge {
     public static extern int SCardReleaseContext(IntPtr hContext);
     
     private static Mutex mutex = null;
+    private static string logFile = null;
+
+    private static void Log(string message) {
+        try {
+            string line = string.Format("[{0}] {1}", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), message);
+            Console.WriteLine(line);
+            if (!string.IsNullOrEmpty(logFile)) {
+                File.AppendAllText(logFile, line + Environment.NewLine);
+            }
+        } catch { }
+    }
 
     // Program entry point
     [STAThread]
@@ -46,109 +59,110 @@ public class NfcWedge {
         bool createdNew;
         mutex = new Mutex(true, "LSPayNfcKeyboardWedgeMutex", out createdNew);
         if (!createdNew) {
-            // Already running, exit silently
+            // Already running
             return;
         }
 
-        Console.WriteLine("==================================================");
-        Console.WriteLine("LSPay NFC Keyboard Wedge Utility (ACR122U Support)");
-        Console.WriteLine("==================================================");
-        Console.WriteLine("This program runs in the background.");
-        Console.WriteLine("When a card is tapped, it types the card's UID");
-        Console.WriteLine("and presses Enter automatically.");
-        Console.WriteLine("Press Ctrl+C to exit.");
-        Console.WriteLine();
-        
+        try {
+            string dir = AppDomain.CurrentDomain.BaseDirectory;
+            logFile = Path.Combine(dir, "log.txt");
+            File.WriteAllText(logFile, "=== LSPay NFC Keyboard Wedge Started ===" + Environment.NewLine);
+        } catch { }
+
+        Log("Service active. Waiting for NFC reader...");
+
         IntPtr hContext = IntPtr.Zero;
-        int rc = SCardEstablishContext(SCARD_SCOPE_SYSTEM, IntPtr.Zero, IntPtr.Zero, out hContext);
-        if (rc != 0) {
-            Console.WriteLine("Error establishing PC/SC context. Is the Smart Card service running? Error code: 0x{0:X}", rc);
-            return;
-        }
-        
         string currentReader = null;
         string lastScannedUid = null;
-        
+
         while (true) {
-            // Find readers
-            if (currentReader == null) {
-                uint pcchReaders = 0;
-                rc = SCardListReaders(hContext, null, null, ref pcchReaders);
-                if (rc == 0 && pcchReaders > 0) {
-                    byte[] mszReaders = new byte[pcchReaders];
-                    rc = SCardListReaders(hContext, null, mszReaders, ref pcchReaders);
-                    if (rc == 0) {
-                        string allReaders = Encoding.ASCII.GetString(mszReaders);
-                        string[] readerList = allReaders.Split(new char[] { '\0' }, StringSplitOptions.RemoveEmptyEntries);
-                        if (readerList.Length > 0) {
-                            currentReader = readerList[0];
-                            Console.WriteLine("Found reader: " + currentReader);
-                            Console.WriteLine("Waiting for card scan...");
-                        }
+            try {
+                // Ensure SCard context
+                if (hContext == IntPtr.Zero) {
+                    int rc = SCardEstablishContext(SCARD_SCOPE_USER, IntPtr.Zero, IntPtr.Zero, out hContext);
+                    if (rc != 0) {
+                        rc = SCardEstablishContext(SCARD_SCOPE_SYSTEM, IntPtr.Zero, IntPtr.Zero, out hContext);
+                    }
+                    if (rc != 0) {
+                        Log("Smart Card Service not ready, retrying in 3s...");
+                        Thread.Sleep(3000);
+                        continue;
                     }
                 }
-                
+
+                // Find reader
                 if (currentReader == null) {
-                    Console.WriteLine("No NFC readers found. Checking again in 2 seconds...");
-                    Thread.Sleep(2000);
-                    continue;
-                }
-            }
-            
-            // Try connecting to card
-            IntPtr hCard = IntPtr.Zero;
-            uint activeProtocol = 0;
-            rc = SCardConnect(hContext, currentReader, SCARD_SHARE_SHARED, SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1, out hCard, out activeProtocol);
-            
-            if (rc == 0) {
-                // Card connected! Get UID
-                SCARD_IO_REQUEST sendPci = new SCARD_IO_REQUEST();
-                sendPci.dwProtocol = activeProtocol;
-                sendPci.cbPciLength = (uint)Marshal.SizeOf(typeof(SCARD_IO_REQUEST));
-                
-                byte[] sendBuffer = { 0xFF, 0xCA, 0x00, 0x00, 0x00 };
-                byte[] recvBuffer = new byte[256];
-                int recvLength = recvBuffer.Length;
-                
-                rc = SCardTransmit(hCard, ref sendPci, sendBuffer, sendBuffer.Length, IntPtr.Zero, recvBuffer, ref recvLength);
-                
-                if (rc == 0 && recvLength >= 2) {
-                    // Extract UID (excluding the last 2 status bytes)
-                    byte[] uidBytes = new byte[recvLength - 2];
-                    Array.Copy(recvBuffer, uidBytes, recvLength - 2);
-                    string uid = BitConverter.ToString(uidBytes).Replace("-", "").ToUpper();
-                    
-                    // Only scan if it's different from the last scanned UID
-                    // Since lastScannedUid is cleared when the card is removed, this prevents duplicate typing
-                    if (uid != lastScannedUid) {
-                        Console.WriteLine("[{0}] Card Scanned UID: {1}", DateTime.Now.ToString("HH:mm:ss"), uid);
-                        
-                        // Simulate keyboard typing
-                        try {
-                            SendKeys.SendWait(uid + "{ENTER}");
-                        } catch (Exception ex) {
-                            Console.WriteLine("Error sending keystroke: " + ex.Message);
+                    uint pcchReaders = 0;
+                    int rc = SCardListReaders(hContext, null, null, ref pcchReaders);
+                    if (rc == 0 && pcchReaders > 0) {
+                        byte[] mszReaders = new byte[pcchReaders];
+                        rc = SCardListReaders(hContext, null, mszReaders, ref pcchReaders);
+                        if (rc == 0) {
+                            string allReaders = Encoding.ASCII.GetString(mszReaders);
+                            string[] readerList = allReaders.Split(new char[] { '\0' }, StringSplitOptions.RemoveEmptyEntries);
+                            if (readerList.Length > 0) {
+                                currentReader = readerList[0];
+                                Log("Connected to NFC Reader: " + currentReader);
+                            }
                         }
-                        
-                        lastScannedUid = uid;
+                    }
+
+                    if (currentReader == null) {
+                        Thread.Sleep(2000);
+                        continue;
                     }
                 }
-                
-                SCardDisconnect(hCard, SCARD_LEAVE_CARD);
-                
-                // Check again in 300ms
-                Thread.Sleep(300);
-            } else {
-                // If the error indicates reader was disconnected, reset reader state
-                if (rc == unchecked((int)0x80100017) || rc == unchecked((int)0x80100009)) {
-                    Console.WriteLine("Reader disconnected!");
-                    currentReader = null;
+
+                // Try connecting to card on the reader
+                IntPtr hCard = IntPtr.Zero;
+                uint activeProtocol = 0;
+                int connectRc = SCardConnect(hContext, currentReader, SCARD_SHARE_SHARED, SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1, out hCard, out activeProtocol);
+
+                if (connectRc == 0) {
+                    // Card is tapped! Request physical UID via standard APDU
+                    SCARD_IO_REQUEST sendPci = new SCARD_IO_REQUEST();
+                    sendPci.dwProtocol = activeProtocol;
+                    sendPci.cbPciLength = (uint)Marshal.SizeOf(typeof(SCARD_IO_REQUEST));
+
+                    byte[] sendBuffer = { 0xFF, 0xCA, 0x00, 0x00, 0x00 };
+                    byte[] recvBuffer = new byte[256];
+                    int recvLength = recvBuffer.Length;
+
+                    int txRc = SCardTransmit(hCard, ref sendPci, sendBuffer, sendBuffer.Length, IntPtr.Zero, recvBuffer, ref recvLength);
+
+                    if (txRc == 0 && recvLength >= 2) {
+                        // Extract UID bytes (omit last 2 SW1/SW2 status bytes)
+                        byte[] uidBytes = new byte[recvLength - 2];
+                        Array.Copy(recvBuffer, uidBytes, recvLength - 2);
+                        string uid = BitConverter.ToString(uidBytes).Replace("-", "").ToUpper();
+
+                        // Fire once per card tap
+                        if (uid != lastScannedUid) {
+                            Log("Card Scanned UID: " + uid);
+                            try {
+                                SendKeys.SendWait(uid + "{ENTER}");
+                            } catch (Exception ex) {
+                                Log("Keystroke error: " + ex.Message);
+                            }
+                            lastScannedUid = uid;
+                        }
+                    }
+
+                    SCardDisconnect(hCard, SCARD_LEAVE_CARD);
+                    Thread.Sleep(250);
+                } else {
+                    // If reader unplugged
+                    if (connectRc == unchecked((int)0x80100017) || connectRc == unchecked((int)0x80100009)) {
+                        Log("Reader disconnected, waiting for reconnection...");
+                        currentReader = null;
+                    }
+                    // Card was removed from reader -> ready for next scan
+                    lastScannedUid = null;
+                    Thread.Sleep(150);
                 }
-                
-                // Card has been removed, so reset lastScannedUid so it can scan again when placed back
-                lastScannedUid = null;
-                
-                Thread.Sleep(200);
+            } catch (Exception ex) {
+                Log("Exception: " + ex.Message);
+                Thread.Sleep(1000);
             }
         }
     }

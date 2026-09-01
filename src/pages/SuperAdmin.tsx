@@ -356,6 +356,7 @@ export function SuperAdmin() {
     assignCard(Number(selectedStudentId), cardType, hardwareId);
     showSuccess("Card mapped and assigned successfully.");
     setHardwareId("");
+    stopNfc();
   };
 
   const handleMarkReady = (id: number) => {
@@ -369,6 +370,7 @@ export function SuperAdmin() {
     showSuccess("Card replaced. The new card has been linked to the student.");
     setReplaceMode(false);
     setHardwareId("");
+    stopNfc();
   };
 
   const handleRemoveCard = (id: number) => {
@@ -1163,12 +1165,6 @@ export function SuperAdmin() {
                                         Tap card on reader now…
                                       </span>
                                     )}
-                                    {nfcStatus === "success" && (
-                                      <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-                                        <CheckCircle2 className="h-3.5 w-3.5" />
-                                        Card captured!
-                                      </span>
-                                    )}
                                   </div>
                                   <Input
                                     ref={hardwareIdInputRef}
@@ -1181,20 +1177,20 @@ export function SuperAdmin() {
                                   <div className="grid grid-cols-2 gap-2">
                                     <Button
                                       type="button"
-                                      variant={nfcStatus === "scanning" ? "default" : nfcStatus === "success" ? "outline" : "outline"}
+                                      variant={nfcStatus === "scanning" ? "default" : "outline"}
                                       onClick={() => {
                                         if (nfcStatus === "scanning") {
                                           stopNfc();
                                         } else {
-                                          // idle or success → start fresh scan (clears field automatically)
+                                          setHardwareId("");
                                           startNfc(hardwareIdInputRef.current);
                                         }
                                       }}
-                                      className={`h-11 font-bold ${nfcStatus === "scanning" ? "bg-blue-600 hover:bg-blue-700 text-white" : nfcStatus === "success" ? "border-emerald-500 text-emerald-500 hover:bg-emerald-500/10" : "border-border text-foreground"}`}
+                                      className={`h-11 font-bold ${nfcStatus === "scanning" ? "bg-blue-600 hover:bg-blue-700 text-white" : "border-border text-foreground"}`}
                                       data-testid="btn-scan-card-admin"
                                     >
                                       <Wifi className={`mr-2 h-4 w-4 ${nfcStatus === "scanning" ? "animate-pulse" : ""}`} />
-                                      {nfcStatus === "scanning" ? "Scanning… (Tap Card)" : nfcStatus === "success" ? "Scan Next Card" : "Scan NFC"}
+                                      {nfcStatus === "scanning" ? "Scanning… (Tap Card)" : "Scan NFC"}
                                     </Button>
                                     <QrScanner triggerClassName="border-border text-foreground h-11 font-bold" onResult={(text) => { setHardwareId(text); setCardType("QR"); }} />
                                   </div>
@@ -1208,7 +1204,7 @@ export function SuperAdmin() {
                                     </div>
                                   ) : (
                                     <p className="text-xs text-muted-foreground">
-                                      Click <strong>Scan NFC</strong> — the field focuses automatically. Then tap the card on your USB reader.
+                                      Click <strong>Scan NFC</strong> — the field will focus automatically. Then tap the card on your USB reader.
                                     </p>
                                   )}
                                   {nfcError && <p className="text-xs text-red-400">{nfcError}</p>}
@@ -1313,7 +1309,14 @@ export function SuperAdmin() {
                                         <Button
                                           type="button"
                                           variant={nfcStatus === "scanning" ? "default" : "outline"}
-                                          onClick={() => nfcStatus === "scanning" ? stopNfc() : startNfc(hardwareIdInputRef.current)}
+                                          onClick={() => {
+                                            if (nfcStatus === "scanning") {
+                                              stopNfc();
+                                            } else {
+                                              setHardwareId("");
+                                              startNfc(hardwareIdInputRef.current);
+                                            }
+                                          }}
                                           className={`h-10 font-bold ${nfcStatus === "scanning" ? "bg-blue-600 hover:bg-blue-700 text-white" : "border-border text-foreground"}`}
                                           data-testid="btn-scan-replace-card"
                                         >

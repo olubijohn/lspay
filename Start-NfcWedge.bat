@@ -1,12 +1,18 @@
 @echo off
-title LSPay NFC Wedge
+title Start LSPay NFC Wedge (Background)
 cd /d "%~dp0nfc-wedge"
+
+:: Start the executable completely detached in the background
+powershell -NoProfile -Command "Start-Process -FilePath '%~dp0nfc-wedge\NfcKeyboardWedge.exe' -WorkingDirectory '%~dp0nfc-wedge'"
+
 echo ==================================================
-echo Starting LSPay NFC Keyboard Wedge...
+echo   LSPay NFC Background Service Started!
 echo ==================================================
 echo.
-start NfcKeyboardWedge.exe
-echo NFC Keyboard Wedge has been started in the background.
-echo You can tap your NFC cards now.
+echo The NFC reader service is now running silently in the
+echo background. You can close this terminal window safely.
 echo.
-pause
+echo Your card scans will work continuously.
+echo.
+timeout /t 3
+exit
