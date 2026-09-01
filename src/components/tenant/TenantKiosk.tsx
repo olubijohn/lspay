@@ -351,7 +351,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
                   {nfcSupported && (
                     <Button
                       type="button"
-                      onClick={startNfc}
+                      onClick={() => startNfc()}
                       className="w-full bg-primary hover:bg-primary/90 text-white h-16 text-xl rounded-xl font-bold active:scale-95 transition-transform"
                       data-testid="btn-scan-card"
                     >

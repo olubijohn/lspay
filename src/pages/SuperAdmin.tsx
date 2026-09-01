@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useStore } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,10 +54,13 @@ export function SuperAdmin() {
   const [cardActivatedEnd, setCardActivatedEnd] = useState("");
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
   const [bulkPrintStudents, setBulkPrintStudents] = useState<any[] | null>(null);
-  const { supported: nfcSupported, status: nfcStatus, error: nfcError, start: startNfc } = useNfcScanner((id) => {
+  const { supported: nfcSupported, status: nfcStatus, error: nfcError, start: startNfc, stop: stopNfc } = useNfcScanner((id) => {
     setHardwareId(id);
     setCardType("NFC");
   });
+  // Ref to the Hardware ID <input> — passed to startNfc so the USB reader
+  // types directly into it (most reliable strategy for all USB HID readers)
+  const hardwareIdInputRef = useRef<HTMLInputElement | null>(null);
 
   // School Modal
   const [showSchoolModal, setShowSchoolModal] = useState(false);
@@ -985,7 +988,7 @@ export function SuperAdmin() {
               )}
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1">
-                <div className="lg:col-span-7 bg-card border border-border rounded-xl flex flex-col overflow-hidden shadow-xl">
+                <div className="lg:col-span-7 bg-card border border-border rounded-xl flex flex-col shadow-xl">
                   <div className="p-4 border-b border-border space-y-3">
                     <div>
                       <h3 className="font-bold text-foreground">Card Registry</h3>
@@ -1046,8 +1049,8 @@ export function SuperAdmin() {
                       )}
                     </div>
                   </div>
-                  <div className="flex-1 overflow-auto bg-background">
-                    <Table>
+                  <div className="bg-background overflow-x-hidden">
+                    <Table className="w-full">
                       <TableHeader className="bg-card/80 sticky top-0">
                         <TableRow className="border-border">
                           <TableHead className="w-[40px] pl-4">
@@ -1090,22 +1093,22 @@ export function SuperAdmin() {
                                 className="border-border data-[state=checked]:bg-primary"
                               />
                             </TableCell>
-                            <TableCell className="text-foreground text-sm whitespace-nowrap">{tenants.find(t => t.id === s.tenantId)?.name}</TableCell>
-                            <TableCell className="whitespace-nowrap">
+                            <TableCell className="text-foreground text-sm">{tenants.find(t => t.id === s.tenantId)?.name}</TableCell>
+                            <TableCell>
                               <div className="flex items-center gap-2">
                                 <img src={s.imageUrl} alt="" className="w-8 h-8 rounded-full bg-muted shrink-0" onError={e => { (e.target as HTMLImageElement).src = `https://placehold.co/32x32/1e293b/94a3b8?text=${s.name[0]}`; }} />
                                 <div>
-                                  <div className="text-foreground font-medium whitespace-nowrap">{s.name}</div>
-                                  <div className="text-xs text-muted-foreground font-mono whitespace-nowrap">{s.studentId}</div>
+                                  <div className="text-foreground font-medium">{s.name}</div>
+                                  <div className="text-xs text-muted-foreground font-mono">{s.studentId}</div>
                                 </div>
                               </div>
                             </TableCell>
-                            <TableCell className="whitespace-nowrap">
+                            <TableCell>
                               <Badge className={cardStatusBadgeClass(s.cardLifecycleStatus)}>
                                 {cardLifecycleLabel(s.cardLifecycleStatus)}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-muted-foreground text-sm font-mono whitespace-nowrap">
+                            <TableCell className="text-muted-foreground text-sm font-mono">
                               {s.activatedAt ? s.activatedAt.split('T')[0] : "—"}
                             </TableCell>
                           </TableRow>
@@ -1148,20 +1151,68 @@ export function SuperAdmin() {
                                   </SelectContent>
                                 </Select>
                               </div>
-                              <div className="space-y-3">
-                                <Label className="text-foreground">Hardware ID / Payload</Label>
-                                <Input value={hardwareId} onChange={e => setHardwareId(e.target.value)} placeholder="e.g. NFC-1234 — or tap Scan Card" className="bg-background border-border text-foreground h-11 font-mono" data-testid="input-hardware-id" />
-                                <div className="grid grid-cols-2 gap-2">
-                                  <Button type="button" variant="outline" onClick={startNfc} className="border-border text-foreground h-11 font-bold" data-testid="btn-scan-card-admin">
-                                    <Wifi className="mr-2 h-4 w-4" />
-                                    {nfcStatus === "scanning" ? "Scanning…" : "Scan NFC"}
-                                  </Button>
-                                  <QrScanner triggerClassName="border-border text-foreground h-11 font-bold" onResult={(text) => { setHardwareId(text); setCardType("QR"); }} />
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-foreground">Hardware ID / Payload</Label>
+                                    {nfcStatus === "scanning" && (
+                                      <span className="flex items-center gap-1.5 text-xs text-blue-400 font-medium">
+                                        <span className="relative flex h-2 w-2">
+                                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                                        </span>
+                                        Tap card on reader now…
+                                      </span>
+                                    )}
+                                    {nfcStatus === "success" && (
+                                      <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                        Card captured!
+                                      </span>
+                                    )}
+                                  </div>
+                                  <Input
+                                    ref={hardwareIdInputRef}
+                                    value={hardwareId}
+                                    onChange={e => setHardwareId(e.target.value)}
+                                    placeholder="e.g. 049714345F6180 — click Scan NFC then tap card"
+                                    className="bg-background border-border text-foreground h-11 font-mono text-base"
+                                    data-testid="input-hardware-id"
+                                  />
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <Button
+                                      type="button"
+                                      variant={nfcStatus === "scanning" ? "default" : nfcStatus === "success" ? "outline" : "outline"}
+                                      onClick={() => {
+                                        if (nfcStatus === "scanning") {
+                                          stopNfc();
+                                        } else {
+                                          // idle or success → start fresh scan (clears field automatically)
+                                          startNfc(hardwareIdInputRef.current);
+                                        }
+                                      }}
+                                      className={`h-11 font-bold ${nfcStatus === "scanning" ? "bg-blue-600 hover:bg-blue-700 text-white" : nfcStatus === "success" ? "border-emerald-500 text-emerald-500 hover:bg-emerald-500/10" : "border-border text-foreground"}`}
+                                      data-testid="btn-scan-card-admin"
+                                    >
+                                      <Wifi className={`mr-2 h-4 w-4 ${nfcStatus === "scanning" ? "animate-pulse" : ""}`} />
+                                      {nfcStatus === "scanning" ? "Scanning… (Tap Card)" : nfcStatus === "success" ? "Scan Next Card" : "Scan NFC"}
+                                    </Button>
+                                    <QrScanner triggerClassName="border-border text-foreground h-11 font-bold" onResult={(text) => { setHardwareId(text); setCardType("QR"); }} />
+                                  </div>
+                                  {hardwareId ? (
+                                    <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                                        <span>Card UID: <strong className="font-mono text-foreground text-sm">{hardwareId}</strong></span>
+                                      </div>
+                                      <span className="text-[10px] text-muted-foreground">Ready to assign</span>
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-muted-foreground">
+                                      Click <strong>Scan NFC</strong> — the field focuses automatically. Then tap the card on your USB reader.
+                                    </p>
+                                  )}
+                                  {nfcError && <p className="text-xs text-red-400">{nfcError}</p>}
                                 </div>
-                                {!nfcSupported && <p className="text-xs text-muted-foreground">Tip: NFC scanning works in Chrome or Edge on Android. QR scanning uses the device camera. You can also type the ID above on any device.</p>}
-                                {nfcSupported && nfcError && <p className="text-xs text-red-400">{nfcError}</p>}
-                                {nfcSupported && nfcStatus === "success" && hardwareId && <p className="text-xs text-primary">Card captured ✓ — review and assign below.</p>}
-                              </div>
                               <Button onClick={handleAssignCard} className="w-full bg-primary hover:bg-primary/90 text-white h-11 font-bold mb-2" data-testid="btn-assign-card">
                                 Assign & Map Card
                               </Button>
@@ -1241,15 +1292,40 @@ export function SuperAdmin() {
                                       </Select>
                                     </div>
                                     <div className="space-y-2">
-                                      <Label className="text-foreground text-sm">New Hardware ID / Payload</Label>
-                                      <Input value={hardwareId} onChange={e => setHardwareId(e.target.value)} placeholder="e.g. NFC-5678 — or tap Scan Card" className="bg-background border-border text-foreground h-10 font-mono" data-testid="input-replace-hardware-id" />
+                                      <div className="flex items-center justify-between">
+                                        <Label className="text-foreground text-sm">New Hardware ID / Payload</Label>
+                                        {nfcStatus === "scanning" && (
+                                          <span className="text-xs text-blue-400 font-medium flex items-center gap-1">
+                                            <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-ping"></span>
+                                            Tap card now…
+                                          </span>
+                                        )}
+                                      </div>
+                                      <Input
+                                        ref={hardwareIdInputRef}
+                                        value={hardwareId}
+                                        onChange={e => setHardwareId(e.target.value)}
+                                        placeholder="e.g. 049714345F6180 — click Scan NFC then tap card"
+                                        className="bg-background border-border text-foreground h-10 font-mono"
+                                        data-testid="input-replace-hardware-id"
+                                      />
                                       <div className="grid grid-cols-2 gap-2">
-                                        <Button type="button" variant="outline" onClick={startNfc} className="border-border text-foreground h-10 font-bold" data-testid="btn-scan-replace-card">
-                                          <Wifi className="mr-2 h-4 w-4" /> {nfcStatus === "scanning" ? "Scanning…" : "Scan NFC"}
+                                        <Button
+                                          type="button"
+                                          variant={nfcStatus === "scanning" ? "default" : "outline"}
+                                          onClick={() => nfcStatus === "scanning" ? stopNfc() : startNfc(hardwareIdInputRef.current)}
+                                          className={`h-10 font-bold ${nfcStatus === "scanning" ? "bg-blue-600 hover:bg-blue-700 text-white" : "border-border text-foreground"}`}
+                                          data-testid="btn-scan-replace-card"
+                                        >
+                                          <Wifi className={`mr-2 h-4 w-4 ${nfcStatus === "scanning" ? "animate-pulse" : ""}`} />
+                                          {nfcStatus === "scanning" ? "Scanning…" : "Scan NFC"}
                                         </Button>
                                         <QrScanner triggerClassName="border-border text-foreground h-10 font-bold" onResult={(text) => { setHardwareId(text); setCardType("QR"); }} />
                                       </div>
-                                      {nfcSupported && nfcError && <p className="text-xs text-red-400">{nfcError}</p>}
+                                      {hardwareId && (
+                                        <p className="text-xs text-emerald-400 font-mono">Scanned UID: {hardwareId} ✓</p>
+                                      )}
+                                      {nfcError && <p className="text-xs text-red-400">{nfcError}</p>}
                                     </div>
                                     <p className="text-xs text-muted-foreground">
                                       {student.cardLifecycleStatus === "activated"
