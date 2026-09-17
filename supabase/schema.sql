@@ -169,3 +169,22 @@ create index if not exists idx_transactions_student    on transactions(student_i
 create index if not exists idx_stock_movements_tenant  on stock_movements(tenant_id);
 create index if not exists idx_system_users_tenant     on system_users(tenant_id);
 create index if not exists idx_notifications_role       on notifications(target_role);
+
+-- ---------------------------------------------------------------------------
+-- Permissions & Access for Supabase Anon Key
+-- ---------------------------------------------------------------------------
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+
+ALTER TABLE IF EXISTS public.tenants DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.system_users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.parent_users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.students DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.parent_students DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.inventory_items DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.transactions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.stock_movements DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.notifications DISABLE ROW LEVEL SECURITY;

@@ -109,34 +109,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!isSupabaseConfigured) return;
     const supabase = getSupabase();
     (async () => {
-      const { data: tData } = await supabase.from('tenants').select('*');
+      const { data: tData, error: tError } = await supabase.from('tenants').select('*');
+      if (tError) console.error("Supabase load error (tenants):", tError);
       if (tData) setTenants(tData.map(r => ({ id: r.id, name: r.name, code: r.code, address: r.address, contactName: r.contact_name, contactEmail: r.contact_email, enrollmentKey: r.enrollment_key, paystackPublicKey: r.paystack_public_key, logoUrl: r.logo_url })));
 
-      const { data: sData } = await supabase.from('students').select('*');
+      const { data: sData, error: sError } = await supabase.from('students').select('*');
+      if (sError) console.error("Supabase load error (students):", sError);
       if (sData) setStudents(sData.map(r => ({
         id: r.id, tenantId: r.tenant_id, name: r.name, studentId: r.student_id, cardStatus: r.card_status, cardHardwareId: r.card_hardware_id, cardType: r.card_type, walletBalance: Number(r.wallet_balance), dailyLimit: Number(r.daily_limit), monthlyLimit: Number(r.monthly_limit), pin: r.pin, parentNotificationSent: r.parent_notification_sent, imageUrl: r.image_url, className: r.class_name, cardLifecycleStatus: r.card_lifecycle_status, activatedAt: r.activated_at ?? undefined, homeAddress: r.home_address, billingAddress: r.billing_address, parentName: r.parent_name, parentEmail: r.parent_email
       })));
 
-      const { data: iData } = await supabase.from('inventory_items').select('*');
+      const { data: iData, error: iError } = await supabase.from('inventory_items').select('*');
+      if (iError) console.error("Supabase load error (inventory_items):", iError);
       if (iData) setInventory(iData.map(r => ({ id: r.id, tenantId: r.tenant_id, name: r.name, category: r.category, stock: r.stock, costPrice: Number(r.cost_price), sellingPrice: Number(r.selling_price), imageUrl: r.image_url })));
 
-      const { data: txData } = await supabase.from('transactions').select('*');
+      const { data: txData, error: txError } = await supabase.from('transactions').select('*');
+      if (txError) console.error("Supabase load error (transactions):", txError);
       if (txData) setTransactions(txData.map(r => ({ id: r.id, tenantId: r.tenant_id, studentId: r.student_id, studentName: r.student_name, schoolName: r.school_name, itemsString: r.items_string, amount: r.items_string === 'Wallet Top-up' ? -Math.abs(Number(r.amount)) : Number(r.amount), cost: Number(r.cost), date: r.date })));
 
-      const { data: suData } = await supabase.from('system_users').select('*');
+      const { data: suData, error: suError } = await supabase.from('system_users').select('*');
+      if (suError) console.error("Supabase load error (system_users):", suError);
       if (suData) setSystemUsers(suData.map(r => ({ id: r.id, name: r.name, email: r.email, passwordHash: r.password_hash, role: r.role as any, tenantId: r.tenant_id, isActive: r.is_active })));
 
-      const { data: puData } = await supabase.from('parent_users').select('*');
-      const { data: psData } = await supabase.from('parent_students').select('*');
+      const { data: puData, error: puError } = await supabase.from('parent_users').select('*');
+      if (puError) console.error("Supabase load error (parent_users):", puError);
+      const { data: psData, error: psError } = await supabase.from('parent_students').select('*');
+      if (psError) console.error("Supabase load error (parent_students):", psError);
       if (puData) setParentUsers(puData.map(r => ({
         id: r.id, name: r.name, email: r.email, passwordHash: r.password_hash, phone: r.phone,
         linkedStudentIds: psData?.filter(ps => ps.parent_id === r.id).map(ps => ps.student_id) || []
       })));
 
-      const { data: smData } = await supabase.from('stock_movements').select('*');
+      const { data: smData, error: smError } = await supabase.from('stock_movements').select('*');
+      if (smError) console.error("Supabase load error (stock_movements):", smError);
       if (smData) setStockMovements(smData.map(r => ({ id: r.id, tenantId: r.tenant_id, itemId: r.item_id, itemName: r.item_name, date: r.date, type: r.type, quantity: r.quantity, note: r.note })));
 
-      const { data: nData } = await supabase.from('notifications').select('*');
+      const { data: nData, error: nError } = await supabase.from('notifications').select('*');
+      if (nError) console.error("Supabase load error (notifications):", nError);
       if (nData) setNotifications(nData.map(r => ({ id: r.id, targetRole: r.target_role as any, targetTenantId: r.target_tenant_id, targetParentEmail: r.target_parent_email, type: r.type as any, message: r.message, studentId: r.student_id, studentName: r.student_name, isRead: r.is_read, createdAt: r.created_at })));
     })();
 

@@ -184,10 +184,10 @@ export function SuperAdmin() {
     if (lines.length < 2) return { error: "CSV must have a header row and at least one data row." };
     
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-    const required = ["name", "studentid", "classname", "parentname", "parentemail"];
+    const required = ["name", "studentid", "classname"];
     const missing = required.filter(r => !headers.includes(r));
     if (missing.length > 0) {
-      return { error: `Missing required headers: ${missing.join(", ")}. Required headers are: name, studentId, className, parentName, parentEmail` };
+      return { error: `Missing required headers: ${missing.join(", ")}. Required headers are: name, studentId, className` };
     }
     
     const parsedStudents: any[] = [];
@@ -205,13 +205,13 @@ export function SuperAdmin() {
       
       const name = row[nameIdx];
       const studentId = row[idIdx];
-      const className = row[classIdx];
-      const parentName = row[parentNameIdx];
-      const parentEmail = row[parentEmailIdx];
-      const homeAddress = homeAddressIdx !== -1 ? row[homeAddressIdx] : "";
+      const className = classIdx !== -1 ? (row[classIdx] || "") : "";
+      const parentName = parentNameIdx !== -1 ? (row[parentNameIdx] || "") : "";
+      const parentEmail = parentEmailIdx !== -1 ? (row[parentEmailIdx] || "") : "";
+      const homeAddress = homeAddressIdx !== -1 ? (row[homeAddressIdx] || "") : "";
       const walletBalance = walletBalanceIdx !== -1 ? (Number(row[walletBalanceIdx]) || 0) : 0;
       
-      if (!name || !studentId || !parentEmail) continue;
+      if (!name || !studentId) continue;
       
       parsedStudents.push({
         name,
@@ -292,9 +292,9 @@ export function SuperAdmin() {
   };
 
   const downloadSampleCSV = () => {
-    const csvContent = "name,studentId,className,parentName,parentEmail,homeAddress,walletBalance\n" +
-      "John Doe,STU-102,Year 8A,Jane Doe,jane@example.com,12 Elm Road,50\n" +
-      "Alice Smith,STU-103,Year 9B,Bob Smith,bob@example.com,14 Oak Lane,75";
+    const csvContent = "name,studentId,className\n" +
+      "John Doe,STU-102,Year 8A\n" +
+      "Alice Smit,STU-103,Year 9B";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1754,8 +1754,8 @@ export function SuperAdmin() {
               <textarea
                 value={csvText}
                 onChange={e => setCsvText(e.target.value)}
-                placeholder="name,studentId,className,parentName,parentEmail,homeAddress,walletBalance&#10;John Doe,STU-102,Year 8A,Jane Doe,jane@example.com,12 Elm Road,50"
-                rows={6}
+                placeholder="name,studentId,className&#10;John Doe,STU-102,Year 8A&#10;Alice Smit,STU-103,Year 9B"
+                rows={5}
                 className="w-full bg-background border border-border text-foreground rounded-md p-3 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 data-testid="csv-textarea"
               />
@@ -1764,8 +1764,7 @@ export function SuperAdmin() {
             <div className="text-xs text-muted-foreground bg-muted/30 p-3 rounded-md space-y-1">
               <p className="font-bold text-foreground">CSV Requirements & Columns:</p>
               <ul className="list-disc list-inside space-y-0.5">
-                <li>First row must be the headers: <code className="font-mono text-primary bg-background px-1 py-0.5 rounded">name, studentId, className, parentName, parentEmail</code></li>
-                <li>Optional columns: <code className="font-mono text-muted-foreground bg-background px-1 py-0.5 rounded">homeAddress, walletBalance</code></li>
+                <li>Headers: <code className="font-mono text-primary bg-background px-1 py-0.5 rounded">name, studentId, className</code></li>
                 <li>Existing student IDs will be skipped during import.</li>
               </ul>
             </div>
