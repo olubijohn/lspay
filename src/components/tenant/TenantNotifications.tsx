@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Bell, CheckCircle2 } from "lucide-react";
 
-export function TenantNotifications({ tenantId }: { tenantId: number }) {
+export function TenantNotifications({ tenantId }: { tenantId: string }) {
   const { notifications, markNotificationRead } = useStore();
   
   const tenantNotifs = notifications

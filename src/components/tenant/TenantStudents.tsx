@@ -12,13 +12,13 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { GraduationCap, ArrowLeft, Banknote } from "lucide-react";
 import { cardLifecycleLabel } from "@/lib/types";
 
-export function TenantStudents({ tenantId }: { tenantId: number }) {
+export function TenantStudents({ tenantId }: { tenantId: string }) {
   const { students, parentUsers, createStudent, updateStudent, markCardDelivered, transactions } = useStore();
   const tenantStudents = students.filter(s => s.tenantId === tenantId);
 
   const [isOpen, setIsOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [detailStudentId, setDetailStudentId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [detailStudentId, setDetailStudentId] = useState<string | null>(null);
   const [txFilter, setTxFilter] = useState<"all" | "in" | "out">("all");
 
   // Form State
@@ -56,7 +56,7 @@ export function TenantStudents({ tenantId }: { tenantId: number }) {
     setIsOpen(true);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = (id: string) => {
     if (confirm("Are you sure you want to delete this student?")) {
       // In a real app, delete from store. For mock, just set inactive or ignore.
       alert("Delete not fully implemented in mock store.");

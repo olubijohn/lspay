@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, PackagePlus, Trash2 } from "lucide-react";
 
-export function TenantBackoffice({ tenantId }: { tenantId: number }) {
+export function TenantBackoffice({ tenantId }: { tenantId: string }) {
   const { inventory, addInventory, updateInventory, deleteInventory, stockMovements, addStockMovement } = useStore();
   const tenantInventory = inventory.filter(i => i.tenantId === tenantId);
   const tenantStockMovements = stockMovements.filter(m => m.tenantId === tenantId);
@@ -44,7 +44,7 @@ export function TenantBackoffice({ tenantId }: { tenantId: number }) {
   const handleRestock = (e: React.FormEvent) => {
     e.preventDefault();
     if (!restockItemId || !restockQty || !restockDate) return;
-    const item = tenantInventory.find(i => i.id === Number(restockItemId));
+    const item = tenantInventory.find(i => i.id === restockItemId);
     if (!item) return;
 
     addStockMovement({

@@ -11,8 +11,8 @@ import { useNfcScanner } from "@/lib/useNfcScanner";
 import { QrScanner } from "@/components/QrScanner";
 import { QrCode } from "lucide-react";
 
-export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: () => void }) {
-  const { inventory, students, tenants, transactions, deductBalanceAndStock, addTransaction, addStockMovement, addNotification, session } = useStore();
+export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: () => void }) {
+  const { inventory, students, tenants, transactions, deductBalanceAndStock, addNotification, session, verifyStaffCode, verifyWalletPin } = useStore();
   
   const tenantInventory = inventory.filter(i => i.tenantId === tenantId);
   const tenantStudents = students.filter(s => s.tenantId === tenantId);
@@ -64,7 +64,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
     });
   };
 
-  const updateCartQty = (id: number, delta: number) => {
+  const updateCartQty = (id: string, delta: number) => {
     setCart(prev => prev.map(c => {
       if (c.item.id === id) {
         const newQty = Math.max(0, Math.min(c.qty + delta, c.item.stock));
@@ -129,10 +129,11 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
     });
   };
 
-  const handlePinAuth = () => {
+  const handlePinAuth = async () => {
     setPinError("");
     if (!posStudent) return;
-    if (posStudent.pin !== enteredPin) {
+    const pinOk = await verifyWalletPin(posStudent.id, enteredPin);
+    if (!pinOk) {
       setPinError("Incorrect PIN.");
       setEnteredPin("");
       return;
@@ -162,33 +163,15 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
       return;
     }
 
-    // Success
-    const itemsString = cart.map(c => `${c.item.name} x${c.qty}`).join(", ");
-    const today = new Date().toISOString().split("T")[0];
-    
-    deductBalanceAndStock(posStudent.id, cartTotal, cart.map(c => ({ id: c.item.id, qty: c.qty })));
-    
-    cart.forEach(c => {
-      addStockMovement({
-        tenantId,
-        itemId: c.item.id,
-        itemName: c.item.name,
-        date: today,
-        type: 'sale',
-        quantity: c.qty
-      });
-    });
-
-    addTransaction({
-      tenantId,
-      studentId: posStudent.id,
-      studentName: posStudent.name,
-      schoolName: activeTenant?.name || "",
-      itemsString,
-      amount: cartTotal,
-      cost: cartCost,
-      date: today
-    });
+    // Success - deductBalanceAndStock now does the debit, limit re-check, inventory
+    // decrement and transaction record atomically on the server (lspay_wallet_checkout).
+    try {
+      await deductBalanceAndStock(posStudent.id, cartTotal, cart.map(c => ({ id: c.item.id, qty: c.qty })));
+    } catch (err: any) {
+      setPinError(err?.message ?? "Checkout failed. Please try again.");
+      setEnteredPin("");
+      return;
+    }
     setCheckoutStage("success");
   };
 
@@ -203,8 +186,9 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
     setMobileSheetOpen(false);
   };
 
-  const handleExit = () => {
-    if (session.user?.passwordHash === exitPassword) {
+  const handleExit = async () => {
+    const ok = await verifyStaffCode(exitPassword);
+    if (ok) {
       try {
         if (document.exitFullscreen && document.fullscreenElement) {
           document.exitFullscreen().catch(() => {});
@@ -212,7 +196,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: number, onExit: ()
       } catch(e) {}
       onExit();
     } else {
-      setExitError("Incorrect password. Access denied.");
+      setExitError("Incorrect code. Access denied.");
     }
   };
 

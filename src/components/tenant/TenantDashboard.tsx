@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { LayoutDashboard, Users, CreditCard, Banknote, Package } from "lucide-react";
 
-export function TenantDashboard({ tenantId }: { tenantId: number }) {
+export function TenantDashboard({ tenantId }: { tenantId: string }) {
   const { students, transactions, stockMovements, notifications } = useStore();
   const [txFilter, setTxFilter] = useState<"all" | "in" | "out">("all");
   

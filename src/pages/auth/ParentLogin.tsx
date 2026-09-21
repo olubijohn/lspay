@@ -25,10 +25,10 @@ export function ParentLogin() {
   const [regConfirm, setRegConfirm] = useState("");
   const [regError, setRegError] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
-    const user = loginParent(loginEmail, loginPassword);
+    const user = await loginParent(loginEmail, loginPassword);
     if (user) {
       setLocation("/parent");
     } else {
@@ -36,16 +36,18 @@ export function ParentLogin() {
     }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegError("");
     if (regPassword !== regConfirm) {
       setRegError("Passwords do not match.");
       return;
     }
-    const user = registerParent(regName, regEmail, regPassword);
+    const user = await registerParent(regName, regEmail, regPassword);
     if (user) {
       setLocation("/parent");
+    } else {
+      setRegError("Could not create that account. The email may already be in use.");
     }
   };
 

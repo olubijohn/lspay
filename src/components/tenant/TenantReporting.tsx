@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6'];
 
-export function TenantReporting({ tenantId }: { tenantId: number }) {
+export function TenantReporting({ tenantId }: { tenantId: string }) {
   const chartTheme = useChartTheme();
   const { transactions, stockMovements, inventory, students } = useStore();
   const [startDate, setStartDate] = useState(() => {
@@ -53,11 +53,11 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
     return transactions.filter(t => {
       const matchesTenant = t.tenantId === tenantId;
       const matchesDate = t.date >= appliedStart && t.date <= appliedEnd;
-      const matchesStudent = selectedStudent === "all" || t.studentId === Number(selectedStudent);
+      const matchesStudent = selectedStudent === "all" || t.studentId === selectedStudent;
       
       let matchesItem = true;
       if (selectedStockItem !== "all") {
-        const item = tenantInventory.find(i => i.id === Number(selectedStockItem));
+        const item = tenantInventory.find(i => i.id === selectedStockItem);
         matchesItem = item ? t.itemsString.includes(item.name) : false;
       }
       
@@ -86,7 +86,7 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
         });
       });
     } else {
-      const item = tenantInventory.find(i => i.id === Number(selectedStockItem));
+      const item = tenantInventory.find(i => i.id === selectedStockItem);
       if (item) {
         periodTx.forEach(t => {
           const qty = parseQty(t.itemsString, item.name);
@@ -125,7 +125,7 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
         days[t.date].quantity += totalQty;
       });
     } else {
-      const item = tenantInventory.find(i => i.id === Number(selectedStockItem));
+      const item = tenantInventory.find(i => i.id === selectedStockItem);
       if (item) {
         periodTx.forEach(t => {
           const qty = parseQty(t.itemsString, item.name);
@@ -171,9 +171,9 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
   // Student Spending on this specific item
   const itemStudentData = useMemo(() => {
     if (selectedStockItem === "all") return [];
-    const item = tenantInventory.find(i => i.id === Number(selectedStockItem));
+    const item = tenantInventory.find(i => i.id === selectedStockItem);
     if (!item) return [];
-    
+
     const sMap: Record<string, { total: number, quantity: number }> = {};
     periodTx.forEach(t => {
       const qty = parseQty(t.itemsString, item.name);
@@ -197,7 +197,7 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
   // Student Spending
   const studentData = useMemo(() => {
     const sMap: Record<string, { total: number, count: number, itemQty: number }> = {};
-    const selectedItem = selectedStockItem !== "all" ? tenantInventory.find(i => i.id === Number(selectedStockItem)) : null;
+    const selectedItem = selectedStockItem !== "all" ? tenantInventory.find(i => i.id === selectedStockItem) : null;
 
     periodTx.forEach(t => {
       if (selectedItem) {
@@ -229,7 +229,7 @@ export function TenantReporting({ tenantId }: { tenantId: number }) {
   // Specific Item Analysis
   const itemAnalysis = useMemo(() => {
     if (selectedStockItem === "all") return null;
-    const itemId = Number(selectedStockItem);
+    const itemId = selectedStockItem;
     const item = tenantInventory.find(i => i.id === itemId);
     if (!item) return null;
 

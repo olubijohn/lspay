@@ -13,7 +13,7 @@ import { InventoryItem } from "@/lib/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 import { useChartTheme } from "@/theme";
 
-function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; tenantId: number; onClose: () => void }) {
+function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; tenantId: string; onClose: () => void }) {
   const chartTheme = useChartTheme();
   const { stockMovements, transactions } = useStore();
 
@@ -151,12 +151,12 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
   );
 }
 
-export function TenantInventory({ tenantId }: { tenantId: number }) {
+export function TenantInventory({ tenantId }: { tenantId: string }) {
   const { inventory, addInventory, updateInventory, deleteInventory } = useStore();
   const tenantInventory = inventory.filter(i => i.tenantId === tenantId);
 
   const [isOpen, setIsOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [reportItem, setReportItem] = useState<InventoryItem | null>(null);
 
   const [invName, setInvName] = useState("");

@@ -20,7 +20,7 @@ import { ParentSidebar } from "@/components/layout/ParentSidebar";
 
 export function ParentPortal() {
   const chartTheme = useChartTheme();
-  const { tenants, students, transactions, updateStudent, parentSession, updateParentUser, addParentChild, notifications, markNotificationRead, activateCard, addTransaction } = useStore();
+  const { tenants, students, transactions, updateStudent, parentSession, updateParentUser, addParentChild, notifications, markNotificationRead, activateCard, addTransaction, topupWallet } = useStore();
   const [, setLocation] = useLocation();
 
   const [activeTab, setActiveTab] = useState<string>("overview");
@@ -33,20 +33,20 @@ export function ParentPortal() {
   const [regProcessing, setRegProcessing] = useState(false);
 
   const [topupAmount, setTopupAmount] = useState("");
-  const [showTopupModal, setShowTopupModal] = useState<number | null>(null);
+  const [showTopupModal, setShowTopupModal] = useState<string | null>(null);
   const [topupError, setTopupError] = useState("");
   const [topupProcessing, setTopupProcessing] = useState(false);
   const [topupSuccess, setTopupSuccess] = useState<{ name: string; amount: number } | null>(null);
 
-  const [showPinModal, setShowPinModal] = useState<number | null>(null);
+  const [showPinModal, setShowPinModal] = useState<string | null>(null);
   const [pin1, setPin1] = useState("");
   const [pin2, setPin2] = useState("");
 
-  const [showLimitsModal, setShowLimitsModal] = useState<number | null>(null);
+  const [showLimitsModal, setShowLimitsModal] = useState<string | null>(null);
   const [dailyLim, setDailyLim] = useState("");
   const [monthlyLim, setMonthlyLim] = useState("");
 
-  const [showActivateModal, setShowActivateModal] = useState<number | null>(null);
+  const [showActivateModal, setShowActivateModal] = useState<string | null>(null);
 
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
@@ -115,8 +115,8 @@ export function ParentPortal() {
           { display_name: "Student ID", variable_name: "student_id", value: studentIdInput },
         ],
       },
-      onSuccess: () => {
-        const result = addParentChild(parentSession.id, authCode.toUpperCase(), studentIdInput.toUpperCase(), parentSession.email);
+      onSuccess: async () => {
+        const result = await addParentChild(parentSession.id, authCode.toUpperCase(), studentIdInput.toUpperCase(), parentSession.email);
 
         if (result.success) {
           setRegSuccess(`Successfully linked student!`);
@@ -177,19 +177,14 @@ export function ParentPortal() {
           { display_name: "Student ID", variable_name: "student_id", value: child.studentId },
         ],
       },
-      onSuccess: () => {
-        updateStudent(child.id, { walletBalance: child.walletBalance + creditedAmount });
-        const tenant = tenants.find(t => t.id === child.tenantId);
-        addTransaction({
-          tenantId: child.tenantId,
-          studentId: child.id,
-          studentName: child.name,
-          schoolName: tenant ? tenant.name : "Unknown School",
-          itemsString: "Wallet Top-up",
-          amount: -creditedAmount,
-          cost: 0,
-          date: new Date().toISOString().split('T')[0]
-        });
+      onSuccess: async (reference) => {
+        try {
+          await topupWallet(child.id, reference);
+        } catch (err: any) {
+          setTopupProcessing(false);
+          setTopupError(err?.message ?? "Payment could not be confirmed. Please contact the school if you were charged.");
+          return;
+        }
         setTopupProcessing(false);
         setTopupAmount("");
         setShowTopupModal(null);
@@ -415,7 +410,7 @@ export function ParentPortal() {
 
           {/* PER CHILD VIEW */}
           {activeTab.startsWith("child_") && (() => {
-            const childId = Number(activeTab.split("_")[1]);
+            const childId = activeTab.split("_")[1];
             const child = students.find(s => s.id === childId);
             if (!child) return null;
 

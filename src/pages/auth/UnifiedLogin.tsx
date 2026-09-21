@@ -21,25 +21,23 @@ export function UnifiedLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     const trimmed = email.trim().toLowerCase();
 
-    const sysUser = systemUsers.find(u => u.email.toLowerCase() === trimmed && u.isActive);
-    if (sysUser) {
-      const role = sysUser.role === "super_admin" ? "super_admin" : "tenant";
-      const user = login(trimmed, password, role);
-      if (user) {
-        setLocation(role === "super_admin" ? "/super-admin" : "/tenant");
-        return;
-      }
-      setError("Incorrect password.");
+    const tenantUser = await login(trimmed, password, 'tenant');
+    if (tenantUser) {
+      setLocation(tenantUser.role === 'kiosk_operator' ? "/tenant?tab=pos" : "/tenant");
       return;
     }
-
-    const user = loginParent(trimmed, password);
-    if (user) {
+    const adminUser = await login(trimmed, password, 'super_admin');
+    if (adminUser) {
+      setLocation("/super-admin");
+      return;
+    }
+    const parentUser = await loginParent(trimmed, password);
+    if (parentUser) {
       setLocation("/parent");
       return;
     }
@@ -47,7 +45,7 @@ export function UnifiedLogin() {
     setError("Invalid email or password.");
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (!regName || !email || !password || !regConfirm) { setError("Fill in all fields."); return; }
@@ -55,11 +53,8 @@ export function UnifiedLogin() {
     if (password !== regConfirm) { setError("Passwords don't match."); return; }
 
     const trimmed = email.trim().toLowerCase();
-    const existingParent = parentUsers.find(u => u.email.toLowerCase() === trimmed);
-    const existingSys = systemUsers.find(u => u.email.toLowerCase() === trimmed);
-    if (existingParent || existingSys) { setError("Email already exists."); return; }
-
-    registerParent(regName, trimmed, password);
+    const newParent = await registerParent(regName, trimmed, password);
+    if (!newParent) { setError("Could not create that account. The email may already be in use."); return; }
     setLocation("/parent");
   };
 

@@ -1,18 +1,18 @@
 export interface AppNotification {
-  id: number;
+  id: string;
   targetRole: 'super_admin' | 'tenant' | 'parent';
-  targetTenantId: number | null;
+  targetTenantId: string | null;
   targetParentEmail: string | null;
   type: 'card_pending' | 'card_ready' | 'card_delivered' | 'limit_exceeded';
   message: string;
-  studentId: number;
+  studentId: string;
   studentName: string;
   isRead: boolean;
   createdAt: string;
 }
 
 export interface Tenant {
-  id: number;
+  id: string;
   name: string;
   code: string;
   address: string;
@@ -26,8 +26,8 @@ export interface Tenant {
 export type CardStatus = "Active" | "Issued" | "Unassigned" | "Blocked";
 
 export interface Student {
-  id: number;
-  tenantId: number;
+  id: string;
+  tenantId: string;
   name: string;
   studentId: string;
   cardStatus: CardStatus;
@@ -70,8 +70,8 @@ export function cardLifecycleLabel(status: CardLifecycleStatus): string {
 }
 
 export interface InventoryItem {
-  id: number;
-  tenantId: number;
+  id: string;
+  tenantId: string;
   name: string;
   category: "Mains" | "Snacks" | "Drinks" | string;
   stock: number;
@@ -81,9 +81,9 @@ export interface InventoryItem {
 }
 
 export interface Transaction {
-  id: number;
-  tenantId: number;
-  studentId: number;
+  id: string;
+  tenantId: string;
+  studentId: string;
   studentName: string;
   schoolName: string;
   itemsString: string;
@@ -96,12 +96,12 @@ export type SuperAdminUserRole = 'super_admin';
 export type TenantUserRole = 'tenant_admin' | 'backoffice' | 'kiosk_operator';
 
 export interface SystemUser {
-  id: number;
+  id: string;
   name: string;
   email: string;
   passwordHash: string;
   role: SuperAdminUserRole | TenantUserRole;
-  tenantId: number | null;
+  tenantId: string | null;
   isActive: boolean;
 }
 
@@ -111,18 +111,18 @@ export interface AuthSession {
 }
 
 export interface ParentUser {
-  id: number;
+  id: string;
   name: string;
   email: string;
   passwordHash: string;
   phone?: string;
-  linkedStudentIds: number[];
+  linkedStudentIds: string[];
 }
 
 export interface StockMovement {
-  id: number;
-  tenantId: number;
-  itemId: number;
+  id: string;
+  tenantId: string;
+  itemId: string;
   itemName: string;
   date: string;
   type: 'restock' | 'sale';
@@ -143,38 +143,42 @@ export interface AppState {
   session: AuthSession;
   parentSession: ParentUser | null;
   
-  login: (email: string, passwordHash: string, portal: 'super_admin' | 'tenant') => SystemUser | null;
-  loginParent: (email: string, passwordHash: string) => ParentUser | null;
-  logout: () => void;
-  logoutParent: () => void;
-  
-  registerParent: (name: string, email: string, passwordHash: string) => ParentUser;
-  updateParentUser: (id: number, data: Partial<Pick<ParentUser, "phone">>) => void;
-  createSystemUser: (user: Omit<SystemUser, "id">) => SystemUser;
-  updateSystemUser: (id: number, data: Partial<SystemUser>) => void;
-  
-  addTenant: (t: Omit<Tenant, "id">) => Tenant;
-  updateTenant: (id: number, updates: Partial<Tenant>) => void;
-  createStudent: (s: Omit<Student, "id">) => Student;
-  updateStudent: (studentId: number, updates: Partial<Student>) => void;
-  assignCard: (studentId: number, cardType: string, hardwareId: string) => void;
-  replaceCard: (studentId: number, cardType: string, hardwareId: string) => void;
-  removeCard: (studentId: number) => void;
-  
+  login: (email: string, password: string, portal: 'super_admin' | 'tenant') => Promise<SystemUser | null>;
+  loginParent: (email: string, password: string) => Promise<ParentUser | null>;
+  logout: () => Promise<void>;
+  logoutParent: () => Promise<void>;
+
+  registerParent: (name: string, email: string, password: string) => Promise<ParentUser | null>;
+  updateParentUser: (id: string, data: Partial<Pick<ParentUser, "phone">>) => void;
+  createSystemUser: (user: Omit<SystemUser, "id">) => Promise<SystemUser | null>;
+  updateSystemUser: (id: string, data: Partial<SystemUser>) => void;
+
+  addTenant: (t: Omit<Tenant, "id">) => Promise<Tenant>;
+  updateTenant: (id: string, updates: Partial<Tenant>) => void;
+  createStudent: (s: Omit<Student, "id">) => Promise<Student | null>;
+  updateStudent: (studentId: string, updates: Partial<Student>) => void;
+  assignCard: (studentId: string, cardType: string, hardwareId: string) => void;
+  replaceCard: (studentId: string, cardType: string, hardwareId: string) => void;
+  removeCard: (studentId: string) => void;
+
   addInventory: (item: Omit<InventoryItem, "id">) => void;
-  updateInventory: (id: number, item: Partial<InventoryItem>) => void;
-  deleteInventory: (id: number) => void;
-  
+  updateInventory: (id: string, item: Partial<InventoryItem>) => void;
+  deleteInventory: (id: string) => void;
+
   addTransaction: (tx: Omit<Transaction, "id">) => void;
-  cancelTransaction: (id: number) => void;
-  deductBalanceAndStock: (studentId: number, amount: number, items: {id: number, qty: number}[]) => void;
-  
+  cancelTransaction: (id: string) => void;
+  deductBalanceAndStock: (studentId: string, amount: number, items: {id: string, qty: number}[]) => Promise<void>;
+
   addStockMovement: (movement: Omit<StockMovement, "id">) => StockMovement;
-  addParentChild: (parentId: number, enrollmentKey: string, studentId: string, parentEmail: string) => { success: boolean, message?: string };
+  addParentChild: (parentId: string, enrollmentKey: string, studentId: string, parentEmail: string) => Promise<{ success: boolean, message?: string }>;
 
   addNotification: (n: Omit<AppNotification, "id">) => AppNotification;
-  markNotificationRead: (id: number) => void;
-  markCardReady: (studentId: number) => void;
-  markCardDelivered: (studentId: number) => void;
-  activateCard: (studentId: number, pin: string, dailyLimit: number, monthlyLimit: number) => void;
+  markNotificationRead: (id: string) => void;
+  markCardReady: (studentId: string) => void;
+  markCardDelivered: (studentId: string) => void;
+  activateCard: (studentId: string, pin: string, dailyLimit: number, monthlyLimit: number) => void;
+
+  verifyStaffCode: (code: string) => Promise<boolean>;
+  verifyWalletPin: (studentId: string, pin: string) => Promise<boolean>;
+  topupWallet: (studentId: string, paystackReference: string) => Promise<void>;
 }

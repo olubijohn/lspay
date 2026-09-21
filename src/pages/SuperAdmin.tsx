@@ -52,7 +52,7 @@ export function SuperAdmin() {
   const [cardFilterStatus, setCardFilterStatus] = useState<string>("all");
   const [cardActivatedStart, setCardActivatedStart] = useState("");
   const [cardActivatedEnd, setCardActivatedEnd] = useState("");
-  const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [bulkPrintStudents, setBulkPrintStudents] = useState<any[] | null>(null);
   const { supported: nfcSupported, status: nfcStatus, error: nfcError, start: startNfc, stop: stopNfc } = useNfcScanner((id) => {
     setHardwareId(id);
@@ -100,7 +100,7 @@ export function SuperAdmin() {
   };
   
   // Selected school profile state
-  const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(null);
+  const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
 
   // CSV Import State
   const [showImportModal, setShowImportModal] = useState(false);
@@ -140,13 +140,13 @@ export function SuperAdmin() {
     setTimeout(() => setSuccessMsg(""), 5000);
   };
 
-  const handleAddSchool = (e: React.FormEvent) => {
+  const handleAddSchool = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSchoolName || !newSchoolCode || !newSchoolAddress || !contactName || !contactEmail || !newSchoolPaystackKey) return;
     const enrollmentKey = `SCH-${newSchoolCode.toUpperCase()}-2026`;
-    const newTenant = addTenant({ name: newSchoolName, code: newSchoolCode.toUpperCase(), address: newSchoolAddress, contactName, contactEmail, enrollmentKey, paystackPublicKey: newSchoolPaystackKey, logoUrl: newSchoolLogoUrl });
-    const tempPassword = enrollmentKey.substring(0, 6).toLowerCase();
-    createSystemUser({ name: contactName, email: contactEmail, passwordHash: tempPassword, role: "tenant_admin", tenantId: newTenant.id, isActive: true });
+    const newTenant = await addTenant({ name: newSchoolName, code: newSchoolCode.toUpperCase(), address: newSchoolAddress, contactName, contactEmail, enrollmentKey, paystackPublicKey: newSchoolPaystackKey, logoUrl: newSchoolLogoUrl });
+    const tempPassword = enrollmentKey.substring(0, 6).toLowerCase() + "A1!";
+    await createSystemUser({ name: contactName, email: contactEmail, passwordHash: tempPassword, role: "tenant_admin", tenantId: newTenant.id, isActive: true });
     showSuccess(`School provisioned! Enrollment Key: ${enrollmentKey} | Admin password: ${tempPassword}`);
     setNewSchoolName(""); setNewSchoolCode(""); setNewSchoolAddress(""); setContactName(""); setContactEmail(""); setNewSchoolPaystackKey(""); setNewSchoolLogoUrl("");
     setShowSchoolModal(false);
@@ -353,18 +353,18 @@ export function SuperAdmin() {
 
   const handleAssignCard = () => {
     if (!selectedStudentId || !hardwareId) return;
-    assignCard(Number(selectedStudentId), cardType, hardwareId);
+    assignCard(selectedStudentId, cardType, hardwareId);
     showSuccess("Card mapped and assigned successfully.");
     setHardwareId("");
     stopNfc();
   };
 
-  const handleMarkReady = (id: number) => {
+  const handleMarkReady = (id: string) => {
     markCardReady(id);
     showSuccess("Card marked as ready for pickup. Notification sent to tenant.");
   };
 
-  const handleReplaceCard = (id: number) => {
+  const handleReplaceCard = (id: string) => {
     if (!hardwareId.trim()) return;
     replaceCard(id, cardType, hardwareId.trim());
     showSuccess("Card replaced. The new card has been linked to the student.");
@@ -373,7 +373,7 @@ export function SuperAdmin() {
     stopNfc();
   };
 
-  const handleRemoveCard = (id: number) => {
+  const handleRemoveCard = (id: string) => {
     removeCard(id);
     showSuccess("Card removed. The student is now awaiting a new card.");
     setRemoveConfirm(false);
@@ -392,14 +392,14 @@ export function SuperAdmin() {
   const handleAddTenantUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUserTenantId || !tenantUserName || !tenantUserEmail || !tenantUserPassword) return;
-    createSystemUser({ name: tenantUserName, email: tenantUserEmail, passwordHash: tenantUserPassword, role: tenantUserRole, tenantId: Number(selectedUserTenantId), isActive: true });
+    createSystemUser({ name: tenantUserName, email: tenantUserEmail, passwordHash: tenantUserPassword, role: tenantUserRole, tenantId: selectedUserTenantId, isActive: true });
     showSuccess("Tenant user added.");
     setTenantUserName(""); setTenantUserEmail(""); setTenantUserPassword("");
     setShowTenantUserModal(false);
   };
 
   const filteredTx = transactions.filter(t => {
-    if (filterSchool !== "all" && t.tenantId !== Number(filterSchool)) return false;
+    if (filterSchool !== "all" && t.tenantId !== filterSchool) return false;
     if (t.date < startDate || t.date > endDate) return false;
     if (overviewTxFilter === 'in' && t.amount >= 0) return false;
     if (overviewTxFilter === 'out' && t.amount <= 0) return false;
@@ -412,7 +412,7 @@ export function SuperAdmin() {
 
   // Transactions tab — roll-up by school × date
   const txFiltered = useMemo(() => transactions.filter(t => {
-    if (txFilterSchool !== "all" && t.tenantId !== Number(txFilterSchool)) return false;
+    if (txFilterSchool !== "all" && t.tenantId !== txFilterSchool) return false;
     if (t.date < txStartDate || t.date > txEndDate) return false;
     if (txFilterType === 'in' && t.amount >= 0) return false;
     if (txFilterType === 'out' && t.amount <= 0) return false;
@@ -421,7 +421,7 @@ export function SuperAdmin() {
 
   // Group by date, then school
   const txRollup = useMemo(() => {
-    const map: Record<string, Record<string, { schoolName: string; tenantId: number; total: number; count: number; txs: typeof transactions }>> = {};
+    const map: Record<string, Record<string, { schoolName: string; tenantId: string; total: number; count: number; txs: typeof transactions }>> = {};
     txFiltered.forEach(t => {
       if (!map[t.date]) map[t.date] = {};
       const key = t.tenantId.toString();
@@ -437,7 +437,7 @@ export function SuperAdmin() {
   const cardFilteredStudents = useMemo(() => {
     const q = cardSearch.trim().toLowerCase();
     return students.filter(s => {
-      if (cardFilterSchool !== "all" && s.tenantId !== Number(cardFilterSchool)) return false;
+      if (cardFilterSchool !== "all" && s.tenantId !== cardFilterSchool) return false;
       if (cardFilterStatus !== "all" && s.cardLifecycleStatus !== cardFilterStatus) return false;
       if (cardActivatedStart || cardActivatedEnd) {
         if (!s.activatedAt) return false;
@@ -513,7 +513,7 @@ export function SuperAdmin() {
                   { label: "Total Schools", value: tenants.length, color: "text-foreground" },
                   { label: "Transaction Volume", value: `₦${filteredTx.reduce((s, t) => s + t.amount, 0).toFixed(2)}`, color: "text-primary" },
                   { label: "Total Operations", value: filteredTx.length, color: "text-foreground" },
-                  { label: "Active Students", value: students.filter(s => s.cardStatus === "Active" && (filterSchool === "all" || s.tenantId === Number(filterSchool))).length, color: "text-blue-400" },
+                  { label: "Active Students", value: students.filter(s => s.cardStatus === "Active" && (filterSchool === "all" || s.tenantId === filterSchool)).length, color: "text-blue-400" },
                 ].map(c => (
                   <Card key={c.label} className="bg-card border-border">
                     <CardContent className="p-6">
@@ -1125,7 +1125,7 @@ export function SuperAdmin() {
 
                 <div className="lg:col-span-5">
                   {selectedStudentId ? (() => {
-                    const student = students.find(s => s.id === Number(selectedStudentId));
+                    const student = students.find(s => s.id === selectedStudentId);
                     if (!student) return null;
                     return (
                       <Card className="bg-card border-border shadow-xl sticky top-8">
@@ -1449,7 +1449,7 @@ export function SuperAdmin() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {systemUsers.filter(u => u.tenantId === Number(selectedUserTenantId)).map(u => (
+                        {systemUsers.filter(u => u.tenantId === selectedUserTenantId).map(u => (
                           <TableRow key={u.id} className="border-border/50">
                             <TableCell className="px-6 py-4">
                               <div className="text-foreground font-bold">{u.name}</div>
@@ -1464,7 +1464,7 @@ export function SuperAdmin() {
                             </TableCell>
                           </TableRow>
                         ))}
-                        {systemUsers.filter(u => u.tenantId === Number(selectedUserTenantId)).length === 0 && (
+                        {systemUsers.filter(u => u.tenantId === selectedUserTenantId).length === 0 && (
                           <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground">No users for this school.</TableCell></TableRow>
                         )}
                       </TableBody>
@@ -1780,7 +1780,7 @@ export function SuperAdmin() {
       </Dialog>
 
       {selectedStudentId && (() => {
-        const student = students.find(s => s.id === Number(selectedStudentId));
+        const student = students.find(s => s.id === selectedStudentId);
         if (!student) return null;
         const tenant = tenants.find(t => t.id === student.tenantId);
         return (

@@ -15,10 +15,10 @@ export function SuperAdminLogin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    const user = login(email, password, 'super_admin');
+    const user = await login(email, password, 'super_admin');
     if (user) {
       setLocation("/super-admin");
     } else {

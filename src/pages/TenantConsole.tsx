@@ -50,7 +50,7 @@ export function TenantConsole() {
   });
   const [txEndDate, setTxEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [txFilter, setTxFilter] = useState<"all" | "in" | "out">("all");
-  const [cancelId, setCancelId] = useState<number | null>(null);
+  const [cancelId, setCancelId] = useState<string | null>(null);
   const [cancelSuccessMsg, setCancelSuccessMsg] = useState("");
 
   // User management
