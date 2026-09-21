@@ -72,7 +72,9 @@ function mapNotificationRow(r: any): AppNotification {
   };
 }
 
-const STUDENT_SELECT = "*, lspay_student_wallets(*), levels(name)";
+// levels!students_level_id_fkey disambiguates from students.next_level_id, which also points at levels
+// (added later for LSA's roster-import "next class" field) - PostgREST can't guess which one we mean.
+const STUDENT_SELECT = "*, lspay_student_wallets(*), levels!students_level_id_fkey(name)";
 
 const StoreContext = createContext<AppState | undefined>(undefined);
 
