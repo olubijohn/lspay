@@ -205,9 +205,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       const { data: profile } = await supabase.from("profiles").select("*").eq("user_id", uid).eq("active", true).maybeSingle();
       if (profile) {
-        const { data: hasLspay } = await supabase.rpc("current_tenant_has_app", { p_app_code: "LSPAY" });
+        const [{ data: hasLspay }, { data: staffAccess }] = await Promise.all([
+          supabase.rpc("current_tenant_has_app", { p_app_code: "LSPAY" }),
+          supabase.rpc("staff_has_app_access", { p_user: uid, p_app_code: "LSPAY" }),
+        ]);
         if (loadToken.current !== myToken) return;
-        if (hasLspay) {
+        if (hasLspay && staffAccess) {
           setParentSession(null);
           setSession({ user: { id: profile.user_id, name: profile.full_name, email: profile.email ?? "", passwordHash: "", role: LSA_TO_ROLE[profile.role] ?? "kiosk_operator", tenantId: profile.tenant_id, isActive: profile.active }, portal: "tenant" });
           await loadTenantScoped(profile.tenant_id, myToken);
@@ -253,8 +256,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const { data: profile } = await supabase.from("profiles").select("*").eq("user_id", uid).eq("active", true).maybeSingle();
     if (!profile) { await supabase.auth.signOut(); return null; }
-    const { data: hasLspay } = await supabase.rpc("current_tenant_has_app", { p_app_code: "LSPAY" });
-    if (!hasLspay) { await supabase.auth.signOut(); return null; }
+    const [{ data: hasLspay }, { data: staffAccess }] = await Promise.all([
+      supabase.rpc("current_tenant_has_app", { p_app_code: "LSPAY" }),
+      supabase.rpc("staff_has_app_access", { p_user: uid, p_app_code: "LSPAY" }),
+    ]);
+    if (!hasLspay || !staffAccess) { await supabase.auth.signOut(); return null; }
     const user: SystemUser = { id: profile.user_id, name: profile.full_name, email: profile.email ?? "", passwordHash: "", role: LSA_TO_ROLE[profile.role] ?? "kiosk_operator", tenantId: profile.tenant_id, isActive: profile.active };
     setParentSession(null); setSession({ user, portal: "tenant" });
     await loadTenantScoped(profile.tenant_id, ++loadToken.current);
