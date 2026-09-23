@@ -170,7 +170,7 @@ export interface AppState {
   deductBalanceAndStock: (studentId: string, amount: number, items: {id: string, qty: number}[]) => Promise<void>;
 
   addStockMovement: (movement: Omit<StockMovement, "id">) => StockMovement;
-  addParentChild: (parentId: string, enrollmentKey: string, studentId: string, parentEmail: string) => Promise<{ success: boolean, message?: string }>;
+  addParentChild: (parentId: string, enrollmentKey: string, studentId: string, parentEmail: string, paystackReference: string) => Promise<{ success: boolean, message?: string }>;
 
   addNotification: (n: Omit<AppNotification, "id">) => AppNotification;
   markNotificationRead: (id: string) => void;

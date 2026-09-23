@@ -142,7 +142,7 @@ export function SuperAdmin() {
 
   const handleAddSchool = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSchoolName || !newSchoolCode || !newSchoolAddress || !contactName || !contactEmail || !newSchoolPaystackKey) return;
+    if (!newSchoolName || !newSchoolCode || !newSchoolAddress || !contactName || !contactEmail) return;   // no Paystack key = the platform account
     const enrollmentKey = `SCH-${newSchoolCode.toUpperCase()}-2026`;
     const newTenant = await addTenant({ name: newSchoolName, code: newSchoolCode.toUpperCase(), address: newSchoolAddress, contactName, contactEmail, enrollmentKey, paystackPublicKey: newSchoolPaystackKey, logoUrl: newSchoolLogoUrl });
     const tempPassword = enrollmentKey.substring(0, 6).toLowerCase() + "A1!";
@@ -165,7 +165,7 @@ export function SuperAdmin() {
 
   const handleEditSchoolSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingSchool || !editSchoolName || !editSchoolCode || !editSchoolAddress || !editContactName || !editContactEmail || !editSchoolPaystackKey) return;
+    if (!editingSchool || !editSchoolName || !editSchoolCode || !editSchoolAddress || !editContactName || !editContactEmail) return;
     updateTenant(editingSchool.id, {
       name: editSchoolName,
       code: editSchoolCode.toUpperCase(),
@@ -772,7 +772,7 @@ export function SuperAdmin() {
                             </div>
                             <div className="col-span-2">
                               <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Paystack Public Key</span>
-                              <p className="text-muted-foreground font-mono text-sm truncate bg-background p-2 rounded border border-border">{school.paystackPublicKey || "None configured"}</p>
+                              <p className="text-muted-foreground font-mono text-sm truncate bg-background p-2 rounded border border-border">{school.paystackPublicKey || "LSA platform account"}</p>
                             </div>
                           </div>
                         </CardContent>
@@ -1555,7 +1555,8 @@ export function SuperAdmin() {
             </div>
             <div className="space-y-2">
               <Label className="text-foreground">Paystack Public Key</Label>
-              <Input value={newSchoolPaystackKey} onChange={e => setNewSchoolPaystackKey(e.target.value)} placeholder="pk_live_..." className="bg-background border-border text-foreground font-mono" data-testid="input-school-paystack-key" required />
+              <Input value={newSchoolPaystackKey} onChange={e => setNewSchoolPaystackKey(e.target.value)} placeholder="Optional: blank uses the LSA platform account" className="bg-background border-border text-foreground font-mono" data-testid="input-school-paystack-key" />
+              <p className="text-xs text-muted-foreground">Only set this if the school has its own Paystack account, and save the matching secret key in LSA (School profile, Payment gateways).</p>
             </div>
             <div className="space-y-2">
               <Label className="text-foreground">School Logo</Label>
@@ -1613,7 +1614,8 @@ export function SuperAdmin() {
             </div>
             <div className="space-y-2">
               <Label className="text-foreground">Paystack Public Key</Label>
-              <Input value={editSchoolPaystackKey} onChange={e => setEditSchoolPaystackKey(e.target.value)} placeholder="pk_live_..." className="bg-background border-border text-foreground font-mono" data-testid="edit-school-paystack-key" required />
+              <Input value={editSchoolPaystackKey} onChange={e => setEditSchoolPaystackKey(e.target.value)} placeholder="Optional: blank uses the LSA platform account" className="bg-background border-border text-foreground font-mono" data-testid="edit-school-paystack-key" />
+              <p className="text-xs text-muted-foreground">Only set this if the school has its own Paystack account, and save the matching secret key in LSA (School profile, Payment gateways).</p>
             </div>
             <div className="space-y-2">
               <Label className="text-foreground">School Logo</Label>

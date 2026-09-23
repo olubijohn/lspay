@@ -18,6 +18,9 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as
 import { useChartTheme } from "@/theme";
 import { ParentSidebar } from "@/components/layout/ParentSidebar";
 
+// Termly enrollment fee in naira; must match ENROLLMENT_FEE in LSA/supabase/functions/lspay-enroll.
+const ENROLLMENT_FEE = 1000;
+
 export function ParentPortal() {
   const chartTheme = useChartTheme();
   const { tenants, students, transactions, updateStudent, parentSession, updateParentUser, addParentChild, notifications, markNotificationRead, activateCard, addTransaction, topupWallet } = useStore();
@@ -107,16 +110,18 @@ export function ParentPortal() {
     launchPaystack({
       paystackPublicKey: tenant.paystackPublicKey,
       email: parentSession!.email,
-      amountMajor: 1000,
+      amountMajor: ENROLLMENT_FEE,
       metadata: {
+        // purpose + key + reg no are checked by the lspay-enroll edge function before the child is linked
+        purpose: "lspay_enrollment", enrollment_key: authCode.toUpperCase(), student_reg_no: studentIdInput.toUpperCase(),
         custom_fields: [
           { display_name: "Action", variable_name: "action", value: "Enrollment Fee" },
           { display_name: "Auth Code", variable_name: "auth_code", value: authCode },
           { display_name: "Student ID", variable_name: "student_id", value: studentIdInput },
         ],
       },
-      onSuccess: async () => {
-        const result = await addParentChild(parentSession.id, authCode.toUpperCase(), studentIdInput.toUpperCase(), parentSession.email);
+      onSuccess: async (reference) => {
+        const result = await addParentChild(parentSession.id, authCode.toUpperCase(), studentIdInput.toUpperCase(), parentSession.email, reference);
 
         if (result.success) {
           setRegSuccess(`Successfully linked student!`);
@@ -128,7 +133,7 @@ export function ParentPortal() {
           }, 2000);
         } else {
           setRegProcessing(false);
-          setRegError(result.message || "Failed to link student.");
+          setRegError(`${result.message || "Failed to link student."} (Paystack ref ${reference})`);
         }
       },
       onCancel: () => {
@@ -172,6 +177,8 @@ export function ParentPortal() {
       email: parentSession!.email,
       amountMajor: amount,
       metadata: {
+        // checked by the lspay-wallet-topup edge function (and paystack-webhook) before the wallet is credited
+        purpose: "lspay_topup", student_id: child.id,
         custom_fields: [
           { display_name: "Student", variable_name: "student", value: child.name },
           { display_name: "Student ID", variable_name: "student_id", value: child.studentId },

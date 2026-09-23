@@ -507,9 +507,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // supabase-js hides the JSON body of a non-2xx edge-function reply inside error.context
+  const functionError = async (error: any) => {
+    try { const j = await error?.context?.json?.(); if (j?.error) return new Error(j.error); } catch { /* keep default */ }
+    return error instanceof Error ? error : new Error(String(error?.message ?? error));
+  };
+
   const topupWallet = async (studentId: string, paystackReference: string) => {
     const { data, error } = await getSupabase().functions.invoke("lspay-wallet-topup", { body: { studentId, reference: paystackReference } });
-    if (error) throw error;
+    if (error) throw await functionError(error);
     const newBalance = data?.balance !== undefined ? Number(data.balance) : undefined;
     setStudents((prev) => prev.map((s) =>
       s.id === studentId ? { ...s, walletBalance: newBalance !== undefined ? newBalance : s.walletBalance + (data?.credited ?? 0) } : s));
@@ -534,11 +540,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   // ------------------------------ parent-child linking ------------------------------
-  const addParentChild = async (parentId: string, enrollmentKey: string, studentIdText: string, parentEmail: string) => {
-    const { data, error } = await getSupabase().rpc("lspay_link_parent_child", {
-      p_enrollment_key: enrollmentKey, p_student_reg_no: studentIdText, p_parent_email: parentEmail,
+  // The edge function confirms the enrollment-fee payment with Paystack before linking the child.
+  const addParentChild = async (parentId: string, enrollmentKey: string, studentIdText: string, parentEmail: string, paystackReference: string) => {
+    const { data, error } = await getSupabase().functions.invoke("lspay-enroll", {
+      body: { reference: paystackReference, enrollmentKey, studentRegNo: studentIdText, parentEmail },
     });
-    if (error) return { success: false, message: error.message };
+    if (error) return { success: false, message: (await functionError(error)).message };
     if (!data?.success) return { success: false, message: data?.message };
 
     const supabase = getSupabase();
