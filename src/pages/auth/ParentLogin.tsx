@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShieldCheck, Wallet } from "lucide-react";
 
 export function ParentLogin() {
-  const { loginParent, registerParent } = useStore();
+  const { loginParent, registerParent, lastAccessError } = useStore();
   const [, setLocation] = useLocation();
   
   // Login state
@@ -32,7 +32,7 @@ export function ParentLogin() {
     if (user) {
       setLocation("/parent");
     } else {
-      setLoginError("Invalid credentials.");
+      setLoginError(lastAccessError() || "Invalid credentials.");
     }
   };
 

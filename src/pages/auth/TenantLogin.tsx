@@ -9,7 +9,7 @@ import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Store, Wallet } from "lucide-react";
 
 export function TenantLogin() {
-  const { login } = useStore();
+  const { login, lastAccessError } = useStore();
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,7 +26,7 @@ export function TenantLogin() {
         setLocation("/tenant");
       }
     } else {
-      setError("Invalid credentials or unauthorized access.");
+      setError(lastAccessError() || "Invalid credentials or unauthorized access.");
     }
   };
 

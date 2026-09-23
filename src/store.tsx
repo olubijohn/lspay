@@ -211,6 +211,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ]);
         if (loadToken.current !== myToken) return;
         if (hasLspay && staffAccess) {
+          const refusal = await lspayRefusal();
+          if (refusal) { setAccessError(refusal); await supabase.auth.signOut(); return; }
           setParentSession(null);
           setSession({ user: { id: profile.user_id, name: profile.full_name, email: profile.email ?? "", passwordHash: "", role: LSA_TO_ROLE[profile.role] ?? "kiosk_operator", tenantId: profile.tenant_id, isActive: profile.active }, portal: "tenant" });
           await loadTenantScoped(profile.tenant_id, myToken);
@@ -221,6 +223,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const { data: account } = await supabase.from("portal_accounts").select("*, portal_account_students(student_id)").eq("user_id", uid).maybeSingle();
       if (loadToken.current !== myToken) return;
       if (account) {
+        const refusal = await lspayRefusal();
+        if (loadToken.current !== myToken) return;
+        if (refusal) { setAccessError(refusal); await supabase.auth.signOut(); return; }
         const linked = (account.portal_account_students ?? []).map((x: any) => x.student_id);
         const pu: ParentUser = { id: account.id, name: account.full_name, email: account.email ?? "", passwordHash: "", phone: account.phone ?? "", linkedStudentIds: linked };
         setSession({ user: null, portal: null });
@@ -239,8 +244,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [loadTenantScoped, loadForParent]);
 
   // ------------------------------ auth ------------------------------
+  // Why the last sign-in was refused (school suspended, LSPay switched off for the school, or no LSPay access).
+  const accessErrorRef = useRef("");
+  const setAccessError = (m: string) => { accessErrorRef.current = m; };
+  const lastAccessError = () => accessErrorRef.current;
+  const lspayRefusal = async (): Promise<string | null> => {
+    const { data, error } = await getSupabase().rpc("app_access");
+    if (error || !data) return "Could not check your access. Please try again.";
+    if (data.kind === "console") return null;
+    if (data.blocked || !data.apps) return data.message ?? "Access is refused.";
+    return data.apps.LSPAY?.ok ? null : (data.apps.LSPAY?.message ?? "Access is refused.");
+  };
+
   const login = async (email: string, password: string, portal: "super_admin" | "tenant") => {
     const supabase = getSupabase();
+    if (portal === "tenant") setAccessError("");   // the unified login tries "tenant" first, so a stale refusal never lingers
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error || !data.user) return null;
     const uid = data.user.id;
@@ -254,13 +272,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return user;
     }
 
-    const { data: profile } = await supabase.from("profiles").select("*").eq("user_id", uid).eq("active", true).maybeSingle();
+    const { data: profile } = await supabase.from("profiles").select("*").eq("user_id", uid).maybeSingle();
     if (!profile) { await supabase.auth.signOut(); return null; }
-    const [{ data: hasLspay }, { data: staffAccess }] = await Promise.all([
-      supabase.rpc("current_tenant_has_app", { p_app_code: "LSPAY" }),
-      supabase.rpc("staff_has_app_access", { p_user: uid, p_app_code: "LSPAY" }),
-    ]);
-    if (!hasLspay || !staffAccess) { await supabase.auth.signOut(); return null; }
+    const refusal = await lspayRefusal();
+    if (refusal) { setAccessError(refusal); await supabase.auth.signOut(); return null; }
+    setAccessError("");
     const user: SystemUser = { id: profile.user_id, name: profile.full_name, email: profile.email ?? "", passwordHash: "", role: LSA_TO_ROLE[profile.role] ?? "kiosk_operator", tenantId: profile.tenant_id, isActive: profile.active };
     setParentSession(null); setSession({ user, portal: "tenant" });
     await loadTenantScoped(profile.tenant_id, ++loadToken.current);
@@ -273,6 +289,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (error || !data.user) return null;
     const { data: account } = await supabase.from("portal_accounts").select("*, portal_account_students(student_id)").eq("user_id", data.user.id).maybeSingle();
     if (!account) { await supabase.auth.signOut(); return null; }
+    const refusal = await lspayRefusal();
+    if (refusal) { setAccessError(refusal); await supabase.auth.signOut(); return null; }
+    setAccessError("");
     const linked = (account.portal_account_students ?? []).map((x: any) => x.student_id);
     const pu: ParentUser = { id: account.id, name: account.full_name, email: account.email ?? "", passwordHash: "", phone: account.phone ?? "", linkedStudentIds: linked };
     setSession({ user: null, portal: null }); setParentSession(pu);
@@ -625,7 +644,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         login, loginParent, logout, logoutParent, registerParent, updateParentUser, createSystemUser, updateSystemUser,
         addTenant, updateTenant, assignCard, replaceCard, removeCard, createStudent, updateStudent, addInventory, updateInventory, deleteInventory, addTransaction, cancelTransaction, deductBalanceAndStock,
         addStockMovement, addParentChild, addNotification, markNotificationRead, markCardReady, markCardDelivered, activateCard,
-        verifyStaffCode, verifyWalletPin, topupWallet,
+        verifyStaffCode, verifyWalletPin, topupWallet, lastAccessError,
       }}
     >
       {children}

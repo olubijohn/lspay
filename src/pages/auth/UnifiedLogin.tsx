@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ThemeToggle } from "@/theme";
 
 export function UnifiedLogin() {
-  const { systemUsers, parentUsers, login, loginParent, registerParent } = useStore();
+  const { systemUsers, parentUsers, login, loginParent, registerParent, lastAccessError } = useStore();
   const [, setLocation] = useLocation();
 
   const [isRegistering, setIsRegistering] = useState(false);
@@ -42,7 +42,7 @@ export function UnifiedLogin() {
       return;
     }
 
-    setError("Invalid email or password.");
+    setError(lastAccessError() || "Invalid email or password.");
   };
 
   const handleRegister = async (e: React.FormEvent) => {

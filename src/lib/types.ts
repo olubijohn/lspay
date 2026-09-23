@@ -145,6 +145,8 @@ export interface AppState {
   
   login: (email: string, password: string, portal: 'super_admin' | 'tenant') => Promise<SystemUser | null>;
   loginParent: (email: string, password: string) => Promise<ParentUser | null>;
+  /** Why the last sign-in was refused (suspended school, LSPay off for the school, or no LSPay access); empty when none. */
+  lastAccessError: () => string;
   logout: () => Promise<void>;
   logoutParent: () => Promise<void>;
 
