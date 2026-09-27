@@ -9,17 +9,23 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { GraduationCap, ArrowLeft, Banknote } from "lucide-react";
+import { GraduationCap, ArrowLeft, Banknote, Trash2, AlertTriangle } from "lucide-react";
 import { cardLifecycleLabel } from "@/lib/types";
 
 export function TenantStudents({ tenantId }: { tenantId: string }) {
-  const { students, parentUsers, createStudent, updateStudent, markCardDelivered, transactions } = useStore();
+  const { students, parentUsers, createStudent, updateStudent, deleteStudent, deleteStudents, markCardDelivered, transactions } = useStore();
   const tenantStudents = students.filter(s => s.tenantId === tenantId);
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detailStudentId, setDetailStudentId] = useState<string | null>(null);
   const [txFilter, setTxFilter] = useState<"all" | "in" | "out">("all");
+
+  // Selection & Bulk Delete state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ mode: "single" | "selected" | "all"; id?: string; name?: string }>({ mode: "selected" });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Form State
   const [firstName, setFirstName] = useState("");
@@ -56,11 +62,54 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
     setIsOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this student?")) {
-      // In a real app, delete from store. For mock, just set inactive or ignore.
-      alert("Delete not fully implemented in mock store.");
+  const triggerDeleteSingle = (id: string, name: string) => {
+    setDeleteTarget({ mode: "single", id, name });
+    setDeleteConfirmOpen(true);
+  };
+
+  const triggerDeleteSelected = () => {
+    if (selectedIds.length === 0) return;
+    setDeleteTarget({ mode: "selected" });
+    setDeleteConfirmOpen(true);
+  };
+
+  const triggerDeleteAll = () => {
+    if (tenantStudents.length === 0) return;
+    setDeleteTarget({ mode: "all" });
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      if (deleteTarget.mode === "single" && deleteTarget.id) {
+        await deleteStudent(deleteTarget.id);
+        setSelectedIds(prev => prev.filter(x => x !== deleteTarget.id));
+      } else if (deleteTarget.mode === "selected") {
+        await deleteStudents(selectedIds, tenantId);
+        setSelectedIds([]);
+      } else if (deleteTarget.mode === "all") {
+        await deleteStudents([], tenantId);
+        setSelectedIds([]);
+      }
+      setDeleteConfirmOpen(false);
+    } catch (e: any) {
+      alert(e?.message || "Failed to delete student(s)");
+    } finally {
+      setIsDeleting(false);
     }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === tenantStudents.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(tenantStudents.map(s => s.id));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -230,92 +279,145 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-          <GraduationCap className="text-primary" /> Student Directory
-        </h1>
-        <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-lg shadow-lg shadow-primary/20">Add Student</Button>
-          </DialogTrigger>
-          <DialogContent className="bg-card border-border text-foreground sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-2xl">{editingId ? 'Edit Student Profile' : 'Register New Student'}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-6">
-              <div className="col-span-2 flex items-center gap-6 p-4 bg-background rounded-xl border border-border">
-                <Avatar className="h-20 w-20 border-2 border-border bg-card">
-                  <AvatarImage src={imageUrl || (firstName ? `https://api.dicebear.com/7.x/initials/svg?seed=${firstName} ${lastName}` : "")} />
-                  <AvatarFallback className="text-muted-foreground text-sm">IMG</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 space-y-2">
-                  <Label className="text-foreground">Profile Image</Label>
-                  <div className="flex gap-2">
-                    <Input type="file" accept="image/*" onChange={handleFileChange} className="bg-card border-border text-foreground" />
-                    <Input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="Or paste URL..." className="bg-card border-border text-foreground" />
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+            <GraduationCap className="text-primary" /> Student Directory
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            {tenantStudents.length} student{tenantStudents.length === 1 ? "" : "s"} enrolled
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {tenantStudents.length > 0 && (
+            <Button
+              variant="outline"
+              className="border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-400 font-semibold"
+              onClick={triggerDeleteAll}
+            >
+              <Trash2 className="w-4 h-4 mr-2" /> Bulk Delete All
+            </Button>
+          )}
+          <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-lg shadow-lg shadow-primary/20">Add Student</Button>
+            </DialogTrigger>
+            <DialogContent className="bg-card border-border text-foreground sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="text-2xl">{editingId ? 'Edit Student Profile' : 'Register New Student'}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-6">
+                <div className="col-span-2 flex items-center gap-6 p-4 bg-background rounded-xl border border-border">
+                  <Avatar className="h-20 w-20 border-2 border-border bg-card">
+                    <AvatarImage src={imageUrl || (firstName ? `https://api.dicebear.com/7.x/initials/svg?seed=${firstName} ${lastName}` : "")} />
+                    <AvatarFallback className="text-muted-foreground text-sm">IMG</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 space-y-2">
+                    <Label className="text-foreground">Profile Image</Label>
+                    <div className="flex gap-2">
+                      <Input type="file" accept="image/*" onChange={handleFileChange} className="bg-card border-border text-foreground" />
+                      <Input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="Or paste URL..." className="bg-card border-border text-foreground" />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label className="text-foreground">First Name</Label>
-                <Input value={firstName} onChange={e => setFirstName(e.target.value)} required className="bg-background border-border text-foreground h-11" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-foreground">Last Name</Label>
-                <Input value={lastName} onChange={e => setLastName(e.target.value)} required className="bg-background border-border text-foreground h-11" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-foreground">Registration Number</Label>
-                <Input value={studentId} onChange={e => setStudentId(e.target.value)} required className="bg-background border-border text-foreground h-11" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-foreground">Class / Year Group</Label>
-                <Input value={className} onChange={e => setClassName(e.target.value)} required className="bg-background border-border text-foreground h-11" />
-              </div>
-              <div className="col-span-2 space-y-2 mt-4 pt-4 border-t border-border">
-                <Label className="text-foreground">Home Address</Label>
-                <Input value={homeAddress} onChange={e => setHomeAddress(e.target.value)} required className="bg-background border-border text-foreground h-11" />
-              </div>
-              
-              <div className="col-span-2 space-y-3">
-                <div className="flex items-center space-x-2 bg-background p-3 rounded-lg border border-border">
-                  <Checkbox id="sameAddress" checked={sameAsHome} onCheckedChange={(checked) => setSameAsHome(!!checked)} className="border-border data-[state=checked]:bg-primary" />
-                  <label htmlFor="sameAddress" className="text-sm font-medium leading-none text-foreground cursor-pointer">
-                    Billing address is same as home address
-                  </label>
+                <div className="space-y-2">
+                  <Label className="text-foreground">First Name</Label>
+                  <Input value={firstName} onChange={e => setFirstName(e.target.value)} required className="bg-background border-border text-foreground h-11" />
                 </div>
-                {!sameAsHome && (
-                  <div className="space-y-2">
-                    <Label className="text-foreground">Billing Address</Label>
-                    <Input value={billingAddress} onChange={e => setBillingAddress(e.target.value)} required className="bg-background border-border text-foreground h-11" />
+                <div className="space-y-2">
+                  <Label className="text-foreground">Last Name</Label>
+                  <Input value={lastName} onChange={e => setLastName(e.target.value)} required className="bg-background border-border text-foreground h-11" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-foreground">Registration Number</Label>
+                  <Input value={studentId} onChange={e => setStudentId(e.target.value)} required className="bg-background border-border text-foreground h-11" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-foreground">Class / Year Group</Label>
+                  <Input value={className} onChange={e => setClassName(e.target.value)} required className="bg-background border-border text-foreground h-11" />
+                </div>
+                <div className="col-span-2 space-y-2 mt-4 pt-4 border-t border-border">
+                  <Label className="text-foreground">Home Address</Label>
+                  <Input value={homeAddress} onChange={e => setHomeAddress(e.target.value)} required className="bg-background border-border text-foreground h-11" />
+                </div>
+                
+                <div className="col-span-2 space-y-3">
+                  <div className="flex items-center space-x-2 bg-background p-3 rounded-lg border border-border">
+                    <Checkbox id="sameAddress" checked={sameAsHome} onCheckedChange={(checked) => setSameAsHome(!!checked)} className="border-border data-[state=checked]:bg-primary" />
+                    <label htmlFor="sameAddress" className="text-sm font-medium leading-none text-foreground cursor-pointer">
+                      Billing address is same as home address
+                    </label>
                   </div>
-                )}
-              </div>
+                  {!sameAsHome && (
+                    <div className="space-y-2">
+                      <Label className="text-foreground">Billing Address</Label>
+                      <Input value={billingAddress} onChange={e => setBillingAddress(e.target.value)} required className="bg-background border-border text-foreground h-11" />
+                    </div>
+                  )}
+                </div>
 
-              <div className="space-y-2 mt-4 pt-4 border-t border-border">
-                <Label className="text-foreground">Parent/Guardian Name</Label>
-                <Input value={parentName} onChange={e => setParentName(e.target.value)} required className="bg-background border-border text-foreground h-11" />
-              </div>
-              <div className="space-y-2 mt-4 pt-4 border-t border-border">
-                <Label className="text-foreground">Parent/Guardian Email</Label>
-                <Input type="email" value={parentEmail} onChange={e => setParentEmail(e.target.value)} required className="bg-background border-border text-foreground h-11" />
-              </div>
+                <div className="space-y-2 mt-4 pt-4 border-t border-border">
+                  <Label className="text-foreground">Parent/Guardian Name</Label>
+                  <Input value={parentName} onChange={e => setParentName(e.target.value)} required className="bg-background border-border text-foreground h-11" />
+                </div>
+                <div className="space-y-2 mt-4 pt-4 border-t border-border">
+                  <Label className="text-foreground">Parent/Guardian Email</Label>
+                  <Input type="email" value={parentEmail} onChange={e => setParentEmail(e.target.value)} required className="bg-background border-border text-foreground h-11" />
+                </div>
 
-              <div className="col-span-2 flex justify-end mt-6">
-                <Button type="submit" className="bg-primary hover:bg-primary/90 text-white h-12 px-8 font-bold text-lg w-full">Save Student Record</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <div className="col-span-2 flex justify-end mt-6">
+                  <Button type="submit" className="bg-primary hover:bg-primary/90 text-white h-12 px-8 font-bold text-lg w-full">Save Student Record</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
+
+      {/* Selected Action Bar */}
+      {selectedIds.length > 0 && (
+        <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in duration-200">
+          <div className="flex items-center gap-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
+            <span className="font-semibold text-foreground text-sm">
+              {selectedIds.length} {selectedIds.length === 1 ? "student" : "students"} selected
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={triggerDeleteSelected}
+              className="border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-400 font-semibold"
+            >
+              <Trash2 className="w-4 h-4 mr-2" /> Delete Selected ({selectedIds.length})
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedIds([])}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Card className="bg-card border-border shadow-xl overflow-hidden">
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-background border-b border-border">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="text-muted-foreground w-[60px] py-4">Photo</TableHead>
+                <TableHead className="w-[45px] py-4 pl-4">
+                  <Checkbox
+                    checked={tenantStudents.length > 0 && selectedIds.length === tenantStudents.length}
+                    onCheckedChange={toggleSelectAll}
+                    aria-label="Select all students"
+                  />
+                </TableHead>
+                <TableHead className="text-muted-foreground w-[50px] py-4">Photo</TableHead>
                 <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Name / ID</TableHead>
                 <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Class</TableHead>
                 <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Parent Details</TableHead>
@@ -324,64 +426,74 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tenantStudents.map(s => (
-                <TableRow key={s.id} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
-                  <TableCell className="py-3">
-                    <Avatar className="h-10 w-10 border border-border bg-background">
-                      <AvatarImage src={s.imageUrl} alt={s.name} />
-                      <AvatarFallback className="text-muted-foreground text-xs">{s.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                  </TableCell>
-                  <TableCell>
-                    <div 
-                      className="text-foreground font-bold cursor-pointer hover:text-primary transition-colors"
-                      onClick={() => setDetailStudentId(s.id)}
-                    >
-                      {s.name}
-                    </div>
-                    <div className="text-muted-foreground font-mono text-xs mt-0.5">{s.studentId}</div>
-                  </TableCell>
-                  <TableCell className="text-foreground">{s.className}</TableCell>
-                  <TableCell>
-                    <div className="text-foreground">{s.parentName}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{s.parentEmail}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1.5 items-start">
-                      <Badge className={
-                        s.cardLifecycleStatus === 'pending_assignment' ? 'bg-amber-500/20 text-amber-400 border-0' : 
-                        s.cardLifecycleStatus === 'assigned' ? 'bg-blue-500/20 text-blue-400 border-0' : 
-                        s.cardLifecycleStatus === 'ready' ? 'bg-cyan-500/20 text-cyan-400 border-0' : 
-                        s.cardLifecycleStatus === 'delivered' ? 'bg-purple-500/20 text-purple-400 border-0' : 
-                        'bg-primary/20 text-primary border-0'
-                      }>
-                        {cardLifecycleLabel(s.cardLifecycleStatus)}
-                      </Badge>
-                      <Badge variant="outline" className={s.cardStatus === 'Active' ? 'text-primary border-primary/50 bg-primary/20 text-[10px]' : s.cardStatus === 'Blocked' ? 'text-red-400 border-red-900/50 bg-red-950/20 text-[10px]' : 'text-amber-400 border-amber-900/50 bg-amber-950/20 text-[10px]'}>
-                        Card: {s.cardStatus}
-                      </Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right pr-4">
-                    <div className="flex justify-end items-center gap-2">
-                      {s.cardLifecycleStatus === 'ready' && (
-                        <Button 
-                          size="sm" 
-                          onClick={() => markCardDelivered(s.id)} 
-                          className="bg-purple-600 hover:bg-purple-700 text-white text-xs h-8"
-                        >
-                          Confirm Delivery
-                        </Button>
-                      )}
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(s)} className="text-muted-foreground hover:text-foreground hover:bg-muted">Edit</Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(s.id)} className="text-red-400 hover:text-red-300 hover:bg-red-950/30">Delete</Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {tenantStudents.map(s => {
+                const isSelected = selectedIds.includes(s.id);
+                return (
+                  <TableRow key={s.id} className={`border-b border-border/50 hover:bg-muted/50 transition-colors ${isSelected ? "bg-primary/5" : ""}`}>
+                    <TableCell className="py-3 pl-4">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleSelect(s.id)}
+                        aria-label={`Select ${s.name}`}
+                      />
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <Avatar className="h-10 w-10 border border-border bg-background">
+                        <AvatarImage src={s.imageUrl} alt={s.name} />
+                        <AvatarFallback className="text-muted-foreground text-xs">{s.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                    </TableCell>
+                    <TableCell>
+                      <div 
+                        className="text-foreground font-bold cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => setDetailStudentId(s.id)}
+                      >
+                        {s.name}
+                      </div>
+                      <div className="text-muted-foreground font-mono text-xs mt-0.5">{s.studentId}</div>
+                    </TableCell>
+                    <TableCell className="text-foreground">{s.className}</TableCell>
+                    <TableCell>
+                      <div className="text-foreground">{s.parentName}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{s.parentEmail}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1.5 items-start">
+                        <Badge className={
+                          s.cardLifecycleStatus === 'pending_assignment' ? 'bg-amber-500/20 text-amber-400 border-0' : 
+                          s.cardLifecycleStatus === 'assigned' ? 'bg-blue-500/20 text-blue-400 border-0' : 
+                          s.cardLifecycleStatus === 'ready' ? 'bg-cyan-500/20 text-cyan-400 border-0' : 
+                          s.cardLifecycleStatus === 'delivered' ? 'bg-purple-500/20 text-purple-400 border-0' : 
+                          'bg-primary/20 text-primary border-0'
+                        }>
+                          {cardLifecycleLabel(s.cardLifecycleStatus)}
+                        </Badge>
+                        <Badge variant="outline" className={s.cardStatus === 'Active' ? 'text-primary border-primary/50 bg-primary/20 text-[10px]' : s.cardStatus === 'Blocked' ? 'text-red-400 border-red-900/50 bg-red-950/20 text-[10px]' : 'text-amber-400 border-amber-900/50 bg-amber-950/20 text-[10px]'}>
+                          Card: {s.cardStatus}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right pr-4">
+                      <div className="flex justify-end items-center gap-2">
+                        {s.cardLifecycleStatus === 'ready' && (
+                          <Button 
+                            size="sm" 
+                            onClick={() => markCardDelivered(s.id)} 
+                            className="bg-purple-600 hover:bg-purple-700 text-white text-xs h-8"
+                          >
+                            Confirm Delivery
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(s)} className="text-muted-foreground hover:text-foreground hover:bg-muted">Edit</Button>
+                        <Button variant="ghost" size="sm" onClick={() => triggerDeleteSingle(s.id, s.name)} className="text-red-400 hover:text-red-300 hover:bg-red-950/30">Delete</Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
               {tenantStudents.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-16">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-16">
                     <GraduationCap className="w-12 h-12 mx-auto mb-4 opacity-20" />
                     No students found. Add one to get started.
                   </TableCell>
@@ -391,6 +503,48 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="bg-card border-border text-foreground sm:max-w-[450px]">
+          <DialogHeader>
+            <div className="flex items-center gap-3 text-red-500 mb-2">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+              </div>
+              <DialogTitle className="text-xl">Confirm Student Deletion</DialogTitle>
+            </div>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-sm text-muted-foreground">
+            {deleteTarget.mode === "single" ? (
+              <p>
+                Are you sure you want to permanently delete <b className="text-foreground">{deleteTarget.name}</b>? This will remove their card wallet and all associated data. This action cannot be undone.
+              </p>
+            ) : deleteTarget.mode === "selected" ? (
+              <p>
+                Are you sure you want to permanently delete <b className="text-foreground">{selectedIds.length}</b> selected student record(s)? Their wallets and cards will also be deleted. This action cannot be undone.
+              </p>
+            ) : (
+              <p>
+                Are you sure you want to permanently delete <b className="text-red-500">ALL {tenantStudents.length}</b> students enrolled in this school? This will completely clear the student directory, cards, and wallets.
+              </p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t border-border">
+            <Button variant="ghost" onClick={() => setDeleteConfirmOpen(false)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white font-semibold"
+            >
+              {isDeleting ? "Deleting…" : deleteTarget.mode === "all" ? "Delete All Students" : "Delete"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

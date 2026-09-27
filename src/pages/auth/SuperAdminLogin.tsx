@@ -49,13 +49,14 @@ export function SuperAdminLogin() {
               </Alert>
             )}
             <div className="space-y-2">
-              <Label className="text-foreground">Email Address</Label>
+              <Label className="text-foreground">Email or Username</Label>
               <Input 
-                type="email" 
+                type="text" 
                 value={email} 
                 onChange={e => setEmail(e.target.value)} 
                 className="bg-background border-border text-foreground" 
-                placeholder="admin@lspay.com"
+                placeholder="e.g. owner or admin@lspay.com"
+                autoComplete="username"
                 required
               />
             </div>

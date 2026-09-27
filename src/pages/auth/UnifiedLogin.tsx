@@ -24,7 +24,7 @@ export function UnifiedLogin() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    const trimmed = email.trim().toLowerCase();
+    const trimmed = email.trim();
 
     const tenantUser = await login(trimmed, password, 'tenant');
     if (tenantUser) {
@@ -42,7 +42,7 @@ export function UnifiedLogin() {
       return;
     }
 
-    setError(lastAccessError() || "Invalid email or password.");
+    setError(lastAccessError() || "Invalid school number, username, email or password.");
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -157,15 +157,16 @@ export function UnifiedLogin() {
               {!isRegistering ? (
                 <form onSubmit={handleSignIn} className="space-y-5">
                   <div className="space-y-1.5 xl:space-y-2">
-                    <Label className="text-xs xl:text-sm text-slate-500">Email address</Label>
+                    <Label className="text-xs xl:text-sm text-slate-500">Email, username or school number</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 xl:h-5 xl:w-5 text-slate-400" />
                       <Input
-                        type="email"
+                        type="text"
                         value={email}
                         onChange={e => setEmail(e.target.value)}
-                        placeholder="parent@example.com"
+                        placeholder="e.g. 12, adaeze or parent@example.com"
                         className="h-11 xl:h-12 pl-10 xl:pl-11 bg-white border-slate-200 text-slate-900 focus-visible:ring-blue-500 text-sm xl:text-base"
+                        autoComplete="username"
                         required
                       />
                     </div>

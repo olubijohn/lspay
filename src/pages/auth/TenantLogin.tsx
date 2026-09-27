@@ -53,13 +53,14 @@ export function TenantLogin() {
               </Alert>
             )}
             <div className="space-y-2">
-              <Label className="text-foreground">Email Address</Label>
+              <Label className="text-foreground">Email, Username or School Number</Label>
               <Input 
-                type="email" 
+                type="text" 
                 value={email} 
                 onChange={e => setEmail(e.target.value)} 
                 className="bg-background border-border text-foreground" 
-                placeholder="sarah@greenwood.edu"
+                placeholder="e.g. 12, adaeze or sarah@greenwood.edu"
+                autoComplete="username"
                 required
               />
             </div>

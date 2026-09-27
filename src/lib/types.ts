@@ -159,6 +159,8 @@ export interface AppState {
   updateTenant: (id: string, updates: Partial<Tenant>) => void;
   createStudent: (s: Omit<Student, "id">) => Promise<Student | null>;
   updateStudent: (studentId: string, updates: Partial<Student>) => void;
+  deleteStudent: (studentId: string) => Promise<boolean>;
+  deleteStudents: (studentIds: string[], tenantId?: string) => Promise<boolean>;
   assignCard: (studentId: string, cardType: string, hardwareId: string) => void;
   replaceCard: (studentId: string, cardType: string, hardwareId: string) => void;
   removeCard: (studentId: string) => void;

@@ -24,11 +24,17 @@ import { Wifi } from "lucide-react";
 
 export function SuperAdmin() {
   const chartTheme = useChartTheme();
-  const { tenants, students, transactions, addTenant, updateTenant, createStudent, assignCard, replaceCard, removeCard, systemUsers, createSystemUser, updateSystemUser, notifications, markNotificationRead, markCardReady } = useStore();
+  const { tenants, students, transactions, addTenant, updateTenant, createStudent, updateStudent, deleteStudent, deleteStudents, assignCard, replaceCard, removeCard, systemUsers, createSystemUser, updateSystemUser, notifications, markNotificationRead, markCardReady } = useStore();
   const [activeTab, setActiveTab] = useState("overview");
   const [successMsg, setSuccessMsg] = useState("");
   const [mobileNav, setMobileNav] = useState(false);
   const [showPrintStudio, setShowPrintStudio] = useState(false);
+
+  // SuperAdmin Student Deletion State
+  const [adminDeleteConfirmOpen, setAdminDeleteConfirmOpen] = useState(false);
+  const [adminDeleteTarget, setAdminDeleteTarget] = useState<{ mode: "cards_selected" | "school_selected" | "school_all" | "single"; tenantId?: string; singleId?: string; studentName?: string; schoolName?: string }>({ mode: "cards_selected" });
+  const [adminDeleting, setAdminDeleting] = useState(false);
+  const [schoolSelectedStudentIds, setSchoolSelectedStudentIds] = useState<string[]>([]);
 
   // Overview Filters
   const [filterSchool, setFilterSchool] = useState<string>("all");
@@ -54,6 +60,34 @@ export function SuperAdmin() {
   const [cardActivatedEnd, setCardActivatedEnd] = useState("");
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [bulkPrintStudents, setBulkPrintStudents] = useState<any[] | null>(null);
+
+  const handleAdminDeleteConfirm = async () => {
+    setAdminDeleting(true);
+    try {
+      if (adminDeleteTarget.mode === "single" && adminDeleteTarget.singleId) {
+        await deleteStudent(adminDeleteTarget.singleId);
+        setSchoolSelectedStudentIds(prev => prev.filter(x => x !== adminDeleteTarget.singleId));
+        setSelectedStudentIds(prev => prev.filter(x => x !== adminDeleteTarget.singleId));
+      } else if (adminDeleteTarget.mode === "cards_selected" && selectedStudentIds.length) {
+        await deleteStudents(selectedStudentIds);
+        setSelectedStudentIds([]);
+      } else if (adminDeleteTarget.mode === "school_selected" && schoolSelectedStudentIds.length) {
+        await deleteStudents(schoolSelectedStudentIds, adminDeleteTarget.tenantId);
+        setSchoolSelectedStudentIds([]);
+      } else if (adminDeleteTarget.mode === "school_all" && adminDeleteTarget.tenantId) {
+        await deleteStudents([], adminDeleteTarget.tenantId);
+        setSchoolSelectedStudentIds([]);
+      }
+      setAdminDeleteConfirmOpen(false);
+      setSuccessMsg("Student record(s) deleted successfully.");
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (err: any) {
+      alert(err?.message || "Failed to delete student(s)");
+    } finally {
+      setAdminDeleting(false);
+    }
+  };
+
   const { supported: nfcSupported, status: nfcStatus, error: nfcError, start: startNfc, stop: stopNfc } = useNfcScanner((id) => {
     setHardwareId(id);
     setCardType("NFC");
@@ -712,6 +746,18 @@ export function SuperAdmin() {
                         <ArrowLeft className="w-4 h-4 mr-2" /> Back to Schools
                       </Button>
                       <div className="flex gap-3">
+                        {schoolStudents.length > 0 && (
+                          <Button 
+                            onClick={() => {
+                              setAdminDeleteTarget({ mode: "school_all", tenantId: school.id, schoolName: school.name });
+                              setAdminDeleteConfirmOpen(true);
+                            }} 
+                            variant="outline" 
+                            className="border-red-500/30 text-red-500 hover:bg-red-500/10 font-semibold"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" /> Bulk Delete All Students
+                          </Button>
+                        )}
                         <Button onClick={() => handleEditSchoolClick(school)} variant="outline" className="border-border text-foreground hover:bg-muted" data-testid="btn-profile-edit-school">
                           Edit Details
                         </Button>
@@ -802,48 +848,119 @@ export function SuperAdmin() {
 
                     {/* Students Directory (Filtered for this school) */}
                     <div className="space-y-4">
-                      <h2 className="text-2xl font-bold text-foreground">Students Directory</h2>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h2 className="text-2xl font-bold text-foreground">Students Directory</h2>
+                          <p className="text-xs text-muted-foreground mt-0.5">{schoolStudents.length} students enrolled in {school.name}</p>
+                        </div>
+                      </div>
+
+                      {schoolSelectedStudentIds.length > 0 && (
+                        <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in duration-200">
+                          <span className="font-semibold text-foreground text-sm">
+                            {schoolSelectedStudentIds.length} {schoolSelectedStudentIds.length === 1 ? 'student' : 'students'} selected
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-red-500/30 text-red-500 hover:bg-red-500/10 font-semibold"
+                              onClick={() => {
+                                setAdminDeleteTarget({ mode: "school_selected", tenantId: school.id, schoolName: school.name });
+                                setAdminDeleteConfirmOpen(true);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 mr-1.5" /> Delete Selected ({schoolSelectedStudentIds.length})
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => setSchoolSelectedStudentIds([])}>
+                              Clear
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
                       <Card className="bg-card border-border overflow-hidden shadow-lg">
                         <CardContent className="p-0">
                           <Table>
                             <TableHeader className="bg-background">
                               <TableRow className="border-border">
-                                <TableHead className="text-muted-foreground px-6 py-4">Student</TableHead>
+                                <TableHead className="w-[45px] py-4 pl-4">
+                                  <Checkbox
+                                    checked={schoolStudents.length > 0 && schoolSelectedStudentIds.length === schoolStudents.length}
+                                    onCheckedChange={() => {
+                                      if (schoolSelectedStudentIds.length === schoolStudents.length) {
+                                        setSchoolSelectedStudentIds([]);
+                                      } else {
+                                        setSchoolSelectedStudentIds(schoolStudents.map(s => s.id));
+                                      }
+                                    }}
+                                    aria-label="Select all students"
+                                  />
+                                </TableHead>
+                                <TableHead className="text-muted-foreground px-4 py-4">Student</TableHead>
                                 <TableHead className="text-muted-foreground py-4">Class</TableHead>
                                 <TableHead className="text-muted-foreground py-4">Parent Details</TableHead>
                                 <TableHead className="text-muted-foreground py-4">Card Status</TableHead>
-                                <TableHead className="text-muted-foreground py-4 text-right pr-6">Wallet Balance</TableHead>
+                                <TableHead className="text-muted-foreground py-4 text-right">Wallet Balance</TableHead>
+                                <TableHead className="text-muted-foreground py-4 text-right pr-6">Action</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {schoolStudents.map(s => (
-                                <TableRow key={s.id} className="border-border/50 hover:bg-muted/30">
-                                  <TableCell className="px-6 py-4">
-                                    <div className="text-foreground font-bold">{s.name}</div>
-                                    <div className="text-xs font-mono text-muted-foreground">{s.studentId}</div>
-                                  </TableCell>
-                                  <TableCell className="text-foreground">{s.className}</TableCell>
-                                  <TableCell>
-                                    <div className="text-foreground">{s.parentName}</div>
-                                    <div className="text-xs text-muted-foreground">{s.parentEmail}</div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant="outline" className={
-                                      s.cardStatus === "Active"
-                                        ? "text-emerald-700 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800/30 dark:bg-emerald-950/20"
-                                        : s.cardStatus === "Blocked"
-                                        ? "text-red-700 border-red-200 bg-red-50 dark:text-red-400 dark:border-red-800/30 dark:bg-red-950/20"
-                                        : "text-amber-700 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-800/30 dark:bg-amber-950/20"
-                                    }>
-                                      {s.cardStatus}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-foreground font-bold text-right pr-6">₦{s.walletBalance.toFixed(2)}</TableCell>
-                                </TableRow>
-                              ))}
+                              {schoolStudents.map(s => {
+                                const isSelected = schoolSelectedStudentIds.includes(s.id);
+                                return (
+                                  <TableRow key={s.id} className={`border-border/50 hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
+                                    <TableCell className="py-4 pl-4">
+                                      <Checkbox
+                                        checked={isSelected}
+                                        onCheckedChange={() => {
+                                          setSchoolSelectedStudentIds(prev =>
+                                            prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id]
+                                          );
+                                        }}
+                                        aria-label={`Select ${s.name}`}
+                                      />
+                                    </TableCell>
+                                    <TableCell className="px-4 py-4">
+                                      <div className="text-foreground font-bold">{s.name}</div>
+                                      <div className="text-xs font-mono text-muted-foreground">{s.studentId}</div>
+                                    </TableCell>
+                                    <TableCell className="text-foreground">{s.className}</TableCell>
+                                    <TableCell>
+                                      <div className="text-foreground">{s.parentName}</div>
+                                      <div className="text-xs text-muted-foreground">{s.parentEmail}</div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="outline" className={
+                                        s.cardStatus === "Active"
+                                          ? "text-emerald-700 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800/30 dark:bg-emerald-950/20"
+                                          : s.cardStatus === "Blocked"
+                                          ? "text-red-700 border-red-200 bg-red-50 dark:text-red-400 dark:border-red-800/30 dark:bg-red-950/20"
+                                          : "text-amber-700 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-800/30 dark:bg-amber-950/20"
+                                      }>
+                                        {s.cardStatus}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-foreground font-bold text-right">₦{s.walletBalance.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right pr-6">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          setAdminDeleteTarget({ mode: "single", singleId: s.id, studentName: s.name, tenantId: school.id, schoolName: school.name });
+                                          setAdminDeleteConfirmOpen(true);
+                                        }}
+                                        className="text-red-400 hover:text-red-300 hover:bg-red-950/30 h-8 px-2"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
                               {schoolStudents.length === 0 && (
                                 <TableRow>
-                                  <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                                  <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
                                     No students registered for this school yet. Click "Import Students" to bulk upload.
                                   </TableCell>
                                 </TableRow>
@@ -976,6 +1093,17 @@ export function SuperAdmin() {
                       className="flex-1 sm:flex-none border-border hover:bg-muted font-semibold text-foreground"
                     >
                       <Download className="w-4 h-4 mr-2" /> Export Selected
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setAdminDeleteTarget({ mode: "cards_selected" });
+                        setAdminDeleteConfirmOpen(true);
+                      }}
+                      className="flex-1 sm:flex-none border-red-500/30 text-red-500 hover:bg-red-500/10 font-semibold"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" /> Delete Selected ({selectedStudentIds.length})
                     </Button>
                     <Button 
                       variant="ghost" 
@@ -1802,6 +1930,52 @@ export function SuperAdmin() {
           onClose={() => setBulkPrintStudents(null)}
         />
       )}
+
+      {/* SuperAdmin Student Delete Confirmation Dialog */}
+      <Dialog open={adminDeleteConfirmOpen} onOpenChange={setAdminDeleteConfirmOpen}>
+        <DialogContent className="bg-card border-border text-foreground sm:max-w-[480px]">
+          <DialogHeader>
+            <div className="flex items-center gap-3 text-red-500 mb-2">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+              </div>
+              <DialogTitle className="text-xl">Confirm Student Record Deletion</DialogTitle>
+            </div>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-sm text-muted-foreground">
+            {adminDeleteTarget.mode === "single" ? (
+              <p>
+                Are you sure you want to permanently delete <b className="text-foreground">{adminDeleteTarget.studentName}</b>? This will purge their record, associated cards, and digital wallet balance. This cannot be undone.
+              </p>
+            ) : adminDeleteTarget.mode === "school_all" ? (
+              <p>
+                Are you sure you want to permanently delete <b className="text-red-500">ALL students</b> from <b className="text-foreground">{adminDeleteTarget.schoolName}</b>? This will reset the school's student directory and remove all cards/wallets.
+              </p>
+            ) : adminDeleteTarget.mode === "school_selected" ? (
+              <p>
+                Are you sure you want to delete <b className="text-foreground">{schoolSelectedStudentIds.length}</b> selected student record(s) from <b className="text-foreground">{adminDeleteTarget.schoolName}</b>?
+              </p>
+            ) : (
+              <p>
+                Are you sure you want to permanently delete the <b className="text-foreground">{selectedStudentIds.length}</b> selected student(s)?
+              </p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t border-border">
+            <Button variant="ghost" onClick={() => setAdminDeleteConfirmOpen(false)} disabled={adminDeleting}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleAdminDeleteConfirm}
+              disabled={adminDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white font-semibold"
+            >
+              {adminDeleting ? "Deleting…" : adminDeleteTarget.mode === "school_all" ? "Delete All Students" : "Delete"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

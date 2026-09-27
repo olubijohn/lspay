@@ -256,9 +256,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return data.apps.LSPAY?.ok ? null : (data.apps.LSPAY?.message ?? "Access is refused.");
   };
 
-  const login = async (email: string, password: string, portal: "super_admin" | "tenant") => {
+  // Helper to map school number (e.g. "12") or username to email address
+  const resolveIdentifierToEmail = async (identifier: string): Promise<string> => {
+    const trimmed = identifier.trim();
+    if (!trimmed) return "";
+    if (trimmed.includes("@")) return trimmed.toLowerCase();
+
+    // 1. Try resolving via resolve-login edge function
+    try {
+      const supabase = getSupabase();
+      const { data, error } = await supabase.functions.invoke<{ email: string }>("resolve-login", {
+        body: { identifier: trimmed },
+      });
+      if (!error && data?.email) {
+        return data.email.toLowerCase();
+      }
+    } catch (err) {
+      console.warn("Could not invoke resolve-login:", err);
+    }
+
+    // 2. Deterministic fallback for numeric school numbers (e.g. "12" -> support+12@nova-ec.internal)
+    if (/^\d+$/.test(trimmed)) {
+      return `support+${trimmed}@nova-ec.internal`;
+    }
+
+    return trimmed;
+  };
+
+  const login = async (identifier: string, password: string, portal: "super_admin" | "tenant") => {
     const supabase = getSupabase();
     if (portal === "tenant") setAccessError("");   // the unified login tries "tenant" first, so a stale refusal never lingers
+    const email = await resolveIdentifierToEmail(identifier);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error || !data.user) return null;
     const uid = data.user.id;
@@ -283,8 +311,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return user;
   };
 
-  const loginParent = async (email: string, password: string) => {
+  const loginParent = async (identifier: string, password: string) => {
     const supabase = getSupabase();
+    const email = await resolveIdentifierToEmail(identifier);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error || !data.user) return null;
     const { data: account } = await supabase.from("portal_accounts").select("*, portal_account_students(student_id)").eq("user_id", data.user.id).maybeSingle();
@@ -456,6 +485,55 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const removeCard = (studentId: string) => {
     updateStudent(studentId, { cardStatus: "Unassigned", cardHardwareId: "", cardType: "", cardLifecycleStatus: "pending_assignment", parentNotificationSent: false, activatedAt: undefined });
+  };
+
+  const deleteStudent = async (studentId: string): Promise<boolean> => {
+    const supabase = getSupabase();
+    const { error: rpcErr } = await supabase.rpc("bulk_delete_students", {
+      p_student_ids: [studentId],
+      p_delete_all: false,
+    });
+    if (rpcErr) {
+      const { error } = await supabase.from("students").delete().eq("id", studentId);
+      if (error) {
+        alert(error.message);
+        return false;
+      }
+    }
+    setStudents((prev) => prev.filter((s) => s.id !== studentId));
+    return true;
+  };
+
+  const deleteStudents = async (studentIds: string[], tenantId?: string): Promise<boolean> => {
+    if (!studentIds.length && !tenantId) return false;
+    const supabase = getSupabase();
+    const deleteAll = Boolean(tenantId && (!studentIds || !studentIds.length));
+    const { error: rpcErr } = await supabase.rpc("bulk_delete_students", {
+      p_tenant_id: tenantId ?? null,
+      p_student_ids: studentIds && studentIds.length ? studentIds : null,
+      p_delete_all: deleteAll,
+    });
+    if (rpcErr) {
+      let q = supabase.from("students").delete();
+      if (deleteAll && tenantId) {
+        q = q.eq("tenant_id", tenantId);
+      } else {
+        q = q.in("id", studentIds);
+        if (tenantId) q = q.eq("tenant_id", tenantId);
+      }
+      const { error } = await q;
+      if (error) {
+        alert(error.message);
+        return false;
+      }
+    }
+    if (deleteAll && tenantId) {
+      setStudents((prev) => prev.filter((s) => s.tenantId !== tenantId));
+    } else {
+      const idSet = new Set(studentIds);
+      setStudents((prev) => prev.filter((s) => !idSet.has(s.id)));
+    }
+    return true;
   };
 
   // ------------------------------ inventory ------------------------------
@@ -642,7 +720,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         tenants, students, inventory, transactions, systemUsers, parentUsers, stockMovements, notifications,
         session, parentSession,
         login, loginParent, logout, logoutParent, registerParent, updateParentUser, createSystemUser, updateSystemUser,
-        addTenant, updateTenant, assignCard, replaceCard, removeCard, createStudent, updateStudent, addInventory, updateInventory, deleteInventory, addTransaction, cancelTransaction, deductBalanceAndStock,
+        addTenant, updateTenant, assignCard, replaceCard, removeCard, createStudent, updateStudent, deleteStudent, deleteStudents, addInventory, updateInventory, deleteInventory, addTransaction, cancelTransaction, deductBalanceAndStock,
         addStockMovement, addParentChild, addNotification, markNotificationRead, markCardReady, markCardDelivered, activateCard,
         verifyStaffCode, verifyWalletPin, topupWallet, lastAccessError,
       }}
