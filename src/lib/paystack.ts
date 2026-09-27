@@ -10,6 +10,7 @@ export const isPaystackConfigured = (key?: string) => {
 
 interface LaunchOptions {
   paystackPublicKey?: string;
+  subaccount?: string;
   email: string;
   amountMajor: number;
   reference?: string;
@@ -21,6 +22,7 @@ interface LaunchOptions {
 
 export function launchPaystack({
   paystackPublicKey,
+  subaccount,
   email,
   amountMajor,
   reference,
@@ -37,7 +39,7 @@ export function launchPaystack({
 
   try {
     const popup = new PaystackPop();
-    popup.newTransaction({
+    const txConfig: Record<string, any> = {
       key: finalKey,
       email,
       amount: Math.round(amountMajor * 100),
@@ -52,7 +54,14 @@ export function launchPaystack({
       onError: (error: { message?: string }) => {
         onError?.(error?.message ?? "Payment could not be completed. Please try again.");
       },
-    });
+    };
+
+    if (subaccount && subaccount.trim()) {
+      txConfig.subaccount = subaccount.trim();
+      txConfig.bearer = "subaccount";
+    }
+
+    popup.newTransaction(txConfig as any);
   } catch (e: any) {
     onError?.(e?.message ?? "Unable to start the payment gateway.");
   }

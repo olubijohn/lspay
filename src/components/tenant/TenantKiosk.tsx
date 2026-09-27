@@ -219,7 +219,19 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
         <Button variant="ghost" size="sm" onClick={() => setShowExitModal(true)} className="text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 px-2 sm:px-4">
           <X className="h-5 w-5 sm:mr-2" /> <span className="hidden sm:inline">Exit Kiosk</span>
         </Button>
-        <div className="text-sm sm:text-xl font-black text-foreground tracking-wider uppercase text-center flex-1 px-2 leading-tight">{activeTenant?.name} POS Terminal</div>
+        <div className="flex items-center justify-center gap-2 flex-1 px-2">
+          {activeTenant?.logoUrl && (
+            <img
+              src={activeTenant.logoUrl}
+              alt=""
+              className="h-7 w-7 rounded-md object-contain bg-white p-0.5 border border-border shadow-xs shrink-0"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+          )}
+          <span className="text-sm sm:text-xl font-black text-foreground tracking-wider uppercase leading-tight truncate">
+            {activeTenant?.name} POS Terminal
+          </span>
+        </div>
         <div className="text-primary font-mono font-bold text-xs sm:text-xl shrink-0">{new Date().toLocaleTimeString()}</div>
       </div>
 

@@ -1,4 +1,5 @@
-import { LayoutDashboard, GraduationCap, Package, TrendingUp, BarChart3, Monitor, Bell, LogOut, Store, Receipt, Users } from "lucide-react";
+import { useRef, useState, useEffect } from "react";
+import { LayoutDashboard, GraduationCap, Package, TrendingUp, BarChart3, Monitor, Bell, LogOut, Store, Receipt, Users, Camera } from "lucide-react";
 import { useStore } from "@/store";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -10,13 +11,21 @@ interface Props {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   tenantName: string;
+  logoUrl?: string;
+  onUploadLogo?: (file: File) => void;
   mobileOpen?: boolean;
   onMobileOpenChange?: (open: boolean) => void;
 }
 
-export function TenantSidebar({ activeTab, setActiveTab, tenantName, mobileOpen, onMobileOpenChange }: Props) {
+export function TenantSidebar({ activeTab, setActiveTab, tenantName, logoUrl, onUploadLogo, mobileOpen, onMobileOpenChange }: Props) {
   const { session, logout, notifications } = useStore();
   const [, setLocation] = useLocation();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [logoUrl]);
 
   const user = session.user;
   const unreadCount = notifications.filter(n => n.targetRole === "tenant" && n.targetTenantId === user?.tenantId && !n.isRead).length;
@@ -56,11 +65,60 @@ export function TenantSidebar({ activeTab, setActiveTab, tenantName, mobileOpen,
     onMobileOpenChange?.(false);
   };
 
+  const initials = (tenantName || "School")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0]?.toUpperCase())
+    .join("");
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onUploadLogo) {
+      onUploadLogo(file);
+    }
+  };
+
   const inner = (
     <>
-      <div className="p-5 flex items-center space-x-3 border-b border-border">
-        <Store className="h-7 w-7 text-primary shrink-0" />
-        <span className="text-foreground font-bold text-base tracking-tight leading-tight line-clamp-2">{tenantName}</span>
+      <div className="p-4 flex items-center space-x-3 border-b border-border">
+        <div className="relative group shrink-0">
+          {logoUrl && !imgError ? (
+            <img
+              key={logoUrl}
+              src={logoUrl}
+              alt={tenantName}
+              className="h-10 w-10 rounded-xl object-contain bg-white p-1 border border-border shadow-sm shrink-0"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500/25 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center text-primary font-black text-sm tracking-wider shadow-sm shrink-0">
+              {initials || <Store className="h-5 w-5" />}
+            </div>
+          )}
+          {onUploadLogo && (user?.role === "tenant_admin" || user?.role === "super_admin") && (
+            <>
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                title="Change school logo"
+                className="absolute -bottom-1 -right-1 p-1 bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                <Camera className="w-3 h-3 text-primary" />
+              </button>
+            </>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <span className="text-foreground font-bold text-sm tracking-tight leading-tight line-clamp-2">{tenantName}</span>
+        </div>
       </div>
 
       <div className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">

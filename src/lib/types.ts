@@ -20,6 +20,7 @@ export interface Tenant {
   contactEmail: string;
   enrollmentKey: string;
   paystackPublicKey?: string;
+  paystackSubaccountCode?: string;
   logoUrl?: string;
   schoolNo?: number;
 }

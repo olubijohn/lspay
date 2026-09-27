@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { GraduationCap, ArrowLeft, Banknote, Trash2, AlertTriangle, Search, Filter, RotateCcw, X, ChevronLeft, ChevronRight } from "lucide-react";
-import { cardLifecycleLabel } from "@/lib/types";
+import { GraduationCap, ArrowLeft, Banknote, Trash2, AlertTriangle, Search, Filter, RotateCcw, X, ChevronLeft, ChevronRight, Printer } from "lucide-react";
+import { cardLifecycleLabel, Student } from "@/lib/types";
+import { CardPrintStudio } from "@/components/CardPrintStudio";
 
 export function TenantStudents({ tenantId }: { tenantId: string }) {
   const { students, parentUsers, createStudent, updateStudent, deleteStudent, deleteStudents, markCardDelivered, transactions } = useStore();
@@ -20,6 +21,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detailStudentId, setDetailStudentId] = useState<string | null>(null);
+  const [studioStudents, setStudioStudents] = useState<Student[] | null>(null);
   const [txFilter, setTxFilter] = useState<"all" | "in" | "out">("all");
 
   // Filters State
@@ -141,7 +143,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
 
       if (cardStatusFilter !== "all") {
         if (cardStatusFilter === "Unassigned") {
-          if (s.cardStatus !== "Unassigned" && s.cardStatus !== "No Card") return false;
+          if (s.cardStatus !== "Unassigned") return false;
         } else if (s.cardStatus !== cardStatusFilter) {
           return false;
         }
@@ -253,9 +255,14 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
 
     return (
       <div className="space-y-6 animate-in slide-in-from-right-8 duration-300">
-        <Button variant="ghost" onClick={() => setDetailStudentId(null)} className="text-muted-foreground hover:text-foreground -ml-4 mb-2">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Directory
-        </Button>
+        <div className="flex items-center justify-between -ml-4 mb-2">
+          <Button variant="ghost" onClick={() => setDetailStudentId(null)} className="text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Directory
+          </Button>
+          <Button onClick={() => setStudioStudents([s])} className="bg-primary hover:bg-primary/90 text-white font-bold h-9">
+            <Printer className="w-4 h-4 mr-2" /> Print ID Card
+          </Button>
+        </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <Card className="bg-card border-border lg:col-span-1 h-max shadow-xl">
@@ -364,7 +371,19 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
             {tenantStudents.length} student{tenantStudents.length === 1 ? "" : "s"} enrolled
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {tenantStudents.length > 0 && (
+            <Button
+              variant="outline"
+              className="border-primary/40 text-primary hover:bg-primary/10 font-semibold"
+              onClick={() => setStudioStudents(filteredStudents)}
+              disabled={filteredStudents.length === 0}
+              title="Print ID Cards for all currently filtered students"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Print All Cards ({filteredStudents.length})
+            </Button>
+          )}
           {tenantStudents.length > 0 && (
             <Button
               variant="outline"
@@ -461,6 +480,17 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => {
+                const sel = tenantStudents.filter(s => selectedIds.includes(s.id));
+                setStudioStudents(sel);
+              }}
+              className="bg-primary hover:bg-primary/90 text-white font-semibold"
+            >
+              <Printer className="w-4 h-4 mr-2" /> Print Selected ({selectedIds.length})
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -694,6 +724,9 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                             Confirm Delivery
                           </Button>
                         )}
+                        <Button variant="ghost" size="sm" onClick={() => setStudioStudents([s])} title="Preview / Print ID Card" className="text-muted-foreground hover:text-primary hover:bg-primary/10">
+                          <Printer className="w-4 h-4 mr-1 text-primary" /> Card
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => openEdit(s)} className="text-muted-foreground hover:text-foreground hover:bg-muted">Edit</Button>
                         <Button variant="ghost" size="sm" onClick={() => triggerDeleteSingle(s.id, s.name)} className="text-red-400 hover:text-red-300 hover:bg-red-950/30">Delete</Button>
                       </div>
@@ -797,6 +830,14 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {studioStudents && (
+        <CardPrintStudio
+          students={studioStudents}
+          isOpen={!!studioStudents}
+          onClose={() => setStudioStudents(null)}
+        />
+      )}
     </div>
   );
 }

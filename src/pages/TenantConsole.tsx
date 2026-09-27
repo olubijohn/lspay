@@ -34,6 +34,7 @@ export function TenantConsole() {
   const {
     session, tenants, transactions, cancelTransaction, students,
     notifications, markNotificationRead, systemUsers, createSystemUser, updateSystemUser,
+    updateTenant,
   } = useStore();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -180,6 +181,18 @@ export function TenantConsole() {
     }
   };
 
+  const handleUploadSchoolLogo = (file: File) => {
+    if (!activeTenant) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      if (dataUrl) {
+        updateTenant(activeTenant.id, { logoUrl: dataUrl });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const roleBadge = (role: string) => {
     const cls = role === "tenant_admin" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : role === "backoffice" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20";
     return <Badge variant="outline" className={cls}>{role.replace(/_/g, " ")}</Badge>;
@@ -187,8 +200,21 @@ export function TenantConsole() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <TenantSidebar activeTab={activeTab} setActiveTab={handleSetActiveTab} tenantName={activeTenant.name} mobileOpen={mobileNav} onMobileOpenChange={setMobileNav} />
-      <MobileTopBar title={activeTenant.name} icon={Store} onMenuClick={() => setMobileNav(true)} />
+      <TenantSidebar
+        activeTab={activeTab}
+        setActiveTab={handleSetActiveTab}
+        tenantName={activeTenant.name}
+        logoUrl={activeTenant.logoUrl}
+        onUploadLogo={handleUploadSchoolLogo}
+        mobileOpen={mobileNav}
+        onMobileOpenChange={setMobileNav}
+      />
+      <MobileTopBar
+        title={activeTenant.name}
+        icon={Store}
+        logoUrl={activeTenant.logoUrl}
+        onMenuClick={() => setMobileNav(true)}
+      />
 
       <main className="flex-1 lg:ml-64 overflow-y-auto bg-background px-4 pb-6 pt-20 lg:px-8 lg:pb-8 lg:pt-8">
         <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">

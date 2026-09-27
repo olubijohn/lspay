@@ -174,6 +174,7 @@ export function ParentPortal() {
     setTopupProcessing(true);
     launchPaystack({
       paystackPublicKey: tenant.paystackPublicKey,
+      subaccount: tenant.paystackSubaccountCode,
       email: parentSession!.email,
       amountMajor: amount,
       metadata: {

@@ -19,12 +19,14 @@ const LSA_TO_ROLE: Record<string, TenantUserRole> = {
 };
 
 function mapTenantRow(r: any): Tenant {
+  const ts = Array.isArray(r.tenant_settings) ? r.tenant_settings[0] : (r.tenant_settings ?? {});
   return {
     id: r.id, name: r.name, code: r.code, address: r.address ?? "",
     contactName: r.owner_name ?? "", contactEmail: r.contact_email ?? "",
     enrollmentKey: r.enrollment_key ?? "", paystackPublicKey: r.paystack_public_key ?? "",
     logoUrl: r.logo_url ?? undefined,
     schoolNo: r.school_no ?? undefined,
+    paystackSubaccountCode: ts.paystack_subaccount_code ?? r.paystack_subaccount_code ?? undefined,
   };
 }
 
@@ -104,7 +106,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadTenantScoped = useCallback(async (tenantId: string | null, myToken: number) => {
     const supabase = getSupabase();
     let sq = supabase.from("students").select(STUDENT_SELECT);
-    let tq = supabase.from("tenants").select("*");
+    let tq = supabase.from("tenants").select("*, tenant_settings(paystack_subaccount_code, paystack_enabled)");
     let iq = supabase.from("lspay_inventory_items").select("*");
     let txq = supabase.from("lspay_transactions").select("*");
     let smq = supabase.from("lspay_stock_movements").select("*");
@@ -171,7 +173,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const studentsMapped = (sData ?? []).map(mapStudentRow);
     const studentsById = new Map(studentsMapped.map((s) => [s.id, s]));
     const tenantIds = [...new Set(studentsMapped.map((s) => s.tenantId))];
-    const { data: tData } = tenantIds.length ? await supabase.from("tenants").select("*").in("id", tenantIds) : { data: [] as any[] };
+    const { data: tData } = tenantIds.length
+      ? await supabase.from("tenants").select("*, tenant_settings(paystack_subaccount_code, paystack_enabled)").in("id", tenantIds)
+      : { data: [] as any[] };
     if (loadToken.current !== myToken) return;
     const tenantsMapped = (tData ?? []).map(mapTenantRow);
     const tenantsById = new Map(tenantsMapped.map((t) => [t.id, t]));
@@ -488,6 +492,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (s.dailyLimit) wcolumns.daily_limit = s.dailyLimit;
     if (s.monthlyLimit) wcolumns.monthly_limit = s.monthlyLimit;
     if (Object.keys(wcolumns).length) await supabase.from("lspay_student_wallets").update(wcolumns).eq("student_id", row.id);
+    if (s.imageUrl && !s.imageUrl.includes("dicebear")) {
+      await supabase.from("students").update({ avatar_path: s.imageUrl }).eq("id", row.id);
+    }
 
     const { data: fresh } = await supabase.from("students").select(STUDENT_SELECT).eq("id", row.id).single();
     const newStudent = mapStudentRow(fresh ?? row);
@@ -506,6 +513,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (updates.homeAddress !== undefined) sUpdates.address = updates.homeAddress;
     if (updates.parentName !== undefined) sUpdates.guardian_name = updates.parentName;
     if (updates.parentEmail !== undefined) sUpdates.guardian_email = updates.parentEmail;
+    if (updates.imageUrl !== undefined) {
+      sUpdates.avatar_path = updates.imageUrl && !updates.imageUrl.includes("dicebear") ? updates.imageUrl : null;
+    }
     if (Object.keys(sUpdates).length) {
       getSupabase().from("students").update(sUpdates).eq("id", studentId).then(() => {
         if (updates.parentEmail) {
