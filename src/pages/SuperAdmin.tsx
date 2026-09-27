@@ -20,7 +20,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsToolti
 import { useChartTheme } from "@/theme";
 import { useNfcScanner } from "@/lib/useNfcScanner";
 import { QrScanner } from "@/components/QrScanner";
-import { Wifi } from "lucide-react";
+import { Wifi, Sparkles } from "lucide-react";
 
 export function SuperAdmin() {
   const chartTheme = useChartTheme();
@@ -511,7 +511,7 @@ export function SuperAdmin() {
       <MobileTopBar title="LSPay" icon={Wallet} onMenuClick={() => setMobileNav(true)} />
 
       <main className="flex-1 lg:ml-64 overflow-y-auto bg-background px-4 pb-6 pt-20 lg:px-8 lg:pb-8 lg:pt-8">
-        <div className="max-w-6xl mx-auto space-y-8">
+        <div className="w-full max-w-[1700px] mx-auto space-y-8">
           {successMsg && (
             <Alert className="bg-primary/30 border border-primary text-primary">
               <CheckCircle2 className="h-4 w-4 text-primary" />
@@ -1117,8 +1117,8 @@ export function SuperAdmin() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1">
-                <div className="lg:col-span-7 bg-card border border-border rounded-xl flex flex-col shadow-xl">
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 flex-1">
+                <div className="xl:col-span-7 2xl:col-span-8 bg-card border border-border rounded-xl flex flex-col shadow-xl">
                   <div className="p-4 border-b border-border space-y-3">
                     <div>
                       <h3 className="font-bold text-foreground">Card Registry</h3>
@@ -1179,8 +1179,8 @@ export function SuperAdmin() {
                       )}
                     </div>
                   </div>
-                  <div className="bg-background overflow-x-hidden">
-                    <Table className="w-full">
+                  <div className="bg-background overflow-x-auto">
+                    <Table className="w-full min-w-[640px]">
                       <TableHeader className="bg-card/80 sticky top-0">
                         <TableRow className="border-border">
                           <TableHead className="w-[40px] pl-4">
@@ -1251,10 +1251,16 @@ export function SuperAdmin() {
                   </div>
                 </div>
 
-                <div className="lg:col-span-5">
+                <div className="xl:col-span-5 2xl:col-span-4">
                   {selectedStudentId ? (() => {
                     const student = students.find(s => s.id === selectedStudentId);
                     if (!student) return null;
+                    const hasCard = Boolean(
+                      student.cardHardwareId && 
+                      student.cardLifecycleStatus && 
+                      student.cardLifecycleStatus !== "none" && 
+                      student.cardLifecycleStatus !== "pending_assignment"
+                    );
                     return (
                       <Card className="bg-card border-border shadow-xl sticky top-8">
                         <CardHeader>
@@ -1267,8 +1273,17 @@ export function SuperAdmin() {
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                          {student.cardLifecycleStatus === "pending_assignment" ? (
+                          {!hasCard ? (
                             <>
+                              <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500">
+                                <div className="flex items-center gap-2">
+                                  <CreditCard className="w-5 h-5 shrink-0" />
+                                  <span className="text-xs font-semibold">No active card assigned to this student</span>
+                                </div>
+                                <Badge variant="outline" className="border-amber-500/30 text-amber-400 bg-amber-500/10 text-xs">
+                                  {cardLifecycleLabel(student.cardLifecycleStatus)}
+                                </Badge>
+                              </div>
                               <div className="space-y-3">
                                 <Label className="text-foreground">Card Type</Label>
                                 <Select value={cardType} onValueChange={setCardType}>
@@ -1281,67 +1296,79 @@ export function SuperAdmin() {
                                   </SelectContent>
                                 </Select>
                               </div>
-                                <div className="space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <Label className="text-foreground">Hardware ID / Payload</Label>
-                                    {nfcStatus === "scanning" && (
-                                      <span className="flex items-center gap-1.5 text-xs text-blue-400 font-medium">
-                                        <span className="relative flex h-2 w-2">
-                                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                                        </span>
-                                        Tap card on reader now…
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <Label className="text-foreground">Hardware ID / Payload</Label>
+                                  {nfcStatus === "scanning" && (
+                                    <span className="flex items-center gap-1.5 text-xs text-blue-400 font-medium">
+                                      <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                                       </span>
-                                    )}
-                                  </div>
-                                  <Input
-                                    ref={hardwareIdInputRef}
-                                    value={hardwareId}
-                                    onChange={e => setHardwareId(e.target.value)}
-                                    placeholder="e.g. 049714345F6180 — click Scan NFC then tap card"
-                                    className="bg-background border-border text-foreground h-11 font-mono text-base"
-                                    data-testid="input-hardware-id"
-                                  />
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <Button
-                                      type="button"
-                                      variant={nfcStatus === "scanning" ? "default" : "outline"}
-                                      onClick={() => {
-                                        if (nfcStatus === "scanning") {
-                                          stopNfc();
-                                        } else {
-                                          setHardwareId("");
-                                          startNfc(hardwareIdInputRef.current);
-                                        }
-                                      }}
-                                      className={`h-11 font-bold ${nfcStatus === "scanning" ? "bg-blue-600 hover:bg-blue-700 text-white" : "border-border text-foreground"}`}
-                                      data-testid="btn-scan-card-admin"
-                                    >
-                                      <Wifi className={`mr-2 h-4 w-4 ${nfcStatus === "scanning" ? "animate-pulse" : ""}`} />
-                                      {nfcStatus === "scanning" ? "Scanning… (Tap Card)" : "Scan NFC"}
-                                    </Button>
-                                    <QrScanner triggerClassName="border-border text-foreground h-11 font-bold" onResult={(text) => { setHardwareId(text); setCardType("QR"); }} />
-                                  </div>
-                                  {hardwareId ? (
-                                    <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 flex items-center justify-between">
-                                      <div className="flex items-center gap-2">
-                                        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
-                                        <span>Card UID: <strong className="font-mono text-foreground text-sm">{hardwareId}</strong></span>
-                                      </div>
-                                      <span className="text-[10px] text-muted-foreground">Ready to assign</span>
-                                    </div>
-                                  ) : (
-                                    <p className="text-xs text-muted-foreground">
-                                      Click <strong>Scan NFC</strong> — the field will focus automatically. Then tap the card on your USB reader.
-                                    </p>
+                                      Tap card on reader now…
+                                    </span>
                                   )}
-                                  {nfcError && <p className="text-xs text-red-400">{nfcError}</p>}
                                 </div>
+                                <Input
+                                  ref={hardwareIdInputRef}
+                                  value={hardwareId}
+                                  onChange={e => setHardwareId(e.target.value)}
+                                  placeholder="e.g. 049714345F6180 or click Auto UID / Scan NFC"
+                                  className="bg-background border-border text-foreground h-11 font-mono text-base"
+                                  data-testid="input-hardware-id"
+                                />
+                                <div className="grid grid-cols-3 gap-2">
+                                  <Button
+                                    type="button"
+                                    variant={nfcStatus === "scanning" ? "default" : "outline"}
+                                    onClick={() => {
+                                      if (nfcStatus === "scanning") {
+                                        stopNfc();
+                                      } else {
+                                        setHardwareId("");
+                                        startNfc(hardwareIdInputRef.current);
+                                      }
+                                    }}
+                                    className={`h-11 font-bold text-xs ${nfcStatus === "scanning" ? "bg-blue-600 hover:bg-blue-700 text-white" : "border-border text-foreground"}`}
+                                    data-testid="btn-scan-card-admin"
+                                  >
+                                    <Wifi className={`mr-1.5 h-4 w-4 ${nfcStatus === "scanning" ? "animate-pulse" : ""}`} />
+                                    {nfcStatus === "scanning" ? "Scanning…" : "Scan NFC"}
+                                  </Button>
+                                  <QrScanner triggerClassName="border-border text-foreground h-11 font-bold text-xs" onResult={(text) => { setHardwareId(text); setCardType("QR"); }} />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const hex = Array.from({ length: 6 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join('').toUpperCase();
+                                      setHardwareId(`04${hex}`);
+                                      setCardType("NFC");
+                                    }}
+                                    className="h-11 font-bold border-border text-foreground hover:bg-muted text-xs"
+                                  >
+                                    <Sparkles className="mr-1.5 h-4 w-4 text-amber-400" /> Auto UID
+                                  </Button>
+                                </div>
+                                {hardwareId ? (
+                                  <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                                      <span>Card UID: <strong className="font-mono text-foreground text-sm">{hardwareId}</strong></span>
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground">Ready to assign</span>
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground">
+                                    Click <strong>Scan NFC</strong> to tap your USB reader, or <strong>Auto UID</strong> to quickly generate a unique NFC UID.
+                                  </p>
+                                )}
+                                {nfcError && <p className="text-xs text-red-400">{nfcError}</p>}
+                              </div>
                               <Button onClick={handleAssignCard} className="w-full bg-primary hover:bg-primary/90 text-white h-11 font-bold mb-2" data-testid="btn-assign-card">
                                 Assign & Map Card
                               </Button>
                               <Button disabled variant="outline" className="w-full border-border text-muted-foreground h-11 font-bold opacity-50 cursor-not-allowed">
-                                <Printer className="mr-2 h-4 w-4" /> Print Card (Restricted)
+                                <Printer className="mr-2 h-4 w-4" /> Print Card (Assign Card First)
                               </Button>
                             </>
                           ) : (
