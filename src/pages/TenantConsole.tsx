@@ -60,6 +60,8 @@ export function TenantConsole() {
   const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserRole, setNewUserRole] = useState<"tenant_admin" | "backoffice" | "kiosk_operator">("backoffice");
   const [userSuccessMsg, setUserSuccessMsg] = useState("");
+  const [userModalError, setUserModalError] = useState("");
+  const [isSubmittingUser, setIsSubmittingUser] = useState(false);
 
   const user = session.user;
   const tenantId = user?.tenantId;
@@ -118,14 +120,64 @@ export function TenantConsole() {
     setTimeout(() => setCancelSuccessMsg(""), 5000);
   };
 
-  const handleAddUser = (e: React.FormEvent) => {
+  const generatePassword = () => {
+    const chars = "abcdefghjkmnpqrstuvwxyz";
+    const uppers = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const nums = "23456789";
+    const symbols = "!@#$%^&*";
+    let pwd = "";
+    pwd += uppers[Math.floor(Math.random() * uppers.length)];
+    pwd += chars[Math.floor(Math.random() * chars.length)];
+    pwd += nums[Math.floor(Math.random() * nums.length)];
+    pwd += symbols[Math.floor(Math.random() * symbols.length)];
+    for (let i = 0; i < 6; i++) {
+      const all = chars + uppers + nums + symbols;
+      pwd += all[Math.floor(Math.random() * all.length)];
+    }
+    setNewUserPassword(pwd);
+    setUserModalError("");
+  };
+
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUserName || !newUserEmail || !newUserPassword) return;
-    createSystemUser({ name: newUserName, email: newUserEmail, passwordHash: newUserPassword, role: newUserRole, tenantId: activeTenant.id, isActive: true });
-    setUserSuccessMsg(`User ${newUserName} added.`);
-    setNewUserName(""); setNewUserEmail(""); setNewUserPassword(""); setNewUserRole("backoffice");
-    setShowUserModal(false);
-    setTimeout(() => setUserSuccessMsg(""), 4000);
+    setUserModalError("");
+    const name = newUserName.trim();
+    const email = newUserEmail.trim();
+    const pwd = newUserPassword.trim();
+    if (!name || !email || !pwd) {
+      setUserModalError("Please complete all fields.");
+      return;
+    }
+
+    if (pwd.length < 8 || !/[A-Z]/.test(pwd) || !/[a-z]/.test(pwd) || !/\d/.test(pwd) || !/[^A-Za-z0-9]/.test(pwd)) {
+      setUserModalError("Password must be at least 8 characters and include uppercase, lowercase, a number, and a symbol (or click 'Generate Strong Password').");
+      return;
+    }
+
+    setIsSubmittingUser(true);
+    try {
+      const res = await createSystemUser({
+        name,
+        email,
+        passwordHash: pwd,
+        role: newUserRole,
+        tenantId: activeTenant.id,
+        isActive: true,
+      });
+      if (res) {
+        setUserSuccessMsg(`User ${name} added.`);
+        setNewUserName("");
+        setNewUserEmail("");
+        setNewUserPassword("");
+        setNewUserRole("backoffice");
+        setShowUserModal(false);
+        setTimeout(() => setUserSuccessMsg(""), 4000);
+      }
+    } catch (err: any) {
+      setUserModalError(err?.message || "Failed to create user. Please check details and try again.");
+    } finally {
+      setIsSubmittingUser(false);
+    }
   };
 
   const roleBadge = (role: string) => {
@@ -395,23 +447,62 @@ export function TenantConsole() {
       </Dialog>
 
       {/* ─── ADD USER MODAL ─────────────────────────────────── */}
-      <Dialog open={showUserModal} onOpenChange={setShowUserModal}>
+      <Dialog open={showUserModal} onOpenChange={(open) => { setShowUserModal(open); if (!open) { setUserModalError(""); } }}>
         <DialogContent className="bg-card border-border text-foreground max-w-md">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">Add Console User</DialogTitle>
           </DialogHeader>
+
+          {userModalError && (
+            <Alert className="bg-red-900/30 border-red-500 text-red-400 py-2.5 px-3">
+              <AlertDescription className="text-xs leading-relaxed">{userModalError}</AlertDescription>
+            </Alert>
+          )}
+
           <form onSubmit={handleAddUser} className="space-y-4 mt-2">
             <div className="space-y-2">
               <Label className="text-foreground">Full Name</Label>
-              <Input value={newUserName} onChange={e => setNewUserName(e.target.value)} className="bg-background border-border text-foreground" data-testid="input-new-user-name" />
+              <Input
+                value={newUserName}
+                onChange={e => setNewUserName(e.target.value)}
+                placeholder="e.g. Mary Okoro"
+                className="bg-background border-border text-foreground"
+                data-testid="input-new-user-name"
+              />
             </div>
             <div className="space-y-2">
               <Label className="text-foreground">Email</Label>
-              <Input type="email" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} className="bg-background border-border text-foreground" data-testid="input-new-user-email" />
+              <Input
+                type="email"
+                value={newUserEmail}
+                onChange={e => setNewUserEmail(e.target.value)}
+                placeholder="mary@school.com"
+                className="bg-background border-border text-foreground"
+                data-testid="input-new-user-email"
+              />
             </div>
             <div className="space-y-2">
-              <Label className="text-foreground">Password</Label>
-              <Input type="text" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} className="bg-background border-border text-foreground" data-testid="input-new-user-password" />
+              <div className="flex items-center justify-between">
+                <Label className="text-foreground">Password</Label>
+                <button
+                  type="button"
+                  onClick={generatePassword}
+                  className="text-xs text-primary hover:underline font-medium"
+                >
+                  ⚡ Generate Strong Password
+                </button>
+              </div>
+              <Input
+                type="text"
+                value={newUserPassword}
+                onChange={e => setNewUserPassword(e.target.value)}
+                placeholder="Min 8 chars with upper, lower, num & symbol"
+                className="bg-background border-border text-foreground font-mono text-sm"
+                data-testid="input-new-user-password"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Needs 8+ characters including uppercase, lowercase, digit, and symbol (e.g. Asset257@@).
+              </p>
             </div>
             <div className="space-y-2">
               <Label className="text-foreground">Role</Label>
@@ -422,13 +513,19 @@ export function TenantConsole() {
                 <SelectContent className="bg-card border-border text-foreground">
                   <SelectItem value="tenant_admin">Tenant Admin — full console access</SelectItem>
                   <SelectItem value="backoffice">Backoffice — inventory, stock & reporting</SelectItem>
-                  <SelectItem value="kiosk_operator">Kiosk Operator — kiosk only</SelectItem>
+                  <SelectItem value="kiosk_operator">Kiosk Operator — kiosk POS only</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex justify-end gap-3 pt-3">
               <Button type="button" variant="ghost" onClick={() => setShowUserModal(false)} className="text-muted-foreground">Cancel</Button>
-              <Button type="submit" className="bg-primary hover:bg-primary/90 text-white px-6">Create User</Button>
+              <Button
+                type="submit"
+                disabled={isSubmittingUser}
+                className="bg-primary hover:bg-primary/90 text-white px-6 font-semibold"
+              >
+                {isSubmittingUser ? "Creating User..." : "Create User"}
+              </Button>
             </div>
           </form>
         </DialogContent>

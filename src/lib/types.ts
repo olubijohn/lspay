@@ -21,6 +21,7 @@ export interface Tenant {
   enrollmentKey: string;
   paystackPublicKey?: string;
   logoUrl?: string;
+  schoolNo?: number;
 }
 
 export type CardStatus = "Active" | "Issued" | "Unassigned" | "Blocked";
@@ -183,6 +184,7 @@ export interface AppState {
   activateCard: (studentId: string, pin: string, dailyLimit: number, monthlyLimit: number) => void;
 
   verifyStaffCode: (code: string) => Promise<boolean>;
+  verifyKioskExit: (tenantId: string, password: string) => Promise<boolean>;
   verifyWalletPin: (studentId: string, pin: string) => Promise<boolean>;
   topupWallet: (studentId: string, paystackReference: string) => Promise<void>;
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useStore } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { GraduationCap, ArrowLeft, Banknote, Trash2, AlertTriangle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { GraduationCap, ArrowLeft, Banknote, Trash2, AlertTriangle, Search, Filter, RotateCcw, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { cardLifecycleLabel } from "@/lib/types";
 
 export function TenantStudents({ tenantId }: { tenantId: string }) {
@@ -20,6 +21,15 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detailStudentId, setDetailStudentId] = useState<string | null>(null);
   const [txFilter, setTxFilter] = useState<"all" | "in" | "out">("all");
+
+  // Filters State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [classFilter, setClassFilter] = useState("all");
+  const [cardStatusFilter, setCardStatusFilter] = useState("all");
+  const [lifecycleFilter, setLifecycleFilter] = useState("all");
+  const [parentStatusFilter, setParentStatusFilter] = useState("all");
+  const [pageSize, setPageSize] = useState<number>(50);
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Selection & Bulk Delete state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -100,11 +110,77 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
     }
   };
 
+  // Helper to determine parent portal status
+  const getParentStatus = (s: any): "linked" | "unlinked" | "no_info" => {
+    const email = s.parentEmail?.trim().toLowerCase();
+    const isLinked = parentUsers.some(
+      p => (p.linkedStudentIds && p.linkedStudentIds.includes(s.id)) || (email && p.email?.trim().toLowerCase() === email)
+    );
+    if (isLinked) return "linked";
+    if (email || s.parentName?.trim()) return "unlinked";
+    return "no_info";
+  };
+
+  const availableClasses = useMemo(() => {
+    return Array.from(new Set(tenantStudents.map(s => s.className?.trim()).filter(Boolean))).sort();
+  }, [tenantStudents]);
+
+  const filteredStudents = useMemo(() => {
+    return tenantStudents.filter(s => {
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesName = s.name?.toLowerCase().includes(q);
+        const matchesId = s.studentId?.toLowerCase().includes(q);
+        const matchesClass = s.className?.toLowerCase().includes(q);
+        const matchesParentName = s.parentName?.toLowerCase().includes(q);
+        const matchesParentEmail = s.parentEmail?.toLowerCase().includes(q);
+        if (!matchesName && !matchesId && !matchesClass && !matchesParentName && !matchesParentEmail) return false;
+      }
+
+      if (classFilter !== "all" && s.className !== classFilter) return false;
+
+      if (cardStatusFilter !== "all") {
+        if (cardStatusFilter === "Unassigned") {
+          if (s.cardStatus !== "Unassigned" && s.cardStatus !== "No Card") return false;
+        } else if (s.cardStatus !== cardStatusFilter) {
+          return false;
+        }
+      }
+
+      if (lifecycleFilter !== "all" && s.cardLifecycleStatus !== lifecycleFilter) return false;
+
+      if (parentStatusFilter !== "all") {
+        const pStatus = getParentStatus(s);
+        if (parentStatusFilter !== pStatus) return false;
+      }
+
+      return true;
+    });
+  }, [tenantStudents, searchQuery, classFilter, cardStatusFilter, lifecycleFilter, parentStatusFilter, parentUsers]);
+
+  const totalPages = pageSize === -1 ? 1 : Math.max(1, Math.ceil(filteredStudents.length / pageSize));
+  const paginatedStudents = useMemo(() => {
+    if (pageSize === -1) return filteredStudents;
+    const start = (currentPage - 1) * pageSize;
+    return filteredStudents.slice(start, start + pageSize);
+  }, [filteredStudents, currentPage, pageSize]);
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setClassFilter("all");
+    setCardStatusFilter("all");
+    setLifecycleFilter("all");
+    setParentStatusFilter("all");
+    setCurrentPage(1);
+  };
+
+  const isFilterActive = searchQuery !== "" || classFilter !== "all" || cardStatusFilter !== "all" || lifecycleFilter !== "all" || parentStatusFilter !== "all";
+
   const toggleSelectAll = () => {
-    if (selectedIds.length === tenantStudents.length) {
+    if (selectedIds.length === filteredStudents.length && filteredStudents.length > 0) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(tenantStudents.map(s => s.id));
+      setSelectedIds(filteredStudents.map(s => s.id));
     }
   };
 
@@ -405,6 +481,128 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
         </div>
       )}
 
+      {/* ─── FILTERS & STATUS BAR ───────────────────────────── */}
+      <div className="bg-card border border-border rounded-2xl p-4 shadow-sm space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {/* Search */}
+          <div className="relative sm:col-span-2 lg:col-span-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              type="text"
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+              placeholder="Search student name, ID, class, parent..."
+              className="pl-9 pr-8 bg-background border-border text-foreground h-10 text-sm"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => { setSearchQuery(""); setCurrentPage(1); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Class Filter */}
+          <div>
+            <Select value={classFilter} onValueChange={v => { setClassFilter(v); setCurrentPage(1); }}>
+              <SelectTrigger className="bg-background border-border text-foreground h-10 text-xs">
+                <SelectValue placeholder="All Classes" />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border text-foreground max-h-60">
+                <SelectItem value="all">All Classes ({availableClasses.length})</SelectItem>
+                {availableClasses.map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Card Status Filter */}
+          <div>
+            <Select value={cardStatusFilter} onValueChange={v => { setCardStatusFilter(v); setCurrentPage(1); }}>
+              <SelectTrigger className="bg-background border-border text-foreground h-10 text-xs">
+                <SelectValue placeholder="Card Status" />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border text-foreground">
+                <SelectItem value="all">All Card Statuses</SelectItem>
+                <SelectItem value="Active">Card: Active</SelectItem>
+                <SelectItem value="Unassigned">No Card / Unassigned</SelectItem>
+                <SelectItem value="Blocked">Card: Blocked</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Card Lifecycle Filter */}
+          <div>
+            <Select value={lifecycleFilter} onValueChange={v => { setLifecycleFilter(v); setCurrentPage(1); }}>
+              <SelectTrigger className="bg-background border-border text-foreground h-10 text-xs">
+                <SelectValue placeholder="Card Lifecycle" />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border text-foreground">
+                <SelectItem value="all">All Lifecycle</SelectItem>
+                <SelectItem value="pending_assignment">Unassigned (Pending)</SelectItem>
+                <SelectItem value="assigned">Assigned</SelectItem>
+                <SelectItem value="ready">Ready for Pickup</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
+                <SelectItem value="activated">Activated</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Second Row: Parent Link Status & Quick Controls */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border/50 text-xs">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="w-56">
+              <Select value={parentStatusFilter} onValueChange={v => { setParentStatusFilter(v); setCurrentPage(1); }}>
+                <SelectTrigger className="bg-background border-border text-foreground h-8 text-xs">
+                  <SelectValue placeholder="Parent Status" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border text-foreground">
+                  <SelectItem value="all">All Parent Statuses</SelectItem>
+                  <SelectItem value="linked">✓ Parent Portal Linked</SelectItem>
+                  <SelectItem value="unlinked">Pending Portal Sign-up</SelectItem>
+                  <SelectItem value="no_info">No Guardian Info</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {isFilterActive && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetFilters}
+                className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <RotateCcw className="w-3.5 h-3.5 mr-1" /> Reset Filters
+              </Button>
+            )}
+
+            <span className="text-muted-foreground">
+              Showing <span className="font-bold text-foreground">{filteredStudents.length}</span> of {tenantStudents.length} enrolled students
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground">Per page:</span>
+            <Select value={String(pageSize)} onValueChange={v => { setPageSize(Number(v)); setCurrentPage(1); }}>
+              <SelectTrigger className="bg-background border-border text-foreground h-8 w-20 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border text-foreground">
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+                <SelectItem value="-1">All</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
       <Card className="bg-card border-border shadow-xl overflow-hidden">
         <CardContent className="p-0">
           <Table>
@@ -412,7 +610,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
               <TableRow className="hover:bg-transparent">
                 <TableHead className="w-[45px] py-4 pl-4">
                   <Checkbox
-                    checked={tenantStudents.length > 0 && selectedIds.length === tenantStudents.length}
+                    checked={filteredStudents.length > 0 && selectedIds.length === filteredStudents.length}
                     onCheckedChange={toggleSelectAll}
                     aria-label="Select all students"
                   />
@@ -426,8 +624,9 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tenantStudents.map(s => {
+              {paginatedStudents.map(s => {
                 const isSelected = selectedIds.includes(s.id);
+                const pStatus = getParentStatus(s);
                 return (
                   <TableRow key={s.id} className={`border-b border-border/50 hover:bg-muted/50 transition-colors ${isSelected ? "bg-primary/5" : ""}`}>
                     <TableCell className="py-3 pl-4">
@@ -454,8 +653,19 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                     </TableCell>
                     <TableCell className="text-foreground">{s.className}</TableCell>
                     <TableCell>
-                      <div className="text-foreground">{s.parentName}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{s.parentEmail}</div>
+                      <div className="text-foreground font-medium">{s.parentName || "—"}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{s.parentEmail || "No email"}</div>
+                      {pStatus === "linked" ? (
+                        <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30 bg-emerald-500/10 mt-1">
+                          ✓ Parent Linked
+                        </Badge>
+                      ) : pStatus === "unlinked" ? (
+                        <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-500/30 bg-amber-500/10 mt-1">
+                          Pending Portal Sign-up
+                        </Badge>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground/60 italic block mt-0.5">No parent info</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1.5 items-start">
@@ -491,17 +701,59 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                   </TableRow>
                 );
               })}
-              {tenantStudents.length === 0 && (
+
+              {tenantStudents.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-16">
                     <GraduationCap className="w-12 h-12 mx-auto mb-4 opacity-20" />
                     No students found. Add one to get started.
                   </TableCell>
                 </TableRow>
-              )}
+              ) : filteredStudents.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-16">
+                    <Filter className="w-10 h-10 mx-auto mb-3 opacity-25" />
+                    <p className="text-base font-semibold text-foreground mb-1">No students match your filter criteria</p>
+                    <p className="text-sm text-muted-foreground mb-4">Try clearing one or more filters to view students.</p>
+                    <Button variant="outline" size="sm" onClick={resetFilters}>
+                      <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Reset Filters
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ) : null}
             </TableBody>
           </Table>
         </CardContent>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-background/50">
+            <div className="text-xs text-muted-foreground">
+              Page <span className="font-semibold text-foreground">{currentPage}</span> of{" "}
+              <span className="font-semibold text-foreground">{totalPages}</span>
+              {" "}· Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, filteredStudents.length)} of {filteredStudents.length}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="h-8 text-xs"
+              >
+                <ChevronLeft className="w-3.5 h-3.5 mr-1" /> Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="h-8 text-xs"
+              >
+                Next <ChevronRight className="w-3.5 h-3.5 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Delete Confirmation Dialog */}

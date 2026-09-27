@@ -12,7 +12,7 @@ import { QrScanner } from "@/components/QrScanner";
 import { QrCode } from "lucide-react";
 
 export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: () => void }) {
-  const { inventory, students, tenants, transactions, deductBalanceAndStock, addNotification, session, verifyStaffCode, verifyWalletPin } = useStore();
+  const { inventory, students, tenants, transactions, deductBalanceAndStock, addNotification, session, verifyStaffCode, verifyKioskExit, verifyWalletPin } = useStore();
   
   const tenantInventory = inventory.filter(i => i.tenantId === tenantId);
   const tenantStudents = students.filter(s => s.tenantId === tenantId);
@@ -186,17 +186,29 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
     setMobileSheetOpen(false);
   };
 
+  const [isExiting, setIsExiting] = useState(false);
+
   const handleExit = async () => {
-    const ok = await verifyStaffCode(exitPassword);
-    if (ok) {
-      try {
-        if (document.exitFullscreen && document.fullscreenElement) {
-          document.exitFullscreen().catch(() => {});
-        }
-      } catch(e) {}
-      onExit();
-    } else {
-      setExitError("Incorrect code. Access denied.");
+    if (!exitPassword.trim()) return;
+    setIsExiting(true);
+    setExitError("");
+    try {
+      const ok = await verifyKioskExit(tenantId, exitPassword);
+      if (ok) {
+        try {
+          if (document.exitFullscreen && document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+          }
+        } catch(e) {}
+        onExit();
+      } else {
+        const supportHint = activeTenant?.schoolNo ? ` or support password (${activeTenant.schoolNo}pass)` : " or support password";
+        setExitError(`Incorrect password. Enter your login password${supportHint}.`);
+      }
+    } catch (e: any) {
+      setExitError(e?.message || "Failed to verify password.");
+    } finally {
+      setIsExiting(false);
     }
   };
 
@@ -495,16 +507,40 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
       )}
 
       {showExitModal && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[10000] backdrop-blur-sm">
-          <div className="bg-card border border-border p-8 rounded-3xl w-full max-w-md shadow-2xl">
-            <h3 className="text-3xl font-black text-foreground mb-2">Exit Kiosk Mode</h3>
-            <p className="text-muted-foreground mb-8 text-lg">Enter your password to unlock the terminal.</p>
-            {exitError && <Alert className="bg-red-900/30 border-red-500 text-red-400 mb-6"><AlertTitle>{exitError}</AlertTitle></Alert>}
-            <Input type="password" value={exitPassword} onChange={e => setExitPassword(e.target.value)} className="bg-background border-border text-foreground h-14 mb-8 text-lg text-center tracking-widest" placeholder="••••••••" />
-            <div className="flex gap-4">
-              <Button variant="ghost" onClick={() => {setShowExitModal(false); setExitPassword(""); setExitError("");}} className="flex-1 text-foreground h-14 text-lg font-bold">Cancel</Button>
-              <Button onClick={handleExit} className="flex-1 bg-red-600 hover:bg-red-700 text-white h-14 text-lg font-bold rounded-xl">Unlock</Button>
-            </div>
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[10000] backdrop-blur-sm p-4">
+          <div className="bg-card border border-border p-6 sm:p-8 rounded-3xl w-full max-w-md shadow-2xl">
+            <h3 className="text-2xl sm:text-3xl font-black text-foreground mb-2">Exit Kiosk Mode</h3>
+            <p className="text-muted-foreground mb-6 text-sm sm:text-base leading-relaxed">
+              Enter your login password or support agent password{activeTenant?.schoolNo ? ` (${activeTenant.schoolNo}pass)` : ""} to unlock the terminal.
+            </p>
+            {exitError && <Alert className="bg-red-900/30 border-red-500 text-red-400 mb-6"><AlertTitle className="text-sm">{exitError}</AlertTitle></Alert>}
+            <form onSubmit={(e) => { e.preventDefault(); handleExit(); }}>
+              <Input
+                type="password"
+                value={exitPassword}
+                onChange={e => setExitPassword(e.target.value)}
+                autoFocus
+                className="bg-background border-border text-foreground h-14 mb-6 text-lg text-center tracking-widest"
+                placeholder="••••••••"
+              />
+              <div className="flex gap-4">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => { setShowExitModal(false); setExitPassword(""); setExitError(""); }}
+                  className="flex-1 text-foreground h-12 sm:h-14 text-base font-bold"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isExiting || !exitPassword.trim()}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white h-12 sm:h-14 text-base font-bold rounded-xl"
+                >
+                  {isExiting ? "Verifying..." : "Unlock"}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

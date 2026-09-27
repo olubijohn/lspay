@@ -24,6 +24,7 @@ function mapTenantRow(r: any): Tenant {
     contactName: r.owner_name ?? "", contactEmail: r.contact_email ?? "",
     enrollmentKey: r.enrollment_key ?? "", paystackPublicKey: r.paystack_public_key ?? "",
     logoUrl: r.logo_url ?? undefined,
+    schoolNo: r.school_no ?? undefined,
   };
 }
 
@@ -405,16 +406,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return newUser;
       }
       const { data, error } = await supabase.functions.invoke("create-user", {
-        body: { name: user.name, username, email: user.email, role: ROLE_TO_LSA[user.role], password: user.passwordHash, notify: true },
+        body: {
+          name: user.name,
+          username,
+          email: user.email,
+          role: ROLE_TO_LSA[user.role],
+          password: user.passwordHash,
+          notify: true,
+          appCodes: ["LSPAY"],
+        },
       });
-      if (error) throw error;
+      if (error) {
+        let msg = error.message;
+        try {
+          if (error.context) {
+            const body = await error.context.json();
+            if (body?.error) msg = body.error;
+            else if (body?.message) msg = body.message;
+          }
+        } catch {}
+        throw new Error(msg);
+      }
       const newUser: SystemUser = { ...user, id: data.userId };
-      setSystemUsers((prev) => [...prev, newUser]);
+      setSystemUsers((prev) => [...prev.filter((u) => u.id !== newUser.id), newUser]);
       return newUser;
     } catch (e: any) {
       console.error("createSystemUser failed:", e);
-      alert(e?.message ?? "Could not create the user.");
-      return null;
+      throw e;
     }
   };
 
@@ -757,6 +775,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return Boolean(data);
   };
 
+  const verifyKioskExit = async (tenantId: string, password: string): Promise<boolean> => {
+    const trimmed = (password ?? "").trim();
+    if (!trimmed) return false;
+    const { data, error } = await getSupabase().rpc("verify_kiosk_exit", {
+      p_tenant: tenantId,
+      p_password: trimmed,
+    });
+    if (error) {
+      console.error("verify_kiosk_exit RPC error:", error);
+      const tenant = tenants.find((t) => t.id === tenantId);
+      if (tenant?.schoolNo && trimmed === `${tenant.schoolNo}pass`) return true;
+      return false;
+    }
+    return Boolean(data);
+  };
+
   const verifyWalletPin = async (studentId: string, pin: string): Promise<boolean> => {
     const { data, error } = await getSupabase().rpc("lspay_verify_wallet_pin", { p_student: studentId, p_pin: pin });
     if (error) { console.error(error); return false; }
@@ -771,7 +805,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         login, loginParent, logout, logoutParent, registerParent, updateParentUser, createSystemUser, updateSystemUser,
         addTenant, updateTenant, assignCard, replaceCard, removeCard, createStudent, updateStudent, deleteStudent, deleteStudents, addInventory, updateInventory, deleteInventory, addTransaction, cancelTransaction, deductBalanceAndStock,
         addStockMovement, addParentChild, addNotification, markNotificationRead, markCardReady, markCardDelivered, activateCard,
-        verifyStaffCode, verifyWalletPin, topupWallet, lastAccessError,
+        verifyStaffCode, verifyKioskExit, verifyWalletPin, topupWallet, lastAccessError,
       }}
     >
       {children}
