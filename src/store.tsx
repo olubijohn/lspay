@@ -314,13 +314,50 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loginParent = async (identifier: string, password: string) => {
     const supabase = getSupabase();
     const email = await resolveIdentifierToEmail(identifier);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error || !data.user) return null;
-    const { data: account } = await supabase.from("portal_accounts").select("*, portal_account_students(student_id)").eq("user_id", data.user.id).maybeSingle();
-    if (!account) { await supabase.auth.signOut(); return null; }
+    let { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    // If sign in fails because email wasn't confirmed yet, auto-sync and retry
+    if (error && (error.message?.toLowerCase().includes("confirm") || error.status === 400)) {
+      await supabase.rpc("lspay_ensure_parent_portal_account", { p_email: email });
+      const retry = await supabase.auth.signInWithPassword({ email, password });
+      if (!retry.error && retry.data.user) {
+        data = retry.data;
+        error = null;
+      }
+    }
+
+    if (error || !data.user) {
+      if (error?.message) setAccessError(error.message);
+      return null;
+    }
+
+    // Ensure portal account exists & is linked to students with this email
+    let { data: account } = await supabase
+      .from("portal_accounts")
+      .select("*, portal_account_students(student_id)")
+      .eq("user_id", data.user.id)
+      .maybeSingle();
+
+    if (!account) {
+      await supabase.rpc("lspay_ensure_parent_portal_account", { p_email: data.user.email || email });
+      const refreshed = await supabase
+        .from("portal_accounts")
+        .select("*, portal_account_students(student_id)")
+        .eq("user_id", data.user.id)
+        .maybeSingle();
+      account = refreshed.data;
+    }
+
+    if (!account) {
+      await supabase.auth.signOut();
+      setAccessError("No portal account found for this email. Contact your school administrator.");
+      return null;
+    }
+
     const refusal = await lspayRefusal();
     if (refusal) { setAccessError(refusal); await supabase.auth.signOut(); return null; }
     setAccessError("");
+
     const linked = (account.portal_account_students ?? []).map((x: any) => x.student_id);
     const pu: ParentUser = { id: account.id, name: account.full_name, email: account.email ?? "", passwordHash: "", phone: account.phone ?? "", linkedStudentIds: linked };
     setSession({ user: null, portal: null }); setParentSession(pu);
@@ -335,9 +372,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabase();
     const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } });
     if (error || !data.user) return null;
-    const pu: ParentUser = { id: data.user.id, name, email, passwordHash: "", phone: "", linkedStudentIds: [] };
+
+    // Immediately sync portal account and linked children
+    await supabase.rpc("lspay_ensure_parent_portal_account", { p_email: email });
+    const { data: account } = await supabase.from("portal_accounts").select("*, portal_account_students(student_id)").eq("user_id", data.user.id).maybeSingle();
+    const linked = (account?.portal_account_students ?? []).map((x: any) => x.student_id);
+
+    const pu: ParentUser = { id: account?.id || data.user.id, name, email, passwordHash: "", phone: "", linkedStudentIds: linked };
     setSession({ user: null, portal: null }); setParentSession(pu);
-    if (data.session) await loadForParent(data.user.id, [], ++loadToken.current);
+    if (data.session) await loadForParent(pu.id, linked, ++loadToken.current);
     return pu;
   };
 
@@ -445,7 +488,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (updates.homeAddress !== undefined) sUpdates.address = updates.homeAddress;
     if (updates.parentName !== undefined) sUpdates.guardian_name = updates.parentName;
     if (updates.parentEmail !== undefined) sUpdates.guardian_email = updates.parentEmail;
-    if (Object.keys(sUpdates).length) getSupabase().from("students").update(sUpdates).eq("id", studentId).then();
+    if (Object.keys(sUpdates).length) {
+      getSupabase().from("students").update(sUpdates).eq("id", studentId).then(() => {
+        if (updates.parentEmail) {
+          getSupabase().rpc("lspay_ensure_parent_portal_account", { p_email: updates.parentEmail }).then();
+        }
+      });
+    }
 
     const wUpdates: any = {};
     if (updates.cardStatus !== undefined) wUpdates.card_status = updates.cardStatus;
