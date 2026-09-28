@@ -20,7 +20,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsToolti
 import { useChartTheme } from "@/theme";
 import { useNfcScanner } from "@/lib/useNfcScanner";
 import { QrScanner } from "@/components/QrScanner";
-import { Wifi, Sparkles } from "lucide-react";
+import { Wifi, Sparkles, Images } from "lucide-react";
+import { ClassPhotoImporter } from "@/components/tenant/ClassPhotoImporter";
 
 export function SuperAdmin() {
   const chartTheme = useChartTheme();
@@ -29,6 +30,10 @@ export function SuperAdmin() {
   const [successMsg, setSuccessMsg] = useState("");
   const [mobileNav, setMobileNav] = useState(false);
   const [showPrintStudio, setShowPrintStudio] = useState(false);
+
+  // Class Photo Importer State (SuperAdmin-only)
+  const [showPhotoImporter, setShowPhotoImporter] = useState(false);
+  const [photoImporterSchoolId, setPhotoImporterSchoolId] = useState<string | null>(null);
 
   // SuperAdmin Student Deletion State
   const [adminDeleteConfirmOpen, setAdminDeleteConfirmOpen] = useState(false);
@@ -848,11 +853,23 @@ export function SuperAdmin() {
 
                     {/* Students Directory (Filtered for this school) */}
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between flex-wrap gap-3">
                         <div>
                           <h2 className="text-2xl font-bold text-foreground">Students Directory</h2>
                           <p className="text-xs text-muted-foreground mt-0.5">{schoolStudents.length} students enrolled in {school.name}</p>
                         </div>
+                        {schoolStudents.length > 0 && (
+                          <Button
+                            onClick={() => {
+                              setPhotoImporterSchoolId(school.id);
+                              setShowPhotoImporter(true);
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 px-5 shadow-lg shadow-emerald-600/20"
+                            data-testid="btn-import-class-photos"
+                          >
+                            <Images className="w-4 h-4 mr-2" /> Import Class Photos
+                          </Button>
+                        )}
                       </div>
 
                       {schoolSelectedStudentIds.length > 0 && (
@@ -1957,6 +1974,23 @@ export function SuperAdmin() {
           onClose={() => setBulkPrintStudents(null)}
         />
       )}
+
+      {/* Class Photo Importer — SuperAdmin / Owner only */}
+      {showPhotoImporter && photoImporterSchoolId && (() => {
+        const importerSchoolStudents = students.filter(s => s.tenantId === photoImporterSchoolId);
+        return (
+          <ClassPhotoImporter
+            isOpen={showPhotoImporter}
+            onClose={() => { setShowPhotoImporter(false); setPhotoImporterSchoolId(null); }}
+            tenantStudents={importerSchoolStudents}
+            onOpenCardPrintStudio={(sts) => {
+              setShowPhotoImporter(false);
+              setPhotoImporterSchoolId(null);
+              setBulkPrintStudents(sts);
+            }}
+          />
+        );
+      })()}
 
       {/* SuperAdmin Student Delete Confirmation Dialog */}
       <Dialog open={adminDeleteConfirmOpen} onOpenChange={setAdminDeleteConfirmOpen}>

@@ -8,11 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { GraduationCap, ArrowLeft, Banknote, Trash2, AlertTriangle, Search, Filter, RotateCcw, X, ChevronLeft, ChevronRight, Printer } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { GraduationCap, ArrowLeft, Banknote, Trash2, AlertTriangle, Search, Filter, RotateCcw, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { cardLifecycleLabel, Student } from "@/lib/types";
-import { CardPrintStudio } from "@/components/CardPrintStudio";
 
 export function TenantStudents({ tenantId }: { tenantId: string }) {
   const { students, parentUsers, createStudent, updateStudent, deleteStudent, deleteStudents, markCardDelivered, transactions } = useStore();
@@ -21,7 +20,6 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detailStudentId, setDetailStudentId] = useState<string | null>(null);
-  const [studioStudents, setStudioStudents] = useState<Student[] | null>(null);
   const [txFilter, setTxFilter] = useState<"all" | "in" | "out">("all");
 
   // Filters State
@@ -259,9 +257,6 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
           <Button variant="ghost" onClick={() => setDetailStudentId(null)} className="text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-4 h-4 mr-2" /> Back to Directory
           </Button>
-          <Button onClick={() => setStudioStudents([s])} className="bg-primary hover:bg-primary/90 text-white font-bold h-9">
-            <Printer className="w-4 h-4 mr-2" /> Print ID Card
-          </Button>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -375,18 +370,6 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
           {tenantStudents.length > 0 && (
             <Button
               variant="outline"
-              className="border-primary/40 text-primary hover:bg-primary/10 font-semibold"
-              onClick={() => setStudioStudents(filteredStudents)}
-              disabled={filteredStudents.length === 0}
-              title="Print ID Cards for all currently filtered students"
-            >
-              <Printer className="w-4 h-4 mr-2" />
-              Print All Cards ({filteredStudents.length})
-            </Button>
-          )}
-          {tenantStudents.length > 0 && (
-            <Button
-              variant="outline"
               className="border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-400 font-semibold"
               onClick={triggerDeleteAll}
             >
@@ -433,8 +416,8 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                   <Input value={className} onChange={e => setClassName(e.target.value)} required className="bg-background border-border text-foreground h-11" />
                 </div>
                 <div className="col-span-2 space-y-2 mt-4 pt-4 border-t border-border">
-                  <Label className="text-foreground">Home Address</Label>
-                  <Input value={homeAddress} onChange={e => setHomeAddress(e.target.value)} required className="bg-background border-border text-foreground h-11" />
+                  <Label className="text-foreground">Home Address <span className="text-muted-foreground text-xs font-normal">(Optional)</span></Label>
+                  <Input value={homeAddress} onChange={e => setHomeAddress(e.target.value)} placeholder="Enter home address..." className="bg-background border-border text-foreground h-11" />
                 </div>
                 
                 <div className="col-span-2 space-y-3">
@@ -446,19 +429,19 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                   </div>
                   {!sameAsHome && (
                     <div className="space-y-2">
-                      <Label className="text-foreground">Billing Address</Label>
-                      <Input value={billingAddress} onChange={e => setBillingAddress(e.target.value)} required className="bg-background border-border text-foreground h-11" />
+                      <Label className="text-foreground">Billing Address <span className="text-muted-foreground text-xs font-normal">(Optional)</span></Label>
+                      <Input value={billingAddress} onChange={e => setBillingAddress(e.target.value)} placeholder="Enter billing address..." className="bg-background border-border text-foreground h-11" />
                     </div>
                   )}
                 </div>
 
                 <div className="space-y-2 mt-4 pt-4 border-t border-border">
-                  <Label className="text-foreground">Parent/Guardian Name</Label>
-                  <Input value={parentName} onChange={e => setParentName(e.target.value)} required className="bg-background border-border text-foreground h-11" />
+                  <Label className="text-foreground">Parent/Guardian Name <span className="text-muted-foreground text-xs font-normal">(Optional)</span></Label>
+                  <Input value={parentName} onChange={e => setParentName(e.target.value)} placeholder="e.g. Mr. & Mrs. Okonkwo" className="bg-background border-border text-foreground h-11" />
                 </div>
                 <div className="space-y-2 mt-4 pt-4 border-t border-border">
-                  <Label className="text-foreground">Parent/Guardian Email</Label>
-                  <Input type="email" value={parentEmail} onChange={e => setParentEmail(e.target.value)} required className="bg-background border-border text-foreground h-11" />
+                  <Label className="text-foreground">Parent/Guardian Email <span className="text-muted-foreground text-xs font-normal">(Optional)</span></Label>
+                  <Input type="email" value={parentEmail} onChange={e => setParentEmail(e.target.value)} placeholder="e.g. parent@example.com" className="bg-background border-border text-foreground h-11" />
                 </div>
 
                 <div className="col-span-2 flex justify-end mt-6">
@@ -480,17 +463,6 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => {
-                const sel = tenantStudents.filter(s => selectedIds.includes(s.id));
-                setStudioStudents(sel);
-              }}
-              className="bg-primary hover:bg-primary/90 text-white font-semibold"
-            >
-              <Printer className="w-4 h-4 mr-2" /> Print Selected ({selectedIds.length})
-            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -724,9 +696,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                             Confirm Delivery
                           </Button>
                         )}
-                        <Button variant="ghost" size="sm" onClick={() => setStudioStudents([s])} title="Preview / Print ID Card" className="text-muted-foreground hover:text-primary hover:bg-primary/10">
-                          <Printer className="w-4 h-4 mr-1 text-primary" /> Card
-                        </Button>
+                        
                         <Button variant="ghost" size="sm" onClick={() => openEdit(s)} className="text-muted-foreground hover:text-foreground hover:bg-muted">Edit</Button>
                         <Button variant="ghost" size="sm" onClick={() => triggerDeleteSingle(s.id, s.name)} className="text-red-400 hover:text-red-300 hover:bg-red-950/30">Delete</Button>
                       </div>
@@ -830,14 +800,6 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
           </div>
         </DialogContent>
       </Dialog>
-
-      {studioStudents && (
-        <CardPrintStudio
-          students={studioStudents}
-          isOpen={!!studioStudents}
-          onClose={() => setStudioStudents(null)}
-        />
-      )}
     </div>
   );
 }

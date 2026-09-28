@@ -573,6 +573,53 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const bulkUpdateStudentAvatars = async (
+    updates: { studentId: string; imageUrl: string }[]
+  ): Promise<{ successCount: number; errors: string[] }> => {
+    if (!updates || updates.length === 0) {
+      return { successCount: 0, errors: [] };
+    }
+
+    // 1. Optimistically update local state in LSPay
+    const updateMap = new Map(updates.map((u) => [u.studentId, u.imageUrl]));
+    setStudents((prev) =>
+      prev.map((s) => {
+        const newImg = updateMap.get(s.id);
+        return newImg !== undefined ? { ...s, imageUrl: newImg } : s;
+      })
+    );
+
+    // 2. Persist to Supabase database (students.avatar_path) in chunks of 5
+    const supabase = getSupabase();
+    let successCount = 0;
+    const errors: string[] = [];
+    const chunkSize = 5;
+
+    for (let i = 0; i < updates.length; i += chunkSize) {
+      const chunk = updates.slice(i, i + chunkSize);
+      await Promise.all(
+        chunk.map(async ({ studentId, imageUrl }) => {
+          try {
+            const avatarVal = imageUrl && !imageUrl.includes("dicebear") ? imageUrl : null;
+            const { error } = await supabase
+              .from("students")
+              .update({ avatar_path: avatarVal })
+              .eq("id", studentId);
+            if (error) {
+              errors.push(`Student ${studentId}: ${error.message}`);
+            } else {
+              successCount++;
+            }
+          } catch (err: any) {
+            errors.push(`Student ${studentId}: ${err?.message || "Update error"}`);
+          }
+        })
+      );
+    }
+
+    return { successCount, errors };
+  };
+
   const assignCard = (studentId: string, cardType: string, hardwareId: string) => {
     updateStudent(studentId, { cardStatus: "Issued", cardLifecycleStatus: "assigned", cardType, cardHardwareId: hardwareId, parentNotificationSent: true });
   };
@@ -862,7 +909,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         tenants, students, inventory, transactions, systemUsers, parentUsers, stockMovements, notifications,
         session, parentSession,
         login, loginParent, logout, logoutParent, registerParent, updateParentUser, createSystemUser, updateSystemUser,
-        addTenant, updateTenant, assignCard, replaceCard, removeCard, createStudent, updateStudent, deleteStudent, deleteStudents, addInventory, updateInventory, deleteInventory, addTransaction, cancelTransaction, deductBalanceAndStock,
+        addTenant, updateTenant, assignCard, replaceCard, removeCard, createStudent, updateStudent, bulkUpdateStudentAvatars, deleteStudent, deleteStudents, addInventory, updateInventory, deleteInventory, addTransaction, cancelTransaction, deductBalanceAndStock,
         addStockMovement, addParentChild, addNotification, markNotificationRead, markCardReady, markCardDelivered, activateCard,
         verifyStaffCode, verifyKioskExit, verifyWalletPin, topupWallet, lastAccessError,
       }}

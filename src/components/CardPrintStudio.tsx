@@ -549,11 +549,11 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
           </div>
 
           {/* Avatar */}
-          <div style={{ margin: "6px 0 4px" }}>
-            <div style={{ width: "70px", height: "70px", borderRadius: "50%", border: "2px solid #e2e8f0", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 6px rgba(0,0,0,0.08)" }}>
+          <div style={{ margin: "5px 0 4px" }}>
+            <div style={{ width: "72px", height: "72px", borderRadius: "50%", border: "2px solid #e2e8f0", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#ffffff", boxShadow: "0 2px 6px rgba(0,0,0,0.08)", padding: "2px", boxSizing: "border-box" }}>
               <img
                 src={stud.imageUrl} alt=""
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center top" }}
                 onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(stud.name)}`; }}
               />
             </div>
@@ -772,11 +772,11 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
 
                   {/* Avatar */}
                   <div className="flex justify-center mt-2 mb-1 shrink-0">
-                    <div className="w-[70px] h-[70px] rounded-full border-2 border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.10)" }}>
+                    <div className="w-[74px] h-[74px] rounded-full border-2 border-gray-200 overflow-hidden bg-white flex items-center justify-center p-0.5" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.10)" }}>
                       <img
                         src={activeStudent.imageUrl}
                         alt={activeStudent.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain object-top"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(activeStudent.name)}`;
                         }}
