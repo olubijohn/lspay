@@ -137,7 +137,7 @@ export function SuperAdmin() {
       reader.readAsDataURL(file);
     }
   };
-  
+
   // Selected school profile state
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
 
@@ -221,14 +221,14 @@ export function SuperAdmin() {
   const parseCSV = (text: string) => {
     const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
     if (lines.length < 2) return { error: "CSV must have a header row and at least one data row." };
-    
+
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
     const required = ["name", "studentid", "classname"];
     const missing = required.filter(r => !headers.includes(r));
     if (missing.length > 0) {
       return { error: `Missing required headers: ${missing.join(", ")}. Required headers are: name, studentId, className` };
     }
-    
+
     const parsedStudents: any[] = [];
     const nameIdx = headers.indexOf("name");
     const idIdx = headers.indexOf("studentid");
@@ -237,11 +237,11 @@ export function SuperAdmin() {
     const parentEmailIdx = headers.indexOf("parentemail");
     const homeAddressIdx = headers.indexOf("homeaddress");
     const walletBalanceIdx = headers.indexOf("walletbalance");
-    
+
     for (let i = 1; i < lines.length; i++) {
       const row = lines[i].split(',').map(r => r.trim());
       if (row.length < required.length) continue;
-      
+
       const name = row[nameIdx];
       const studentId = row[idIdx];
       const className = classIdx !== -1 ? (row[classIdx] || "") : "";
@@ -249,9 +249,9 @@ export function SuperAdmin() {
       const parentEmail = parentEmailIdx !== -1 ? (row[parentEmailIdx] || "") : "";
       const homeAddress = homeAddressIdx !== -1 ? (row[homeAddressIdx] || "") : "";
       const walletBalance = walletBalanceIdx !== -1 ? (Number(row[walletBalanceIdx]) || 0) : 0;
-      
+
       if (!name || !studentId) continue;
-      
+
       parsedStudents.push({
         name,
         studentId,
@@ -271,7 +271,7 @@ export function SuperAdmin() {
         parentNotificationSent: false
       });
     }
-    
+
     return { data: parsedStudents };
   };
 
@@ -306,7 +306,7 @@ export function SuperAdmin() {
           count++;
         }
       });
-      
+
       setImportSuccess(`Successfully imported ${count} new student records!`);
       setCsvText("");
       setIsImporting(false);
@@ -490,11 +490,11 @@ export function SuperAdmin() {
 
   const cardStatusBadgeClass = (status: CardLifecycleStatus) =>
     status === "pending_assignment" ? "text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 font-medium" :
-    status === "assigned" ? "text-blue-700 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 font-medium" :
-    status === "ready" ? "text-cyan-700 bg-cyan-50 dark:text-cyan-400 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-900/30 font-medium" :
-    status === "delivered" ? "text-purple-700 bg-purple-50 dark:text-purple-400 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/30 font-medium" :
-    status === "activated" ? "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 font-medium" :
-    "bg-muted text-muted-foreground border border-border font-medium";
+      status === "assigned" ? "text-blue-700 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 font-medium" :
+        status === "ready" ? "text-cyan-700 bg-cyan-50 dark:text-cyan-400 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-900/30 font-medium" :
+          status === "delivered" ? "text-purple-700 bg-purple-50 dark:text-purple-400 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/30 font-medium" :
+            status === "activated" ? "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 font-medium" :
+              "bg-muted text-muted-foreground border border-border font-medium";
 
   const cardStatusFilterOptions: { value: string; label: string }[] = [
     { value: "all", label: "All Statuses" },
@@ -752,12 +752,12 @@ export function SuperAdmin() {
                       </Button>
                       <div className="flex gap-3">
                         {schoolStudents.length > 0 && (
-                          <Button 
+                          <Button
                             onClick={() => {
                               setAdminDeleteTarget({ mode: "school_all", tenantId: school.id, schoolName: school.name });
                               setAdminDeleteConfirmOpen(true);
-                            }} 
-                            variant="outline" 
+                            }}
+                            variant="outline"
                             className="border-red-500/30 text-red-500 hover:bg-red-500/10 font-semibold"
                           >
                             <Trash2 className="h-4 w-4 mr-2" /> Bulk Delete All Students
@@ -781,16 +781,16 @@ export function SuperAdmin() {
                               <img src={school.logoUrl} alt="School Logo" className="w-full h-full object-cover" />
                             ) : school.name.toLowerCase().includes("demonstration") ? (
                               <svg className="w-8 h-8 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" strokeWidth="1.5" />
-                                <circle cx="12" cy="9" r="2.5" fill="#ef4444"/>
-                                <path d="M8 15c0-2.5 1.8-4 4-4s4 1.5 4 4" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round"/>
+                                <circle cx="12" cy="9" r="2.5" fill="#ef4444" />
+                                <path d="M8 15c0-2.5 1.8-4 4-4s4 1.5 4 4" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" />
                               </svg>
                             ) : (
-                              <img 
-                                src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(school.name)}&backgroundColor=0284c7&textColor=ffffff`} 
-                                alt="School Logo" 
-                                className="w-full h-full object-cover" 
+                              <img
+                                src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(school.name)}&backgroundColor=0284c7&textColor=ffffff`}
+                                alt="School Logo"
+                                className="w-full h-full object-cover"
                               />
                             )}
                           </div>
@@ -859,16 +859,16 @@ export function SuperAdmin() {
                           <p className="text-xs text-muted-foreground mt-0.5">{schoolStudents.length} students enrolled in {school.name}</p>
                         </div>
                         {schoolStudents.length > 0 && (
-                          <Button
-                            onClick={() => {
-                              setPhotoImporterSchoolId(school.id);
-                              setShowPhotoImporter(true);
-                            }}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 px-5 shadow-lg shadow-emerald-600/20"
-                            data-testid="btn-import-class-photos"
-                          >
-                            <Images className="w-4 h-4 mr-2" /> Import Class Photos
-                          </Button>
+                          // <Button
+                          //   onClick={() => {
+                          //     setPhotoImporterSchoolId(school.id);
+                          //     setShowPhotoImporter(true);
+                          //   }}
+                          //   className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 px-5 shadow-lg shadow-emerald-600/20"
+                          //   data-testid="btn-import-class-photos"
+                          // >
+                          //   <Images className="w-4 h-4 mr-2" /> Import Class Photos
+                          // </Button>
                         )}
                       </div>
 
@@ -952,8 +952,8 @@ export function SuperAdmin() {
                                         s.cardStatus === "Active"
                                           ? "text-emerald-700 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800/30 dark:bg-emerald-950/20"
                                           : s.cardStatus === "Blocked"
-                                          ? "text-red-700 border-red-200 bg-red-50 dark:text-red-400 dark:border-red-800/30 dark:bg-red-950/20"
-                                          : "text-amber-700 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-800/30 dark:bg-amber-950/20"
+                                            ? "text-red-700 border-red-200 bg-red-50 dark:text-red-400 dark:border-red-800/30 dark:bg-red-950/20"
+                                            : "text-amber-700 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-800/30 dark:bg-amber-950/20"
                                       }>
                                         {s.cardStatus}
                                       </Badge>
@@ -1089,8 +1089,8 @@ export function SuperAdmin() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => {
                         const selectedStudents = students.filter(s => selectedStudentIds.includes(s.id));
@@ -1100,8 +1100,8 @@ export function SuperAdmin() {
                     >
                       <Printer className="w-4 h-4 mr-2" /> Bulk Print Cards
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => {
                         const selectedStudents = students.filter(s => selectedStudentIds.includes(s.id));
@@ -1111,8 +1111,8 @@ export function SuperAdmin() {
                     >
                       <Download className="w-4 h-4 mr-2" /> Export Selected
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => {
                         setAdminDeleteTarget({ mode: "cards_selected" });
@@ -1122,9 +1122,9 @@ export function SuperAdmin() {
                     >
                       <Trash2 className="w-4 h-4 mr-2" /> Delete Selected ({selectedStudentIds.length})
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setSelectedStudentIds([])}
                       className="text-muted-foreground hover:text-foreground font-semibold"
                     >
@@ -1201,7 +1201,7 @@ export function SuperAdmin() {
                       <TableHeader className="bg-card/80 sticky top-0">
                         <TableRow className="border-border">
                           <TableHead className="w-[40px] pl-4">
-                            <Checkbox 
+                            <Checkbox
                               checked={selectedStudentIds.length === cardFilteredStudents.length && cardFilteredStudents.length > 0}
                               onCheckedChange={(checked) => {
                                 if (checked) {
@@ -1228,7 +1228,7 @@ export function SuperAdmin() {
                             data-testid={`row-student-${s.id}`}
                           >
                             <TableCell className="w-[40px] pl-4" onClick={(e) => e.stopPropagation()}>
-                              <Checkbox 
+                              <Checkbox
                                 checked={selectedStudentIds.includes(s.id)}
                                 onCheckedChange={(checked) => {
                                   if (checked) {
@@ -1273,9 +1273,9 @@ export function SuperAdmin() {
                     const student = students.find(s => s.id === selectedStudentId);
                     if (!student) return null;
                     const hasCard = Boolean(
-                      student.cardHardwareId && 
-                      student.cardLifecycleStatus && 
-                      student.cardLifecycleStatus !== "none" && 
+                      student.cardHardwareId &&
+                      student.cardLifecycleStatus &&
+                      student.cardLifecycleStatus !== "none" &&
                       student.cardLifecycleStatus !== "pending_assignment"
                     );
                     return (
@@ -1421,8 +1421,8 @@ export function SuperAdmin() {
                                     {student.cardLifecycleStatus === "ready"
                                       ? "Ready for pickup — awaiting collection by the school."
                                       : student.cardLifecycleStatus === "delivered"
-                                      ? "Collected — awaiting activation by the parent."
-                                      : "Card is active and ready for purchases."}
+                                        ? "Collected — awaiting activation by the parent."
+                                        : "Card is active and ready for purchases."}
                                   </p>
                                   <Button onClick={() => setShowPrintStudio(true)} variant="outline" className="w-full border-border text-foreground hover:bg-muted h-11 font-bold mt-4">
                                     <Printer className="mr-2 h-4 w-4" /> Print Card
