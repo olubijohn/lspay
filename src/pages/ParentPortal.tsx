@@ -259,11 +259,57 @@ export function ParentPortal() {
           {/* OVERVIEW DASHBOARD */}
           {activeTab === "overview" && (
             <div className="space-y-8">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3">
+
+              {/* ── Mobile-first Family Overview card ── */}
+              <div className="md:hidden rounded-2xl border border-border bg-card shadow-xl overflow-hidden">
+                <div className="px-5 pt-5 pb-3">
+                  <h1 className="text-xl font-bold text-foreground text-center mb-4">Family Overview</h1>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mb-0.5">Linked Children</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button onClick={handleOpenAddChild} size="sm" className="bg-primary hover:bg-primary/90 text-white font-bold h-8 px-4 rounded-lg text-xs shadow shadow-primary/30">
+                        Link Child
+                      </Button>
+                      <span className="text-3xl font-black text-foreground leading-none">{linkedChildren.length}</span>
+                    </div>
+                  </div>
+                  {/* Children avatar scroll strip */}
+                  {linkedChildren.length > 0 && (
+                    <div className="flex gap-3 overflow-x-auto pb-3 -mx-1 px-1 scrollbar-none">
+                      {linkedChildren.map(child => {
+                        const initials = child.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+                        return (
+                          <button
+                            key={child.id}
+                            onClick={() => setActiveTab(`child_${child.id}`)}
+                            className="flex flex-col items-center gap-1.5 shrink-0 group"
+                          >
+                            <div className="w-16 h-16 rounded-full bg-primary/20 border-2 border-primary/30 group-hover:border-primary transition-colors overflow-hidden flex items-center justify-center shadow-md">
+                              {child.imageUrl ? (
+                                <img src={child.imageUrl} alt={child.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-xl font-black text-primary">{initials}</span>
+                              )}
+                            </div>
+                            <span className="text-[10px] font-semibold text-foreground/70 max-w-[64px] truncate text-center leading-tight">
+                              {child.name.split(' ')[0]}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── Desktop heading (hidden on mobile) ── */}
+              <div className="hidden md:flex flex-row items-center justify-between">
+                <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
                   <LayoutDashboard className="text-primary" /> Family Overview
                 </h1>
-                <Button onClick={handleOpenAddChild} className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-lg shadow-lg shadow-primary/20 w-full sm:w-auto">
+                <Button onClick={handleOpenAddChild} className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-lg shadow-lg shadow-primary/20">
                   Link Child
                 </Button>
               </div>
