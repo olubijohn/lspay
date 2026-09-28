@@ -24,7 +24,7 @@ function playBeep() {
 }
 
 function cleanUid(raw: string): string {
-  return raw.replace(/[:\s-]/g, "").trim().toUpperCase();
+  return raw.replace(/[:\s\-]/g, "").trim().toUpperCase();
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -50,50 +50,55 @@ export function useNfcScanner(onScan: (id: string) => void) {
 
     onScanRef.current(uid);
 
-    // After 1 second reset status back to idle
+    // After 1.5 seconds reset status back to scanning (not idle) so
+    // the reader stays ready for the next card
     setTimeout(() => {
-      setStatus("idle");
-    }, 1000);
+      setStatus((prev) => (prev === "success" ? "idle" : prev));
+    }, 1500);
   }, []);
 
   // ── Start scanning ────────────────────────────────────────────────────────
-  const start = useCallback(async (focusTarget?: HTMLInputElement | null) => {
-    setError("");
-    setStatus("scanning");
+  const start = useCallback(
+    async (focusTarget?: HTMLInputElement | null) => {
+      setError("");
+      setStatus("scanning");
 
-    if (focusTarget) {
-      setTimeout(() => {
-        focusTarget.focus();
-        focusTarget.select();
-      }, 30);
-    }
+      if (focusTarget) {
+        // Small delay so the button click completes before we steal focus
+        setTimeout(() => {
+          focusTarget.focus();
+          focusTarget.select();
+        }, 50);
+      }
 
-    // Native Web NFC (Android Chrome) support if present
-    if (typeof window !== "undefined" && "NDEFReader" in window) {
-      try {
-        if (nfcControllerRef.current) nfcControllerRef.current.abort();
-        const ctrl = new AbortController();
-        nfcControllerRef.current = ctrl;
+      // Native Web NFC (Android Chrome) support if present
+      if (typeof window !== "undefined" && "NDEFReader" in window) {
+        try {
+          if (nfcControllerRef.current) nfcControllerRef.current.abort();
+          const ctrl = new AbortController();
+          nfcControllerRef.current = ctrl;
 
-        const reader = new (window as any).NDEFReader();
-        await reader.scan({ signal: ctrl.signal });
+          const reader = new (window as any).NDEFReader();
+          await reader.scan({ signal: ctrl.signal });
 
-        reader.onreadingerror = () =>
-          setError("Couldn't read that card — please tap again.");
+          reader.onreadingerror = () =>
+            setError("Couldn't read that card — please tap again.");
 
-        reader.onreading = (evt: any) => {
-          if (evt?.serialNumber) {
-            fireScan(evt.serialNumber);
+          reader.onreading = (evt: any) => {
+            if (evt?.serialNumber) {
+              fireScan(evt.serialNumber);
+            }
+          };
+        } catch (e: any) {
+          if (e?.name !== "AbortError") {
+            // Native NFC not supported/allowed – USB wedge mode will handle it
+            console.warn("Native Web NFC not active, using USB wedge mode:", e);
           }
-        };
-      } catch (e: any) {
-        if (e?.name !== "AbortError") {
-          // If native NFC is not supported/allowed, keyboard wedge remains active
-          console.warn("Native Web NFC not active, using USB wedge mode:", e);
         }
       }
-    }
-  }, [fireScan]);
+    },
+    [fireScan]
+  );
 
   // ── Stop scanning ─────────────────────────────────────────────────────────
   const stop = useCallback(() => {
@@ -103,26 +108,37 @@ export function useNfcScanner(onScan: (id: string) => void) {
     setError("");
   }, []);
 
-  useEffect(() => () => {
-    nfcControllerRef.current?.abort();
-  }, []);
+  useEffect(
+    () => () => {
+      nfcControllerRef.current?.abort();
+    },
+    []
+  );
 
   // ── Global Keyboard Wedge Reader listener ────────────────────────────────
-  // Listens directly for USB NFC reader keystrokes (e.g. ACR122U, ACR1252, etc.).
-  // When a card is tapped, the reader / wedge types the UID + presses Enter.
+  // Listens for USB HID NFC reader keystrokes globally on window.
+  // Most USB readers type the UID in < 50 ms total then press Enter.
+  // We use a generous 500 ms inter-key gap so slow readers still work.
   useEffect(() => {
     let buffer = "";
     let lastKeyTime = 0;
     let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // Maximum gap (ms) between keystrokes from the SAME card read.
+    // USB HID is very fast (< 5 ms per char), but some readers have a
+    // 200-400 ms startup delay before the FIRST character.  We use a
+    // separate "first-char" window handled by the fallback timer instead
+    // of resetting the buffer mid-read.
+    const INTER_KEY_GAP_MS = 500;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore system shortcuts
       if (e.ctrlKey || e.altKey || e.metaKey) return;
 
       const now = Date.now();
-      const gap = lastKeyTime > 0 ? now - lastKeyTime : 9999;
+      const gap = lastKeyTime > 0 ? now - lastKeyTime : 0;
 
-      // ── Handle Enter Key (Standard USB RFID/NFC reader terminator) ─────────
+      // ── Handle Enter Key (Standard USB RFID/NFC reader terminator) ──────
       if (e.key === "Enter") {
         if (fallbackTimer) {
           clearTimeout(fallbackTimer);
@@ -140,9 +156,13 @@ export function useNfcScanner(onScan: (id: string) => void) {
           return;
         }
 
-        // If buffer was empty but an active input has text from the scanner
+        // If buffer was empty/short, check active input value (some readers
+        // type directly into the focused field)
         const activeEl = document.activeElement;
-        if (activeEl instanceof HTMLInputElement && activeEl.value.trim().length >= 3) {
+        if (
+          activeEl instanceof HTMLInputElement &&
+          activeEl.value.trim().length >= 3
+        ) {
           const val = activeEl.value.trim();
           e.preventDefault();
           e.stopPropagation();
@@ -165,31 +185,35 @@ export function useNfcScanner(onScan: (id: string) => void) {
       // Only accumulate printable single characters
       if (e.key.length !== 1) return;
 
-      // If gap between keystrokes is > 300ms, start a new buffer for the new card
-      if (gap > 300) {
+      // If gap between successive keystrokes exceeds the threshold,
+      // start a fresh buffer — this is a new card read, not a continuation.
+      // NOTE: we only reset when lastKeyTime > 0 (i.e. we have seen at least
+      // one previous key), so the very first char of any read always starts
+      // a fresh buffer cleanly.
+      if (lastKeyTime > 0 && gap > INTER_KEY_GAP_MS) {
         buffer = e.key;
       } else {
         buffer += e.key;
       }
       lastKeyTime = now;
 
-      // Fallback: in case a reader does NOT send Enter, auto-fire after 300ms pause
+      // Fallback: auto-fire after 500 ms of silence if reader omits Enter
       if (fallbackTimer) clearTimeout(fallbackTimer);
       if (buffer.length >= 4) {
         fallbackTimer = setTimeout(() => {
           fallbackTimer = null;
           const candidate = buffer.trim();
-          // Only auto-fire if it looks like a valid card UID
           if (candidate.length >= 4) {
             buffer = "";
             lastKeyTime = 0;
             fireScan(candidate);
           }
-        }, 300);
+        }, 500);
       }
     };
 
-    // Use capture phase on window to catch all keystrokes from USB wedge
+    // Capture phase on window — catches keystrokes from USB wedge even when
+    // focus is on a button or outside any input.
     window.addEventListener("keydown", handleKeyDown, true);
     return () => {
       window.removeEventListener("keydown", handleKeyDown, true);

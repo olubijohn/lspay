@@ -61,6 +61,24 @@ function mapTransactionRow(r: any, studentName: string, schoolName: string): Tra
   };
 }
 
+function mapLedgerRowToTransaction(r: any, studentName: string, schoolName: string): Transaction {
+  const isCredit = r.kind === 'TOPUP';
+  const prefix = isCredit ? 'Wallet Top-up' : (r.kind === 'PURCHASE' ? 'Kiosk Purchase' : r.kind);
+  const noteText = r.note ? `: ${r.note}` : '';
+  const refText = r.reference ? ` (${r.reference})` : '';
+  return {
+    id: `ledger-${r.id}`,
+    tenantId: r.tenant_id,
+    studentId: r.student_id,
+    studentName,
+    schoolName,
+    itemsString: `${prefix}${noteText}${refText}`,
+    amount: isCredit ? -Math.abs(Number(r.amount)) : Math.abs(Number(r.amount)),
+    cost: 0,
+    date: r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+  };
+}
+
 function mapStockRow(r: any, itemName: string): StockMovement {
   return {
     id: r.id, tenantId: r.tenant_id, itemId: r.item_id, itemName,
@@ -109,6 +127,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let tq = supabase.from("tenants").select("*, tenant_settings(paystack_subaccount_code, paystack_enabled)");
     let iq = supabase.from("lspay_inventory_items").select("*");
     let txq = supabase.from("lspay_transactions").select("*");
+    let lq = supabase.from("lspay_wallet_ledger").select("*").eq("kind", "TOPUP").order("created_at", { ascending: false });
     let smq = supabase.from("lspay_stock_movements").select("*");
     let nq = supabase.from("lspay_notifications").select("*").order("created_at", { ascending: false });
     let puq = supabase.from("profiles").select("*");
@@ -116,16 +135,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     if (tenantId) {
       sq = sq.eq("tenant_id", tenantId); tq = tq.eq("id", tenantId); iq = iq.eq("tenant_id", tenantId);
-      txq = txq.eq("tenant_id", tenantId); smq = smq.eq("tenant_id", tenantId);
+      txq = txq.eq("tenant_id", tenantId); lq = lq.eq("tenant_id", tenantId); smq = smq.eq("tenant_id", tenantId);
       nq = nq.eq("target_role", "tenant").eq("target_tenant_id", tenantId);
       puq = puq.eq("tenant_id", tenantId); paq = paq.eq("tenant_id", tenantId);
     } else {
       nq = nq.eq("target_role", "super_admin");
     }
 
-    const [{ data: sData }, { data: tData }, { data: iData }, { data: txData }, { data: smData }, { data: nData }, { data: puData }, { data: paData }, { data: paAdmins }] =
+    const [{ data: sData }, { data: tData }, { data: iData }, { data: txData }, { data: lData }, { data: smData }, { data: nData }, { data: puData }, { data: paData }, { data: paAdmins }] =
       await Promise.all([
-        sq, tq, iq, txq, smq, nq, puq, paq,
+        sq, tq, iq, txq, lq, smq, nq, puq, paq,
         tenantId ? Promise.resolve({ data: [] as any[] }) : supabase.from("platform_admins").select("*"),
       ]);
     if (loadToken.current !== myToken) return;
@@ -137,11 +156,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const inventoryMapped = (iData ?? []).map(mapInventoryRow);
     const inventoryById = new Map(inventoryMapped.map((i) => [i.id, i]));
 
+    const mappedTxns = (txData ?? []).map((r: any) =>
+      mapTransactionRow(r, studentsById.get(r.student_id)?.name ?? "", tenantsById.get(r.tenant_id)?.name ?? ""));
+    const mappedLedger = (lData ?? []).map((r: any) =>
+      mapLedgerRowToTransaction(r, studentsById.get(r.student_id)?.name ?? "", tenantsById.get(r.tenant_id)?.name ?? ""));
+    const allTxns = [...mappedTxns, ...mappedLedger].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
     setStudents(studentsMapped);
     setTenants(tenantsMapped);
     setInventory(inventoryMapped);
-    setTransactions((txData ?? []).map((r: any) =>
-      mapTransactionRow(r, studentsById.get(r.student_id)?.name ?? "", tenantsById.get(r.tenant_id)?.name ?? "")));
+    setTransactions(allTxns);
     setStockMovements((smData ?? []).map((r: any) => mapStockRow(r, inventoryById.get(r.item_id)?.name ?? "")));
     setNotifications((nData ?? []).map(mapNotificationRow));
 
@@ -164,9 +188,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadForParent = useCallback(async (accountId: string, linkedStudentIds: string[], myToken: number) => {
     const supabase = getSupabase();
     if (linkedStudentIds.length === 0) { if (loadToken.current === myToken) { setStudents([]); setTenants([]); setTransactions([]); setNotifications([]); } return; }
-    const [{ data: sData }, { data: txData }, { data: nData }] = await Promise.all([
+    const [{ data: sData }, { data: txData }, { data: lData }, { data: nData }] = await Promise.all([
       supabase.from("students").select(STUDENT_SELECT).in("id", linkedStudentIds),
       supabase.from("lspay_transactions").select("*").in("student_id", linkedStudentIds).order("txn_date", { ascending: false }),
+      supabase.from("lspay_wallet_ledger").select("*").in("student_id", linkedStudentIds).eq("kind", "TOPUP").order("created_at", { ascending: false }),
       supabase.from("lspay_notifications").select("*").eq("target_role", "parent").order("created_at", { ascending: false }),
     ]);
     if (loadToken.current !== myToken) return;
@@ -180,10 +205,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const tenantsMapped = (tData ?? []).map(mapTenantRow);
     const tenantsById = new Map(tenantsMapped.map((t) => [t.id, t]));
 
+    const mappedTxns = (txData ?? []).map((r: any) =>
+      mapTransactionRow(r, studentsById.get(r.student_id)?.name ?? "", tenantsById.get(r.tenant_id)?.name ?? ""));
+    const mappedLedger = (lData ?? []).map((r: any) =>
+      mapLedgerRowToTransaction(r, studentsById.get(r.student_id)?.name ?? "", tenantsById.get(r.tenant_id)?.name ?? ""));
+    const allTxns = [...mappedTxns, ...mappedLedger].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
     setStudents(studentsMapped);
     setTenants(tenantsMapped);
-    setTransactions((txData ?? []).map((r: any) =>
-      mapTransactionRow(r, studentsById.get(r.student_id)?.name ?? "", tenantsById.get(r.tenant_id)?.name ?? "")));
+    setTransactions(allTxns);
     setNotifications((nData ?? []).map(mapNotificationRow));
   }, []);
 
@@ -691,8 +721,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const { data, error } = await getSupabase().functions.invoke("lspay-wallet-topup", { body: { studentId, reference: paystackReference } });
     if (error) throw await functionError(error);
     const newBalance = data?.balance !== undefined ? Number(data.balance) : undefined;
+    const credited = data?.credited !== undefined ? Number(data.credited) : 0;
     setStudents((prev) => prev.map((s) =>
-      s.id === studentId ? { ...s, walletBalance: newBalance !== undefined ? newBalance : s.walletBalance + (data?.credited ?? 0) } : s));
+      s.id === studentId ? { ...s, walletBalance: newBalance !== undefined ? newBalance : s.walletBalance + credited } : s));
+
+    // Also optimistically inject the top-up into transactions state immediately
+    setTransactions((prev) => {
+      const student = students.find((s) => s.id === studentId);
+      const tenant = tenants.find((t) => t.id === student?.tenantId);
+      const optimisticTx: Transaction = {
+        id: `ledger-topup-${paystackReference}`,
+        tenantId: student?.tenantId ?? "",
+        studentId,
+        studentName: student?.name ?? "",
+        schoolName: tenant?.name ?? "",
+        itemsString: `Wallet Top-up: Paystack (${paystackReference})`,
+        amount: -credited,
+        cost: 0,
+        date: new Date().toISOString().slice(0, 10),
+      };
+      return [optimisticTx, ...prev.filter((t) => !t.itemsString.includes(paystackReference))];
+    });
   };
 
   // ------------------------------ stock ------------------------------

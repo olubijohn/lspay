@@ -124,9 +124,14 @@ async function main() {
     const studentName = r.full_name || '';
     const studentId = r.reg_no || '';
     const rawPhoto = r.avatar_path;
-    const photoUrl = rawPhoto && !rawPhoto.includes('dicebear')
-      ? rawPhoto
-      : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(studentName)}`;
+    // Build photo URL, always percent-encode apostrophes to prevent breaking HTML attributes
+    const fallbackUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(studentName).replace(/'/g, '%27')}`;
+    const photoUrl = (rawPhoto && !rawPhoto.includes('dicebear'))
+      ? rawPhoto.replace(/'/g, '%27')
+      : fallbackUrl;
+    // Safe versions for HTML attributes
+    const safeNameForAttr = encodeURIComponent(studentName);
+    const safeNameForHtml = studentName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
     const qrSvg = renderToStaticMarkup(
       React.createElement(QRCodeSVG, {
@@ -137,8 +142,8 @@ async function main() {
     );
 
     return `
-      <!-- Outer: full African pattern frame (inline style for guaranteed rendering) -->
-      <div class="print-card-box" style="padding: 7px; background-image: url('${africanPatternBase64}'); background-size: cover; background-position: center; background-repeat: no-repeat; background-color: transparent; border: none; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+      <!-- Outer: full African pattern frame -->
+      <div class="print-card-box card-african-pattern" style="padding: 7px; background-color: transparent; border: none;">
 
         <!-- Inner white content plate -->
         <div style="width: 100%; height: 100%; border-radius: 8px; background: white; border: 1px solid #f1f5f9; box-shadow: 0 2px 8px rgba(0,0,0,0.10); display: flex; flex-direction: column; align-items: center; overflow: hidden; box-sizing: border-box;">
@@ -158,7 +163,7 @@ async function main() {
               }
             </div>
             <div style="flex: 1; min-width: 0; overflow: hidden;">
-              <div style="color: #0f172a; font-weight: 800; font-size: 8.5px; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+              <div style="color: #0f172a; font-weight: 800; font-size: 8.5px; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical;">
                 ${schoolName}
               </div>
               <span style="font-size: 6.5px; color: #94a3b8; font-family: monospace; display: block; margin-top: 1px;">Student Identification</span>
@@ -168,14 +173,14 @@ async function main() {
           <!-- Photo -->
           <div style="margin: 6px 0 4px;">
             <div style="width: 70px; height: 70px; border-radius: 50%; border: 2px solid #e2e8f0; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-              <img src="${photoUrl}" alt="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(studentName)}';" />
+              <img src="${photoUrl}" alt="${safeNameForHtml}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null;this.src=&quot;${fallbackUrl}&quot;;" />
             </div>
           </div>
 
           <!-- Details -->
           <div style="display: flex; flex-direction: column; align-items: center; text-align: center; flex-grow: 1; justify-content: center; gap: 3px; width: 100%; padding: 0 8px;">
             <span style="color: #2563eb; font-weight: 700; font-size: 9px; font-family: monospace; letter-spacing: 0.04em;">${studentId}</span>
-            <span style="color: #0f172a; font-weight: 800; font-size: 10px; line-height: 1.25; width: 164px; text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${studentName}</span>
+            <span style="color: #0f172a; font-weight: 800; font-size: 10px; line-height: 1.25; width: 164px; text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical;">${safeNameForHtml}</span>
 
             <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px; background: white; display: flex; align-items: center; justify-content: center; width: 74px; height: 74px; margin-top: 2px;">
               ${qrSvg}
@@ -222,7 +227,7 @@ async function main() {
                     </svg>`
               }
             </div>
-            <span style="font-size: 9.5px; font-weight: 900; color: #0f172a; margin-top: 4px; text-align: center; width: 168px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.25; letter-spacing: 0.01em;">
+            <span style="font-size: 9.5px; font-weight: 900; color: #0f172a; margin-top: 4px; text-align: center; width: 168px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.25; letter-spacing: 0.01em;">
               ${schoolName}
             </span>
             <span style="font-size: 6.5px; color: #64748b; font-family: monospace; letter-spacing: 0.06em; font-weight: 600;">
@@ -307,6 +312,14 @@ async function main() {
       background-repeat: no-repeat;
       background-position: center;
       display: inline-block;
+    }
+    .card-african-pattern {
+      background-image: url('${africanPatternBase64}') !important;
+      background-size: cover !important;
+      background-position: center !important;
+      background-repeat: no-repeat !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     body {
       margin: 0;
