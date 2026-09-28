@@ -551,31 +551,31 @@ export function ParentPortal() {
                 )}
 
                 {/* Action Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Card className="bg-card border-border hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => setShowTopupModal(child.id)}>
-                    <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary"><Wallet className="w-6 h-6" /></div>
-                      <div className="font-bold text-foreground">Top Up Wallet</div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Card className="bg-card border-border hover:bg-muted/50 transition-all cursor-pointer shadow-md hover:shadow-lg" onClick={() => setShowTopupModal(child.id)}>
+                    <CardContent className="p-5 flex flex-col items-center text-center gap-3">
+                      <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center text-primary shadow-inner"><Wallet className="w-6 h-6" /></div>
+                      <div className="font-bold text-foreground text-sm">Top Up Wallet</div>
                     </CardContent>
                   </Card>
-                  <Card className="bg-card border-border hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => { setPin1(""); setPin2(""); setShowPinModal(child.id); }}>
-                    <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400"><Lock className="w-6 h-6" /></div>
-                      <div className="font-bold text-foreground">Change PIN</div>
+                  <Card className="bg-card border-border hover:bg-muted/50 transition-all cursor-pointer shadow-md hover:shadow-lg" onClick={() => { setPin1(""); setPin2(""); setShowPinModal(child.id); }}>
+                    <CardContent className="p-5 flex flex-col items-center text-center gap-3">
+                      <div className="w-14 h-14 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 shadow-inner"><Lock className="w-6 h-6" /></div>
+                      <div className="font-bold text-foreground text-sm">Change PIN</div>
                     </CardContent>
                   </Card>
-                  <Card className="bg-card border-border hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => { setDailyLim(child.dailyLimit.toString()); setMonthlyLim(child.monthlyLimit.toString()); setShowLimitsModal(child.id); }}>
-                    <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400"><Settings className="w-6 h-6" /></div>
-                      <div className="font-bold text-foreground">Card Limits</div>
+                  <Card className="bg-card border-border hover:bg-muted/50 transition-all cursor-pointer shadow-md hover:shadow-lg" onClick={() => { setDailyLim(child.dailyLimit.toString()); setMonthlyLim(child.monthlyLimit.toString()); setShowLimitsModal(child.id); }}>
+                    <CardContent className="p-5 flex flex-col items-center text-center gap-3">
+                      <div className="w-14 h-14 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 shadow-inner"><Settings className="w-6 h-6" /></div>
+                      <div className="font-bold text-foreground text-sm">Card Limits</div>
                     </CardContent>
                   </Card>
-                  <Card className="bg-card border-border hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => handleToggleFreeze(child)}>
-                    <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${child.cardStatus === 'Blocked' ? 'bg-primary/20 text-primary' : 'bg-red-500/20 text-red-400'}`}>
+                  <Card className="bg-card border-border hover:bg-muted/50 transition-all cursor-pointer shadow-md hover:shadow-lg" onClick={() => handleToggleFreeze(child)}>
+                    <CardContent className="p-5 flex flex-col items-center text-center gap-3">
+                      <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-inner ${child.cardStatus === 'Blocked' ? 'bg-primary/20 text-primary' : 'bg-red-500/20 text-red-400'}`}>
                         {child.cardStatus === 'Blocked' ? <CreditCard className="w-6 h-6" /> : <ShieldAlert className="w-6 h-6" />}
                       </div>
-                      <div className="font-bold text-foreground">{child.cardStatus === 'Blocked' ? 'Unfreeze Card' : 'Freeze Card'}</div>
+                      <div className="font-bold text-foreground text-sm">{child.cardStatus === 'Blocked' ? 'Unfreeze Card' : 'Freeze Card'}</div>
                     </CardContent>
                   </Card>
                 </div>
