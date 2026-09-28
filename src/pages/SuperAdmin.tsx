@@ -858,7 +858,7 @@ export function SuperAdmin() {
                           <h2 className="text-2xl font-bold text-foreground">Students Directory</h2>
                           <p className="text-xs text-muted-foreground mt-0.5">{schoolStudents.length} students enrolled in {school.name}</p>
                         </div>
-                        {schoolStudents.length > 0 && (
+                        {/* {schoolStudents.length > 0 && (
                           // <Button
                           //   onClick={() => {
                           //     setPhotoImporterSchoolId(school.id);
@@ -869,7 +869,7 @@ export function SuperAdmin() {
                           // >
                           //   <Images className="w-4 h-4 mr-2" /> Import Class Photos
                           // </Button>
-                        )}
+                        )} */}
                       </div>
 
                       {schoolSelectedStudentIds.length > 0 && (
