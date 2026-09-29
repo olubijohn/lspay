@@ -50,6 +50,28 @@ const getScaledDataUrl = (
   });
 };
 
+// Capitalise the first letter of each word in the school name on the card
+const titleCase = (s: string) => s.replace(/\b([a-z])/g, (c) => c.toUpperCase());
+
+// NFC contactless mark, top-right of the card front
+const NfcLogo = ({ size }: { size: number }) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", top: "8px", right: "8px" }}>
+    <defs>
+      <linearGradient id="nfcGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#0ea5e9" />
+        <stop offset="1" stopColor="#1d4ed8" />
+      </linearGradient>
+    </defs>
+    <path d="M15 11.5A17 17 0 1 1 15 36.5" stroke="url(#nfcGrad)" strokeWidth="2.2" strokeLinecap="round" />
+    <text x="3" y="28.5" fontFamily="Arial, sans-serif" fontSize="12" fontWeight="700" fill="url(#nfcGrad)">NFC</text>
+    <g stroke="url(#nfcGrad)" strokeWidth="2" strokeLinecap="round">
+      <path d="M29 19.5a6 6 0 0 1 0 9" />
+      <path d="M32 17a10 10 0 0 1 0 14" />
+      <path d="M35 14.5a14 14 0 0 1 0 19" />
+    </g>
+  </svg>
+);
+
 // Company Logo (LSPay blue logo)
 const CompanyLogo = () => (
   <div className="w-7 h-7 rounded-full border border-gray-200 bg-white flex items-center justify-center shadow-sm shrink-0 overflow-hidden">
@@ -165,7 +187,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
       position: relative !important;
     }
     .print-card-box.card-back-african {
-      padding: 7px !important;
+      padding: 3.5px !important;
       background-image: url('/african-pattern.jpg') !important;
       background-size: cover !important;
       background-position: center !important;
@@ -202,9 +224,9 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
   };
 
   const activeStudentTenant = (activeStudent?.tenantId ? tenants.find(t => t.id === activeStudent.tenantId) : null) || tenant || (tenants.length === 1 ? tenants[0] : undefined);
-  const schoolName = activeStudentTenant?.name || tenant?.name || "Demonstration Schools Kaduna";
+  const schoolName = titleCase(activeStudentTenant?.name || tenant?.name || "Demonstration Schools Kaduna");
   const schoolAddress = activeStudentTenant?.address || tenant?.address || "5-7 Alor Close U/Pama Kaduna";
-  const schoolPhone = "+234 805 201 8753, +234 907 051 8961";
+  const schoolPhone = activeStudentTenant?.phone || tenant?.phone || "";
   const schoolLogo = activeStudentTenant?.logoUrl || tenant?.logoUrl;
 
   const handleExportHTML = async () => {
@@ -356,7 +378,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
       position: relative;
     }
     .print-card-box.card-back-african {
-      padding: 7px !important;
+      padding: 3.5px !important;
       background-image: url('${patternBase64}') !important;
       background-size: cover !important;
       background-position: center !important;
@@ -434,7 +456,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
         color: black !important;
       }
       .print-card-box.card-back-african {
-        padding: 7px !important;
+        padding: 3.5px !important;
         background-image: url('${patternBase64}') !important;
         background-size: cover !important;
         background-position: center !important;
@@ -501,7 +523,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
 
   const renderFrontCard = (stud: Student) => {
     const studTenant = (stud.tenantId ? tenants.find(t => t.id === stud.tenantId) : null) || tenant || (tenants.length === 1 ? tenants[0] : undefined);
-    const studSchoolName = studTenant?.name || schoolName;
+    const studSchoolName = titleCase(studTenant?.name || schoolName);
     const studSchoolLogo = studTenant?.logoUrl || schoolLogo;
 
     return (
@@ -510,11 +532,11 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
         className="print-card-box"
         style={{
           width: "204px", height: "324px", borderRadius: "12px",
-          boxSizing: "border-box", padding: "7px",
+          boxSizing: "border-box", padding: "3.5px",
           backgroundImage: "url('/african-pattern.jpg')",
           backgroundSize: "cover", backgroundPosition: "center",
           border: "none", overflow: "hidden", position: "relative",
-          fontFamily: "sans-serif", color: "black",
+          fontFamily: "Aptos, 'Aptos Display', 'Segoe UI', sans-serif", color: "black",
           WebkitPrintColorAdjust: "exact",
         }}
       >
@@ -525,42 +547,23 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
           border: "1px solid #f1f5f9",
           boxShadow: "0 2px 8px rgba(0,0,0,0.10)",
           display: "flex", flexDirection: "column", alignItems: "center",
-          overflow: "hidden", boxSizing: "border-box",
+          overflow: "hidden", boxSizing: "border-box", position: "relative",
         }}>
 
-          {/* Header: School Logo & Name */}
-          <div style={{ width: "100%", display: "flex", alignItems: "center", gap: "7px", padding: "8px 8px 6px", borderBottom: "1px solid #f1f5f9" }}>
-            <div style={{ width: "28px", height: "28px", borderRadius: "50%", border: "1px solid #e2e8f0", background: "white", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-              {studSchoolLogo ? (
-                <img src={studSchoolLogo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", padding: "1px" }} />
-              ) : (
-                <svg style={{ width: "16px", height: "16px" }} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="#1e3a8a" strokeWidth="1.5" strokeLinecap="round"/>
-                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="#1e3a8a" strokeWidth="1.5" />
-                  <circle cx="12" cy="9" r="2.5" fill="#ef4444"/>
-                  <path d="M8 15c0-2.5 1.8-4 4-4s4 1.5 4 4" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              )}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ color: "#0f172a", fontWeight: "800", fontSize: "8.5px", lineHeight: "1.2", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{studSchoolName}</div>
-              <span style={{ fontSize: "6.5px", color: "#94a3b8", fontFamily: "monospace", display: "block", marginTop: "1px" }}>Student Identification</span>
-            </div>
-          </div>
-
+          <NfcLogo size={29} />
           {/* Avatar */}
-          <div style={{ margin: "5px 0 4px" }}>
-            <div style={{ width: "72px", height: "72px", borderRadius: "50%", border: "2px solid #e2e8f0", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#ffffff", boxShadow: "0 2px 6px rgba(0,0,0,0.08)", padding: "2px", boxSizing: "border-box" }}>
+          <div style={{ margin: "auto 0 6px", paddingTop: "10px" }}>
+            <div style={{ width: "112px", height: "112px", borderRadius: "50%", border: "3px solid #e2e8f0", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#ffffff", boxShadow: "0 2px 6px rgba(0,0,0,0.08)", boxSizing: "border-box" }}>
               <img
                 src={stud.imageUrl} alt=""
-                style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center top" }}
+                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top" }}
                 onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(stud.name)}`; }}
               />
             </div>
           </div>
 
           {/* Details */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", flexGrow: 1, justifyContent: "center", gap: "3px", width: "100%", padding: "0 8px" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: "auto", gap: "3px", width: "100%", padding: "0 8px" }}>
             <span style={{ color: "#2563eb", fontWeight: "700", fontSize: "9px", fontFamily: "monospace", letterSpacing: "0.04em" }}>{stud.studentId}</span>
             <span style={{ color: "#0f172a", fontWeight: "800", fontSize: "10px", lineHeight: "1.25", width: "164px", textAlign: "center", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{stud.name}</span>
 
@@ -571,15 +574,13 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
           </div>
 
           {/* Footer */}
-          <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid #f1f5f9", padding: "5px 8px", marginTop: "2px" }}>
-            <div style={{ width: "22px", height: "22px", borderRadius: "50%", border: "1px solid #e2e8f0", background: "white", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-              <div className="lspay-logo-img" style={{ width: "14px", height: "14px" }} />
-            </div>
+          <div style={{ width: "100%", display: "flex", alignItems: "center", gap: "8px", borderTop: "1px solid #f1f5f9", padding: "5px 8px", marginTop: "2px", boxSizing: "border-box" }}>
             {studSchoolLogo ? (
               <div style={{ width: "22px", height: "22px", borderRadius: "50%", border: "1px solid #e2e8f0", background: "white", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
                 <img src={studSchoolLogo} alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} />
               </div>
             ) : null}
+            <span style={{ flex: 1, minWidth: 0, color: "#000000", fontWeight: "400", fontSize: "7.5px", lineHeight: "1.2", whiteSpace: "normal", wordBreak: "break-word" }}>{studSchoolName}</span>
           </div>
 
         </div>
@@ -589,9 +590,9 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
 
   const renderBackCard = (stud: Student) => {
     const studTenant = (stud.tenantId ? tenants.find(t => t.id === stud.tenantId) : null) || tenant || (tenants.length === 1 ? tenants[0] : undefined);
-    const studSchoolName = studTenant?.name || schoolName;
+    const studSchoolName = titleCase(studTenant?.name || schoolName);
     const studSchoolAddress = studTenant?.address || schoolAddress;
-    const studSchoolPhone = "+234 805 201 8753, +234 907 051 8961";
+    const studSchoolPhone = studTenant?.phone || "";
     const studSchoolLogo = studTenant?.logoUrl || schoolLogo;
 
     return (
@@ -604,11 +605,11 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
           border: "1px solid #cbd5e1",
           background: "white",
           color: "black",
-          padding: "7px",
+          padding: "3.5px",
           boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
-          fontFamily: "sans-serif",
+          fontFamily: "Aptos, 'Aptos Display', 'Segoe UI', sans-serif",
           position: "relative",
           overflow: "hidden",
         }}
@@ -648,17 +649,14 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
             <span style={{ fontSize: "9.5px", fontWeight: "900", color: "#0f172a", marginTop: "4px", textAlign: "center", width: "168px", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", lineHeight: "1.25", letterSpacing: "0.01em" }}>
               {studSchoolName}
             </span>
-            <span style={{ fontSize: "6.5px", color: "#64748b", fontFamily: "monospace", letterSpacing: "0.06em", fontWeight: "600" }}>
-              Student Identification Card
-            </span>
           </div>
 
           {/* Details */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "4px", width: "100%", margin: "auto 0" }}>
-            <span style={{ color: "#334155", fontSize: "8px", lineHeight: "1.35", maxWidth: "155px", fontWeight: "500" }}>
+            <span style={{ color: "#000000", fontSize: "8px", lineHeight: "1.35", maxWidth: "155px", fontWeight: "800" }}>
               {studSchoolAddress}
             </span>
-            <span style={{ color: "#1e293b", fontSize: "8px", fontFamily: "monospace", fontWeight: "700", marginTop: "2px" }}>
+            <span style={{ color: "#000000", fontSize: "8px", fontWeight: "800", marginTop: "2px" }}>
               {studSchoolPhone}
             </span>
           </div>
@@ -669,9 +667,9 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
               <div style={{ width: "22px", height: "22px", borderRadius: "50%", border: "1px solid #e2e8f0", background: "white", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
                 <div className="lspay-logo-img" style={{ width: "16px", height: "16px" }} />
               </div>
-              <span style={{ fontSize: "7.5px", color: "#475569", fontFamily: "monospace", fontWeight: "600" }}>umusa.cloud</span>
+              <span style={{ fontSize: "7.5px", color: "#000000", fontWeight: "400" }}>umusa.cloud</span>
             </div>
-            <span style={{ fontSize: "7px", color: "#94a3b8", fontFamily: "monospace" }}>VERIFIED</span>
+            <span style={{ fontSize: "7px", color: "#000000", fontWeight: "400" }}>VERIFIED</span>
           </div>
         </div>
       </div>
@@ -739,44 +737,24 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
               <div
                 className="absolute inset-0 w-full h-full rounded-2xl backface-hidden shadow-xl text-black overflow-hidden select-none"
                 style={{
-                  padding: "7px",
+                  padding: "3.5px",
+                  fontFamily: "Aptos, 'Aptos Display', 'Segoe UI', sans-serif",
                   backgroundImage: "url('/african-pattern.jpg')",
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                 }}
               >
                 {/* Inner white content plate */}
-                <div className="w-full h-full rounded-xl flex flex-col items-center overflow-hidden" style={{ background: "rgba(255,255,255,0.97)", border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 2px 8px rgba(0,0,0,0.10)" }}>
+                <div className="relative w-full h-full rounded-xl flex flex-col items-center overflow-hidden" style={{ background: "rgba(255,255,255,0.97)", border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 2px 8px rgba(0,0,0,0.10)" }}>
 
-                  {/* Header */}
-                  <div className="w-full flex items-center gap-2 px-2.5 pt-2 pb-1.5 border-b border-gray-100">
-                    <div className="w-7 h-7 rounded-full border border-gray-200 bg-white flex items-center justify-center shrink-0 overflow-hidden">
-                      {schoolLogo ? (
-                        <img src={schoolLogo} alt={schoolName} className="w-full h-full object-contain p-0.5" />
-                      ) : (
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="#1e3a8a" strokeWidth="1.5" strokeLinecap="round"/>
-                          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="#1e3a8a" strokeWidth="1.5" />
-                          <circle cx="12" cy="9" r="2.5" fill="#ef4444"/>
-                          <path d="M8 15c0-2.5 1.8-4 4-4s4 1.5 4 4" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round"/>
-                        </svg>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[9px] font-extrabold text-slate-900 leading-tight" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                        {schoolName}
-                      </div>
-                      <span className="text-[6.5px] text-slate-400 font-mono block mt-0.5">Student Identification</span>
-                    </div>
-                  </div>
-
+                  <NfcLogo size={31} />
                   {/* Avatar */}
-                  <div className="flex justify-center mt-2 mb-1 shrink-0">
-                    <div className="w-[74px] h-[74px] rounded-full border-2 border-gray-200 overflow-hidden bg-white flex items-center justify-center p-0.5" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.10)" }}>
+                  <div className="flex justify-center mt-auto pt-3 mb-1.5 shrink-0">
+                    <div className="w-[120px] h-[120px] rounded-full border-[3px] border-gray-200 overflow-hidden bg-white flex items-center justify-center" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.10)" }}>
                       <img
                         src={activeStudent.imageUrl}
                         alt={activeStudent.name}
-                        className="w-full h-full object-contain object-top"
+                        className="w-full h-full object-cover object-top"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(activeStudent.name)}`;
                         }}
@@ -785,7 +763,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
                   </div>
 
                   {/* Details */}
-                  <div className="flex flex-col items-center text-center flex-1 justify-center px-2" style={{ gap: "3px" }}>
+                  <div className="flex flex-col items-center text-center mb-auto px-2" style={{ gap: "3px" }}>
                     <span className="text-blue-600 font-bold text-[10px] tracking-widest font-mono leading-none">
                       {activeStudent.studentId}
                     </span>
@@ -800,13 +778,13 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
                   </div>
 
                   {/* Footer */}
-                  <div className="w-full flex items-center justify-between border-t border-gray-100 px-2.5 py-1.5 mt-auto">
-                    <CompanyLogo />
+                  <div className="w-full flex items-center gap-2 border-t border-gray-100 px-2.5 py-1.5 mt-auto">
                     {schoolLogo ? (
-                      <div className="w-5 h-5 rounded-full border border-gray-200 bg-white flex items-center justify-center shrink-0 overflow-hidden">
-                        <img src={schoolLogo} alt={schoolName} className="w-3.5 h-3.5 object-contain" />
+                      <div className="w-6 h-6 rounded-full border border-gray-200 bg-white flex items-center justify-center shrink-0 overflow-hidden">
+                        <img src={schoolLogo} alt={schoolName} className="w-[18px] h-[18px] object-contain" />
                       </div>
                     ) : null}
+                    <span className="flex-1 min-w-0 whitespace-normal break-words leading-tight text-[8px] text-black">{schoolName}</span>
                   </div>
 
                 </div>
@@ -816,7 +794,8 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
               <div
                 className="absolute inset-0 w-full h-full rounded-2xl backface-hidden rotate-y-180 border border-gray-200 shadow-xl text-black overflow-hidden select-none"
                 style={{
-                  padding: "7px",
+                  padding: "3.5px",
+                  fontFamily: "Aptos, 'Aptos Display', 'Segoe UI', sans-serif",
                   backgroundImage: "url('/african-pattern.jpg')",
                   backgroundSize: "cover",
                   backgroundPosition: "center",
@@ -848,17 +827,14 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
                     <span className="text-[10px] font-black text-slate-900 tracking-wide mt-1.5 px-2 text-center leading-tight" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", width: "168px" }}>
                       {schoolName}
                     </span>
-                    <span className="text-[7px] text-slate-500 font-mono tracking-widest font-semibold">
-                      Student Identification Card
-                    </span>
                   </div>
 
                   {/* Details */}
                   <div className="flex flex-col items-center text-center my-auto px-2 space-y-1.5">
-                    <p className="text-slate-600 text-[9px] font-medium leading-relaxed max-w-[150px]">
+                    <p className="text-black text-[9px] font-extrabold leading-relaxed max-w-[150px]">
                       {schoolAddress}
                     </p>
-                    <p className="text-slate-800 text-[9px] font-mono font-bold leading-none">
+                    <p className="text-black text-[9px] font-extrabold leading-none">
                       {schoolPhone}
                     </p>
                   </div>
@@ -867,9 +843,9 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
                   <div className="w-full flex items-center justify-between border-t border-gray-200 pt-1.5">
                     <div className="flex items-center gap-1.5">
                       <CompanyLogo />
-                      <span className="text-[9px] text-slate-500 font-mono font-semibold">umusa.cloud</span>
+                      <span className="text-[9px] text-black">umusa.cloud</span>
                     </div>
-                    <span className="text-[7px] text-slate-400 font-mono">VERIFIED</span>
+                    <span className="text-[7px] text-black">VERIFIED</span>
                   </div>
                 </div>
               </div>
@@ -999,7 +975,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
                 position: relative;
               }
               .print-card-box.card-back-african {
-                padding: 7px !important;
+                padding: 3.5px !important;
                 background-image: url('/african-pattern.jpg') !important;
                 background-size: cover !important;
                 background-position: center !important;

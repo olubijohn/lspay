@@ -16,6 +16,7 @@ export interface Tenant {
   name: string;
   code: string;
   address: string;
+  phone?: string;
   contactName: string;
   contactEmail: string;
   enrollmentKey: string;

@@ -64,7 +64,7 @@ async function main() {
   const tenant = tenants[0];
   const schoolName = tenant.name || 'Demonstration Schools Kaduna';
   const schoolAddress = tenant.address || '5-7 Alor Close U/Pama Kaduna';
-  const schoolPhone = '+234 805 201 8753, +234 907 051 8961';
+  const schoolPhone = tenant.phone || '';
   const schoolLogo = tenant.logo_url || tenant.logoUrl || '';
 
   console.log(`🏫 School: ${schoolName}`);

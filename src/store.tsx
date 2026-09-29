@@ -21,7 +21,7 @@ const LSA_TO_ROLE: Record<string, TenantUserRole> = {
 function mapTenantRow(r: any): Tenant {
   const ts = Array.isArray(r.tenant_settings) ? r.tenant_settings[0] : (r.tenant_settings ?? {});
   return {
-    id: r.id, name: r.name, code: r.code, address: r.address ?? "",
+    id: r.id, name: r.name, code: r.code, address: r.address ?? "", phone: r.phone ?? "",
     contactName: r.owner_name ?? "", contactEmail: r.contact_email ?? "",
     enrollmentKey: r.enrollment_key ?? "", paystackPublicKey: r.paystack_public_key ?? "",
     logoUrl: r.logo_url ?? undefined,
@@ -492,6 +492,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const dbUpdates: any = {};
     if (updates.name !== undefined) dbUpdates.name = updates.name;
     if (updates.address !== undefined) dbUpdates.address = updates.address;
+    if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
     if (updates.contactName !== undefined) dbUpdates.owner_name = updates.contactName;
     if (updates.contactEmail !== undefined) dbUpdates.contact_email = updates.contactEmail;
     if (updates.paystackPublicKey !== undefined) dbUpdates.paystack_public_key = updates.paystackPublicKey;
@@ -870,8 +871,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Activation goes through a security-definer RPC: parents have no UPDATE policy on
+  // lspay_student_wallets, so a direct update silently affects 0 rows and reverts on refresh.
   const activateCard = (studentId: string, pin: string, dailyLimit: number, monthlyLimit: number) => {
-    updateStudent(studentId, { cardStatus: "Active", cardLifecycleStatus: "activated", activatedAt: new Date().toISOString().slice(0, 10), pin, dailyLimit, monthlyLimit });
+    const prev = students.find((s) => s.id === studentId);
+    const activatedAt = new Date().toISOString().slice(0, 10);
+    setStudents((list) => list.map((s) => (s.id === studentId ? { ...s, cardStatus: "Active", cardLifecycleStatus: "activated", activatedAt, dailyLimit, monthlyLimit } : s)));
+    setNotifications((list) => list.map((n) => (n.studentId === studentId && n.type === "card_delivered" ? { ...n, isRead: true } : n)));
+    getSupabase()
+      .rpc("lspay_activate_card", { p_student: studentId, p_pin: pin, p_daily_limit: dailyLimit, p_monthly_limit: monthlyLimit })
+      .then(({ error }) => {
+        if (error) {
+          console.error("card activation failed:", error);
+          if (prev) setStudents((list) => list.map((s) => (s.id === studentId ? prev : s)));
+          alert(`Card activation failed: ${error.message}`);
+          return;
+        }
+        getSupabase().from("lspay_notifications").update({ is_read: true })
+          .eq("student_id", studentId).eq("type", "card_delivered").eq("is_read", false).then();
+      });
   };
 
   // ------------------------------ verification helpers ------------------------------
