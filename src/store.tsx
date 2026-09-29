@@ -708,7 +708,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (item.costPrice !== undefined) dbUpdates.cost_price = item.costPrice;
     if (item.sellingPrice !== undefined) dbUpdates.selling_price = item.sellingPrice;
     if (item.imageUrl !== undefined) dbUpdates.image_url = item.imageUrl;
-    if (Object.keys(dbUpdates).length) getSupabase().from("lspay_inventory_items").update(dbUpdates).eq("id", id).then();
+    if (Object.keys(dbUpdates).length) {
+      const before = inventory.find((i) => i.id === id);
+      // .select() so an RLS-blocked update (0 rows, no error) is caught instead of silently reverting on refresh
+      getSupabase().from("lspay_inventory_items").update(dbUpdates).eq("id", id).select("id").then(({ data, error }) => {
+        if (error || !data?.length) {
+          console.error("inventory update failed:", error);
+          if (before) setInventory((prev) => prev.map((i) => (i.id === id ? before : i)));
+          alert(`Could not save item: ${error?.message ?? "you don't have permission to edit inventory"}`);
+        }
+      });
+    }
   };
 
   const deleteInventory = (id: string) => {

@@ -193,7 +193,7 @@ export function TenantInventory({ tenantId }: { tenantId: string }) {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!invName || !invCost || !invPrice) return;
+    if (!invName || !invPrice) return;
     const finalImage = imageUrl || `https://placehold.co/300x300/1e293b/94a3b8?text=${encodeURIComponent(invName)}`;
     if (editingId) {
       updateInventory(editingId, { name: invName, category: invCategory, stock: Number(invStock), costPrice: Number(invCost), sellingPrice: Number(invPrice), imageUrl: finalImage });
@@ -249,12 +249,12 @@ export function TenantInventory({ tenantId }: { tenantId: string }) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-foreground">Initial Stock</Label>
-                <Input value={invStock} onChange={e => setInvStock(e.target.value)} type="number" min="0" required disabled={!!editingId} className="bg-background border-border text-foreground h-11 disabled:opacity-50" />
+                <Label className="text-foreground">{editingId ? "Stock" : "Initial Stock"}</Label>
+                <Input value={invStock} onChange={e => setInvStock(e.target.value)} type="number" min="0" placeholder="0" className="bg-background border-border text-foreground h-11" />
               </div>
               <div className="space-y-2">
                 <Label className="text-foreground">Cost Price (₦)</Label>
-                <Input value={invCost} onChange={e => setInvCost(e.target.value)} type="number" step="0.01" min="0" required className="bg-background border-border text-foreground h-11" />
+                <Input value={invCost} onChange={e => setInvCost(e.target.value)} type="number" step="0.01" min="0" placeholder="0" className="bg-background border-border text-foreground h-11" />
               </div>
               <div className="space-y-2">
                 <Label className="text-foreground">Selling Price (₦)</Label>
