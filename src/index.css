@@ -4,6 +4,25 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * LSPay theme
+ *
+ * Fonts
+ *   Fredoka (600)      -> page titles, logo, big stat/report figures, timers, codes  (use `font-display`)
+ *   Nunito (400-800)   -> everything else; labels and buttons use 800
+ *
+ * Palette
+ *   Ink #2B2863 · Ink 2 #3D3990 · Muted #6F6B93 · Paper #F7F5FD · White #FFFFFF · Line #E8E4F5
+ *   Lilac #ECE7FC · Blush #FCE9EF · Peach #FFEEDD · Mint #DFF4EC · Sky #E3EEFD
+ *   Gold #F2B33D (highlights, stars) · Coral #E9707C (hearts, alerts, needs work) · Green #2E9E7E (success, present)
+ *
+ * Tailwind's stock colour scales are re-pointed at this palette so existing classes follow the theme:
+ *   red/rose/pink -> coral · amber/yellow/orange -> gold · emerald/green/teal/lime -> green
+ *   blue/sky/cyan/indigo -> sky-to-ink · purple/violet/fuchsia -> lilac · slate/gray/zinc/neutral/stone -> ink neutrals
+ * The 300/400 and 800/900/950 steps of the colour scales are mode-aware: on light surfaces 300/400 become
+ * deep, readable tones and 800-950 become soft tints; on dark surfaces (.dark, .on-ink) they are the usual scale.
+ */
+
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -21,6 +40,7 @@
 
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-hover: hsl(var(--primary-hover));
   --color-primary-border: var(--primary-border);
 
   --color-secondary: hsl(var(--secondary));
@@ -44,6 +64,7 @@
   --color-chart-3: hsl(var(--chart-3));
   --color-chart-4: hsl(var(--chart-4));
   --color-chart-5: hsl(var(--chart-5));
+  --color-chart-6: hsl(var(--chart-6));
 
   --color-sidebar: hsl(var(--sidebar));
   --color-sidebar-foreground: hsl(var(--sidebar-foreground));
@@ -56,71 +77,209 @@
   --color-sidebar-accent-border: var(--sidebar-accent-border);
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
+  /* Brand palette, usable directly: bg-ink, text-muted-ink, bg-lilac, bg-gold, text-coral ... */
+  --color-ink: #2B2863;
+  --color-ink-2: #3D3990;
+  --color-muted-ink: #6F6B93;
+  --color-paper: #F7F5FD;
+  --color-line: #E8E4F5;
+  --color-lilac: #ECE7FC;
+  --color-blush: #FCE9EF;
+  --color-peach: #FFEEDD;
+  --color-mint: #DFF4EC;
+  --color-sky: #E3EEFD;
+  --color-gold: #F2B33D;
+  --color-coral: #E9707C;
+  --color-green: #2E9E7E;
+
   --font-sans: var(--app-font-sans);
-  --font-serif: var(--app-font-serif);
+  --font-serif: var(--app-font-sans);
   --font-mono: var(--app-font-mono);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Soft, ink-tinted elevation */
+  --shadow-2xs: 0 1px 0 0 rgb(43 40 99 / 0.04);
+  --shadow-xs: 0 1px 2px 0 rgb(43 40 99 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(43 40 99 / 0.07), 0 1px 2px -1px rgb(43 40 99 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(43 40 99 / 0.07), 0 1px 2px -1px rgb(43 40 99 / 0.05);
+  --shadow-md: 0 6px 16px -4px rgb(43 40 99 / 0.10), 0 2px 4px -2px rgb(43 40 99 / 0.06);
+  --shadow-lg: 0 14px 30px -8px rgb(43 40 99 / 0.14), 0 4px 8px -4px rgb(43 40 99 / 0.06);
+  --shadow-xl: 0 24px 48px -12px rgb(43 40 99 / 0.18);
+  --shadow-2xl: 0 32px 64px -16px rgb(43 40 99 / 0.25);
+
+  /* ---- Stock scales re-pointed at the palette ---- */
+  --color-red-50: var(--c-coral-50);   --color-red-100: var(--c-coral-100); --color-red-200: var(--c-coral-200);
+  --color-red-300: var(--c-coral-300); --color-red-400: var(--c-coral-400); --color-red-500: var(--c-coral-500);
+  --color-red-600: var(--c-coral-600); --color-red-700: var(--c-coral-700); --color-red-800: var(--c-coral-800);
+  --color-red-900: var(--c-coral-900); --color-red-950: var(--c-coral-950);
+  --color-rose-50: var(--c-coral-50);   --color-rose-100: var(--c-coral-100); --color-rose-200: var(--c-coral-200);
+  --color-rose-300: var(--c-coral-300); --color-rose-400: var(--c-coral-400); --color-rose-500: var(--c-coral-500);
+  --color-rose-600: var(--c-coral-600); --color-rose-700: var(--c-coral-700); --color-rose-800: var(--c-coral-800);
+  --color-rose-900: var(--c-coral-900); --color-rose-950: var(--c-coral-950);
+  --color-pink-50: var(--c-coral-50);   --color-pink-100: var(--c-coral-100); --color-pink-200: var(--c-coral-200);
+  --color-pink-300: var(--c-coral-300); --color-pink-400: var(--c-coral-400); --color-pink-500: var(--c-coral-500);
+  --color-pink-600: var(--c-coral-600); --color-pink-700: var(--c-coral-700); --color-pink-800: var(--c-coral-800);
+  --color-pink-900: var(--c-coral-900); --color-pink-950: var(--c-coral-950);
+
+  --color-amber-50: var(--c-gold-50);   --color-amber-100: var(--c-gold-100); --color-amber-200: var(--c-gold-200);
+  --color-amber-300: var(--c-gold-300); --color-amber-400: var(--c-gold-400); --color-amber-500: var(--c-gold-500);
+  --color-amber-600: var(--c-gold-600); --color-amber-700: var(--c-gold-700); --color-amber-800: var(--c-gold-800);
+  --color-amber-900: var(--c-gold-900); --color-amber-950: var(--c-gold-950);
+  --color-yellow-50: var(--c-gold-50);   --color-yellow-100: var(--c-gold-100); --color-yellow-200: var(--c-gold-200);
+  --color-yellow-300: var(--c-gold-300); --color-yellow-400: var(--c-gold-400); --color-yellow-500: var(--c-gold-500);
+  --color-yellow-600: var(--c-gold-600); --color-yellow-700: var(--c-gold-700); --color-yellow-800: var(--c-gold-800);
+  --color-yellow-900: var(--c-gold-900); --color-yellow-950: var(--c-gold-950);
+  --color-orange-50: var(--c-gold-50);   --color-orange-100: var(--c-gold-100); --color-orange-200: var(--c-gold-200);
+  --color-orange-300: var(--c-gold-300); --color-orange-400: var(--c-gold-400); --color-orange-500: var(--c-gold-500);
+  --color-orange-600: var(--c-gold-600); --color-orange-700: var(--c-gold-700); --color-orange-800: var(--c-gold-800);
+  --color-orange-900: var(--c-gold-900); --color-orange-950: var(--c-gold-950);
+
+  --color-emerald-50: var(--c-green-50);   --color-emerald-100: var(--c-green-100); --color-emerald-200: var(--c-green-200);
+  --color-emerald-300: var(--c-green-300); --color-emerald-400: var(--c-green-400); --color-emerald-500: var(--c-green-500);
+  --color-emerald-600: var(--c-green-600); --color-emerald-700: var(--c-green-700); --color-emerald-800: var(--c-green-800);
+  --color-emerald-900: var(--c-green-900); --color-emerald-950: var(--c-green-950);
+  --color-green-50: var(--c-green-50);   --color-green-100: var(--c-green-100); --color-green-200: var(--c-green-200);
+  --color-green-300: var(--c-green-300); --color-green-400: var(--c-green-400); --color-green-500: var(--c-green-500);
+  --color-green-600: var(--c-green-600); --color-green-700: var(--c-green-700); --color-green-800: var(--c-green-800);
+  --color-green-900: var(--c-green-900); --color-green-950: var(--c-green-950);
+  --color-teal-50: var(--c-green-50);   --color-teal-100: var(--c-green-100); --color-teal-200: var(--c-green-200);
+  --color-teal-300: var(--c-green-300); --color-teal-400: var(--c-green-400); --color-teal-500: var(--c-green-500);
+  --color-teal-600: var(--c-green-600); --color-teal-700: var(--c-green-700); --color-teal-800: var(--c-green-800);
+  --color-teal-900: var(--c-green-900); --color-teal-950: var(--c-green-950);
+  --color-lime-50: var(--c-green-50);   --color-lime-100: var(--c-green-100); --color-lime-200: var(--c-green-200);
+  --color-lime-300: var(--c-green-300); --color-lime-400: var(--c-green-400); --color-lime-500: var(--c-green-500);
+  --color-lime-600: var(--c-green-600); --color-lime-700: var(--c-green-700); --color-lime-800: var(--c-green-800);
+  --color-lime-900: var(--c-green-900); --color-lime-950: var(--c-green-950);
+
+  --color-blue-50: var(--c-sky-50);   --color-blue-100: var(--c-sky-100); --color-blue-200: var(--c-sky-200);
+  --color-blue-300: var(--c-sky-300); --color-blue-400: var(--c-sky-400); --color-blue-500: var(--c-sky-500);
+  --color-blue-600: var(--c-sky-600); --color-blue-700: var(--c-sky-700); --color-blue-800: var(--c-sky-800);
+  --color-blue-900: var(--c-sky-900); --color-blue-950: var(--c-sky-950);
+  --color-sky-50: var(--c-sky-50);   --color-sky-100: var(--c-sky-100); --color-sky-200: var(--c-sky-200);
+  --color-sky-300: var(--c-sky-300); --color-sky-400: var(--c-sky-400); --color-sky-500: var(--c-sky-500);
+  --color-sky-600: var(--c-sky-600); --color-sky-700: var(--c-sky-700); --color-sky-800: var(--c-sky-800);
+  --color-sky-900: var(--c-sky-900); --color-sky-950: var(--c-sky-950);
+  --color-cyan-50: var(--c-sky-50);   --color-cyan-100: var(--c-sky-100); --color-cyan-200: var(--c-sky-200);
+  --color-cyan-300: var(--c-sky-300); --color-cyan-400: var(--c-sky-400); --color-cyan-500: var(--c-sky-500);
+  --color-cyan-600: var(--c-sky-600); --color-cyan-700: var(--c-sky-700); --color-cyan-800: var(--c-sky-800);
+  --color-cyan-900: var(--c-sky-900); --color-cyan-950: var(--c-sky-950);
+  --color-indigo-50: var(--c-sky-50);   --color-indigo-100: var(--c-sky-100); --color-indigo-200: var(--c-sky-200);
+  --color-indigo-300: var(--c-sky-300); --color-indigo-400: var(--c-sky-400); --color-indigo-500: var(--c-sky-500);
+  --color-indigo-600: var(--c-sky-600); --color-indigo-700: var(--c-sky-700); --color-indigo-800: var(--c-sky-800);
+  --color-indigo-900: var(--c-sky-900); --color-indigo-950: var(--c-sky-950);
+
+  --color-purple-50: var(--c-lilac-50);   --color-purple-100: var(--c-lilac-100); --color-purple-200: var(--c-lilac-200);
+  --color-purple-300: var(--c-lilac-300); --color-purple-400: var(--c-lilac-400); --color-purple-500: var(--c-lilac-500);
+  --color-purple-600: var(--c-lilac-600); --color-purple-700: var(--c-lilac-700); --color-purple-800: var(--c-lilac-800);
+  --color-purple-900: var(--c-lilac-900); --color-purple-950: var(--c-lilac-950);
+  --color-violet-50: var(--c-lilac-50);   --color-violet-100: var(--c-lilac-100); --color-violet-200: var(--c-lilac-200);
+  --color-violet-300: var(--c-lilac-300); --color-violet-400: var(--c-lilac-400); --color-violet-500: var(--c-lilac-500);
+  --color-violet-600: var(--c-lilac-600); --color-violet-700: var(--c-lilac-700); --color-violet-800: var(--c-lilac-800);
+  --color-violet-900: var(--c-lilac-900); --color-violet-950: var(--c-lilac-950);
+  --color-fuchsia-50: var(--c-lilac-50);   --color-fuchsia-100: var(--c-lilac-100); --color-fuchsia-200: var(--c-lilac-200);
+  --color-fuchsia-300: var(--c-lilac-300); --color-fuchsia-400: var(--c-lilac-400); --color-fuchsia-500: var(--c-lilac-500);
+  --color-fuchsia-600: var(--c-lilac-600); --color-fuchsia-700: var(--c-lilac-700); --color-fuchsia-800: var(--c-lilac-800);
+  --color-fuchsia-900: var(--c-lilac-900); --color-fuchsia-950: var(--c-lilac-950);
+
+  --color-slate-50: var(--c-ink-50);   --color-slate-100: var(--c-ink-100); --color-slate-200: var(--c-ink-200);
+  --color-slate-300: var(--c-ink-300); --color-slate-400: var(--c-ink-400); --color-slate-500: var(--c-ink-500);
+  --color-slate-600: var(--c-ink-600); --color-slate-700: var(--c-ink-700); --color-slate-800: var(--c-ink-800);
+  --color-slate-900: var(--c-ink-900); --color-slate-950: var(--c-ink-950);
+  --color-gray-50: var(--c-ink-50);   --color-gray-100: var(--c-ink-100); --color-gray-200: var(--c-ink-200);
+  --color-gray-300: var(--c-ink-300); --color-gray-400: var(--c-ink-400); --color-gray-500: var(--c-ink-500);
+  --color-gray-600: var(--c-ink-600); --color-gray-700: var(--c-ink-700); --color-gray-800: var(--c-ink-800);
+  --color-gray-900: var(--c-ink-900); --color-gray-950: var(--c-ink-950);
+  --color-zinc-50: var(--c-ink-50);   --color-zinc-100: var(--c-ink-100); --color-zinc-200: var(--c-ink-200);
+  --color-zinc-300: var(--c-ink-300); --color-zinc-400: var(--c-ink-400); --color-zinc-500: var(--c-ink-500);
+  --color-zinc-600: var(--c-ink-600); --color-zinc-700: var(--c-ink-700); --color-zinc-800: var(--c-ink-800);
+  --color-zinc-900: var(--c-ink-900); --color-zinc-950: var(--c-ink-950);
+  --color-neutral-50: var(--c-ink-50);   --color-neutral-100: var(--c-ink-100); --color-neutral-200: var(--c-ink-200);
+  --color-neutral-300: var(--c-ink-300); --color-neutral-400: var(--c-ink-400); --color-neutral-500: var(--c-ink-500);
+  --color-neutral-600: var(--c-ink-600); --color-neutral-700: var(--c-ink-700); --color-neutral-800: var(--c-ink-800);
+  --color-neutral-900: var(--c-ink-900); --color-neutral-950: var(--c-ink-950);
+  --color-stone-50: var(--c-ink-50);   --color-stone-100: var(--c-ink-100); --color-stone-200: var(--c-ink-200);
+  --color-stone-300: var(--c-ink-300); --color-stone-400: var(--c-ink-400); --color-stone-500: var(--c-ink-500);
+  --color-stone-600: var(--c-ink-600); --color-stone-700: var(--c-ink-700); --color-stone-800: var(--c-ink-800);
+  --color-stone-900: var(--c-ink-900); --color-stone-950: var(--c-ink-950);
 }
 
 :root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline: rgba(0,0,0, .05);
+  /* ---- Palette scales (fixed steps) ---- */
+  --c-coral-50: #FCE9EF; --c-coral-100: #F9D6DE; --c-coral-200: #F4B6C1; --c-coral-500: #E9707C;
+  --c-coral-600: #D4515F; --c-coral-700: #B03C4B;
+  --c-gold-50: #FFF7E8; --c-gold-100: #FFEEDD; --c-gold-200: #FCDDA3; --c-gold-500: #F2B33D;
+  --c-gold-600: #D9961F; --c-gold-700: #A06A0F;
+  --c-green-50: #DFF4EC; --c-green-100: #C9EDDF; --c-green-200: #A3DEC8; --c-green-500: #2E9E7E;
+  --c-green-600: #25846A; --c-green-700: #1E6A56;
+  --c-sky-50: #E3EEFD; --c-sky-100: #D2E2FB; --c-sky-200: #B6CCF3; --c-sky-500: #5552B5;
+  --c-sky-600: #3D3990; --c-sky-700: #2B2863;
+  --c-lilac-50: #F5F2FE; --c-lilac-100: #ECE7FC; --c-lilac-200: #DCD2F9; --c-lilac-500: #8B6DD6;
+  --c-lilac-600: #7152BE; --c-lilac-700: #5A419A;
+  --c-ink-50: #F7F5FD; --c-ink-100: #F0EDFA; --c-ink-200: #E8E4F5; --c-ink-300: #D4CFE8; --c-ink-400: #A09BC0;
+  --c-ink-500: #6F6B93; --c-ink-600: #58547F; --c-ink-700: #45416E; --c-ink-800: #37346A; --c-ink-900: #2B2863;
+  --c-ink-950: #1B1942;
+
+  /* ---- Mode-aware steps: light surfaces ---- */
+  --c-coral-300: #A33645; --c-coral-400: #C24556; --c-coral-800: #F4B6C1; --c-coral-900: #F9D6DE; --c-coral-950: #FCE9EF;
+  --c-gold-300: #7E530B;  --c-gold-400: #9A650E;  --c-gold-800: #FCDDA3;  --c-gold-900: #FFEEDD;  --c-gold-950: #FFF7E8;
+  --c-green-300: #1E6A56; --c-green-400: #22785F; --c-green-800: #A3DEC8; --c-green-900: #C9EDDF; --c-green-950: #DFF4EC;
+  --c-sky-300: #2B2863;   --c-sky-400: #3D3990;   --c-sky-800: #B6CCF3;   --c-sky-900: #D2E2FB;   --c-sky-950: #E3EEFD;
+  --c-lilac-300: #57409A; --c-lilac-400: #6A4DB5; --c-lilac-800: #DCD2F9; --c-lilac-900: #ECE7FC; --c-lilac-950: #F5F2FE;
+
+  --button-outline: rgba(43, 40, 99, .14);
+  --badge-outline: rgba(43, 40, 99, .10);
   --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
+  --elevate-1: rgba(43, 40, 99, .03);
+  --elevate-2: rgba(43, 40, 99, .08);
 
-  --background: 210 40% 98%;
-  --foreground: 222 47% 11%;
-  --border: 214 32% 91%;
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --card-border: 214 32% 91%;
-  --sidebar: 210 40% 96%;
-  --sidebar-foreground: 222 47% 11%;
-  --sidebar-border: 214 32% 91%;
-  --sidebar-primary: 222 47% 11%;
-  --sidebar-primary-foreground: 210 40% 98%;
-  --sidebar-accent: 210 40% 96%;
-  --sidebar-accent-foreground: 222 47% 11%;
-  --sidebar-ring: 222 47% 11%;
+  /* Paper page, white cards, ink text */
+  --background: 255 67% 98%;          /* Paper  #F7F5FD */
+  --foreground: 243 42% 27%;          /* Ink    #2B2863 */
+  --border: 254 46% 93%;              /* Line   #E8E4F5 */
+  --card: 0 0% 100%;                  /* White */
+  --card-foreground: 243 42% 27%;
+  --card-border: 254 46% 93%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-  --popover-border: 214 32% 91%;
-  --primary: 160 84% 39%;
+  --popover-foreground: 243 42% 27%;
+  --popover-border: 254 46% 93%;
+  --primary: 243 42% 27%;             /* Ink buttons */
   --primary-foreground: 0 0% 100%;
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 222 47% 11%;
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
-  --accent: 210 40% 96%;
-  --accent-foreground: 222 47% 11%;
-  --destructive: 0 84% 60%;
+  --primary-hover: 243 43% 39%;       /* Ink 2  #3D3990 */
+  --secondary: 254 78% 95%;           /* Lilac  #ECE7FC */
+  --secondary-foreground: 243 42% 27%;
+  --muted: 254 78% 95%;
+  --muted-foreground: 246 16% 50%;    /* Muted  #6F6B93 */
+  --accent: 254 78% 95%;
+  --accent-foreground: 243 42% 27%;
+  --destructive: 354 73% 68%;         /* Coral  #E9707C */
   --destructive-foreground: 0 0% 100%;
-  --input: 214 32% 91%;
-  --ring: 160 84% 39%;
+  --input: 254 34% 88%;
+  --ring: 243 43% 39%;
 
-  --chart-1: 12 76% 61%;
-  --chart-2: 173 58% 39%;
-  --chart-3: 197 37% 24%;
-  --chart-4: 43 74% 66%;
-  --chart-5: 27 87% 67%;
+  --chart-1: 163 55% 40%;             /* Green */
+  --chart-2: 243 43% 39%;             /* Ink 2 */
+  --chart-3: 39 87% 59%;              /* Gold */
+  --chart-4: 257 56% 63%;             /* Lilac, deepened */
+  --chart-5: 354 73% 68%;             /* Coral */
+  --chart-6: 246 16% 50%;             /* Muted */
 
-  --app-font-sans: 'Inter', sans-serif;
-  --app-font-serif: Georgia, serif;
-  --app-font-mono: Menlo, monospace;
-  --radius: .5rem;
-  --shadow-2xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-sm: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 1px 2px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 1px 2px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-md: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 2px 4px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-lg: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 4px 6px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 8px 10px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
-  --shadow-2xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --sidebar: 243 42% 27%;
+  --sidebar-foreground: 254 78% 97%;
+  --sidebar-border: 243 36% 36%;
+  --sidebar-primary: 39 87% 59%;
+  --sidebar-primary-foreground: 243 42% 27%;
+  --sidebar-accent: 243 43% 39%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-ring: 39 87% 59%;
+
+  --app-font-display: 'Fredoka', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --app-font-sans: 'Nunito', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --app-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --radius: .875rem;
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
@@ -140,70 +299,148 @@
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
-.dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
-  --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
-
-  /* Dark Slate & Charcoal Theme */
-  --background: 222 47% 11%;
-  --foreground: 210 40% 98%;
-  --border: 217 33% 17%;
-  --card: 222 47% 11%;
-  --card-foreground: 210 40% 98%;
-  --card-border: 217 33% 17%;
-  --sidebar: 222 47% 11%;
-  --sidebar-foreground: 210 40% 98%;
-  --sidebar-border: 217 33% 17%;
-  --sidebar-primary: 160 84% 39%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 217 33% 17%;
-  --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-ring: 160 84% 39%;
-  --popover: 222 47% 11%;
-  --popover-foreground: 210 40% 98%;
-  --popover-border: 217 33% 17%;
-  --primary: 160 84% 39%; /* Emerald Green */
-  --primary-foreground: 0 0% 100%;
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 65%;
-  --accent: 217 33% 17%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62% 30%;
-  --destructive-foreground: 210 40% 98%;
-  --input: 217 33% 17%;
-  --ring: 160 84% 39%;
-
-  --chart-1: 220 70% 50%;
-  --chart-2: 160 60% 45%;
-  --chart-3: 30 80% 55%;
-  --chart-4: 280 65% 60%;
-  --chart-5: 340 75% 55%;
+/* ---- Mode-aware steps: dark surfaces (dark mode, the ink sidebar, and anything marked .on-ink) ---- */
+.dark,
+.app-sidebar,
+.on-ink {
+  --c-coral-300: #EE95A2; --c-coral-400: #EB828E; --c-coral-800: #8C303D; --c-coral-900: #6E2832; --c-coral-950: #40151C;
+  --c-gold-300: #F8CB70;  --c-gold-400: #F5BF55;  --c-gold-800: #7F5511;  --c-gold-900: #5F400F;  --c-gold-950: #352307;
+  --c-green-300: #72C9A9; --c-green-400: #48B38F; --c-green-800: #195445; --c-green-900: #144437; --c-green-950: #0B2A22;
+  --c-sky-300: #B3C2F0;   --c-sky-400: #95A3E6;   --c-sky-800: #232056;   --c-sky-900: #1C1A46;   --c-sky-950: #12102E;
+  --c-lilac-300: #C3B2F2; --c-lilac-400: #A68DE6; --c-lilac-800: #47347A; --c-lilac-900: #382A60; --c-lilac-950: #221A3E;
 }
 
+.dark {
+  --button-outline: rgba(236, 231, 252, .12);
+  --badge-outline: rgba(236, 231, 252, .08);
+  --opaque-button-border-intensity: 9;
+  --elevate-1: rgba(236, 231, 252, .04);
+  --elevate-2: rgba(236, 231, 252, .09);
+
+  /* Deep ink night */
+  --background: 244 43% 13%;
+  --foreground: 253 70% 96%;
+  --border: 245 37% 27%;
+  --card: 245 42% 18%;
+  --card-foreground: 253 70% 96%;
+  --card-border: 245 37% 27%;
+  --popover: 245 42% 18%;
+  --popover-foreground: 253 70% 96%;
+  --popover-border: 245 37% 27%;
+  --primary: 39 87% 59%;              /* Gold leads on dark */
+  --primary-foreground: 243 42% 20%;
+  --primary-hover: 39 87% 66%;
+  --secondary: 245 35% 24%;
+  --secondary-foreground: 253 70% 96%;
+  --muted: 245 35% 22%;
+  --muted-foreground: 248 33% 76%;
+  --accent: 245 35% 24%;
+  --accent-foreground: 253 70% 96%;
+  --destructive: 354 73% 68%;
+  --destructive-foreground: 243 42% 15%;
+  --input: 245 37% 30%;
+  --ring: 39 87% 59%;
+
+  --chart-1: 160 43% 49%;
+  --chart-2: 229 62% 74%;
+  --chart-3: 39 87% 59%;
+  --chart-4: 256 65% 73%;
+  --chart-5: 354 73% 68%;
+  --chart-6: 248 33% 76%;
+
+  --sidebar: 244 45% 16%;
+  --sidebar-foreground: 253 70% 96%;
+  --sidebar-border: 245 37% 27%;
+  --sidebar-accent: 245 38% 26%;
+}
+
+/* The navigation rail is always ink, in both modes */
 .app-sidebar {
-  --background: 222 47% 11%;
-  --foreground: 210 40% 98%;
-  --border: 217 33% 17%;
-  --card: 222 47% 11%;
-  --card-foreground: 210 40% 98%;
-  --card-border: 217 33% 17%;
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 65%;
-  --accent: 217 33% 17%;
-  --accent-foreground: 210 40% 98%;
+  --background: 243 42% 27%;
+  --foreground: 254 78% 97%;
+  --border: 243 36% 36%;
+  --card: 243 42% 27%;
+  --card-foreground: 254 78% 97%;
+  --card-border: 243 36% 36%;
+  --popover: 243 42% 27%;
+  --popover-foreground: 254 78% 97%;
+  --muted: 243 43% 36%;
+  --muted-foreground: 250 45% 83%;
+  --accent: 243 43% 39%;
+  --accent-foreground: 0 0% 100%;
+  --primary: 39 87% 59%;
+  --primary-foreground: 243 42% 27%;
+  --primary-hover: 39 87% 66%;
+  --ring: 39 87% 59%;
+  --button-outline: rgba(255, 255, 255, .16);
+}
+.dark .app-sidebar {
+  --background: 244 45% 16%;
+  --card: 244 45% 16%;
+  --popover: 244 45% 16%;
+  --border: 245 37% 25%;
+  --card-border: 245 37% 25%;
+  --muted: 245 38% 25%;
+  --accent: 245 38% 27%;
+}
+
+/* Fredoka: titles, logo, big figures, timers and codes. Only weight 600 is loaded. */
+@utility font-display {
+  font-family: var(--app-font-display);
+  font-weight: 600;
+  letter-spacing: 0;
+  font-synthesis-weight: none;
 }
 
 @layer base {
   * {
     @apply border-border;
   }
+  html {
+    font-synthesis-weight: none;
+  }
   body {
     @apply font-sans antialiased bg-background text-foreground;
+  }
+  h1, h2 {
+    font-family: var(--app-font-display);
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+  label {
+    font-weight: 800;
+  }
+  ::selection {
+    background: #ECE7FC;
+    color: #2B2863;
+  }
+  /* Page-title icons sit in a soft lilac chip */
+  h1 > svg:first-child {
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: .55rem;
+    flex-shrink: 0;
+    border-radius: .875rem;
+    background: hsl(var(--secondary));
+  }
+  /* Slim, tinted scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  .font-display {
+    font-variant-numeric: tabular-nums;
+  }
+  button, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
@@ -221,4 +458,3 @@
 .rotate-y-180 {
   transform: rotateY(180deg);
 }
-

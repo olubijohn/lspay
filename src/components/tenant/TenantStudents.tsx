@@ -260,7 +260,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <Card className="bg-card border-border lg:col-span-1 h-max shadow-xl">
+          <Card className="bg-card border-border lg:col-span-1 h-max shadow-sm">
             <CardContent className="p-8 text-center">
               <Avatar className="h-32 w-32 mx-auto mb-6 border-4 border-border bg-background">
                 <AvatarImage src={s.imageUrl} />
@@ -286,7 +286,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
 
               <div className="bg-background p-6 rounded-xl border border-border text-center mb-6 shadow-inner">
                 <div className="text-sm text-muted-foreground mb-1 font-medium tracking-wide uppercase">Wallet Balance</div>
-                <div className="text-4xl font-black text-primary">₦{s.walletBalance.toFixed(2)}</div>
+                <div className="text-4xl font-display text-primary">₦{s.walletBalance.toFixed(2)}</div>
               </div>
 
               <div className="space-y-4 text-left border-t border-border pt-6">
@@ -313,7 +313,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border lg:col-span-2 shadow-xl">
+          <Card className="bg-card border-border lg:col-span-2 shadow-sm">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
               <CardTitle className="text-foreground">Transaction History</CardTitle>
               <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
@@ -378,7 +378,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
           )}
           <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
             <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-lg shadow-lg shadow-primary/20">Add Student</Button>
+              <Button className="bg-primary hover:bg-primary-hover text-primary-foreground font-bold h-10 px-6 rounded-lg shadow-lg shadow-primary/20">Add Student</Button>
             </DialogTrigger>
             <DialogContent className="bg-card border-border text-foreground sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
@@ -445,7 +445,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                 </div>
 
                 <div className="col-span-2 flex justify-end mt-6">
-                  <Button type="submit" className="bg-primary hover:bg-primary/90 text-white h-12 px-8 font-bold text-lg w-full">Save Student Record</Button>
+                  <Button type="submit" className="bg-primary hover:bg-primary-hover text-primary-foreground h-12 px-8 font-bold text-lg w-full">Save Student Record</Button>
                 </div>
               </form>
             </DialogContent>
@@ -605,7 +605,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
         </div>
       </div>
 
-      <Card className="bg-card border-border shadow-xl overflow-hidden">
+      <Card className="bg-card border-border shadow-sm overflow-hidden">
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-background border-b border-border">

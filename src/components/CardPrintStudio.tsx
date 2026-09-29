@@ -2,7 +2,7 @@ import { useState, useMemo, Fragment } from "react";
 import { Student, Tenant } from "@/lib/types";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
-import { Printer, RefreshCw, Download, ChevronLeft, ChevronRight, Layers, FileCode } from "lucide-react";
+import { Printer, RefreshCw, Download, ChevronLeft, ChevronRight, Layers } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -53,31 +53,105 @@ const getScaledDataUrl = (
 // Capitalise the first letter of each word in the school name on the card
 const titleCase = (s: string) => s.replace(/\b([a-z])/g, (c) => c.toUpperCase());
 
-// NFC contactless mark, top-right of the card front
-const NfcLogo = ({ size }: { size: number }) => (
-  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", top: "8px", right: "8px" }}>
-    <defs>
-      <linearGradient id="nfcGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor="#0ea5e9" />
-        <stop offset="1" stopColor="#1d4ed8" />
-      </linearGradient>
-    </defs>
-    <path d="M15 11.5A17 17 0 1 1 15 36.5" stroke="url(#nfcGrad)" strokeWidth="2.2" strokeLinecap="round" />
-    <text x="3" y="28.5" fontFamily="Arial, sans-serif" fontSize="12" fontWeight="700" fill="url(#nfcGrad)">NFC</text>
-    <g stroke="url(#nfcGrad)" strokeWidth="2" strokeLinecap="round">
-      <path d="M29 19.5a6 6 0 0 1 0 9" />
-      <path d="M32 17a10 10 0 0 1 0 14" />
-      <path d="M35 14.5a14 14 0 0 1 0 19" />
+// ─── Card artwork ────────────────────────────────────────────────────────────
+// The cards are drawn with inline styles only (no Tailwind classes) because the same markup is copied into
+// the print iframe and the exported HTML file, where the app's stylesheet isn't available.
+// Physical size: CR80 portrait, drawn at 204 × 324 px.
+const CARD_W = 204;
+const CARD_H = 324;
+const PHOTO_CX = 102;
+const PHOTO_CY = 100;
+const PHOTO_R = 52; // outer radius including the white border
+
+const SANS = "Arial, Helvetica, sans-serif";
+const SERIF = "Georgia, 'Times New Roman', serif";
+const MONO = "'Courier New', Courier, monospace";
+
+type BubbleColor = "blue" | "green" | "red" | "yellow" | "purple";
+// light highlight → body → shaded edge, for a glossy bubble
+const BUBBLE_STOPS: Record<BubbleColor, [string, string, string]> = {
+  blue: ["#8DB8FF", "#1F6FE5", "#1049A8"],
+  green: ["#8EE0A6", "#2FA84F", "#1C7535"],
+  red: ["#FF9C92", "#E8453C", "#B02A22"],
+  yellow: ["#FFE68A", "#F9BC15", "#C98A00"],
+  purple: ["#D6A6FF", "#9B4DE8", "#6C27B3"],
+};
+
+// Ring around the photo: [angle°, radius, gap from photo edge, colour]
+const RING: [number, number, number, BubbleColor][] = [
+  [150, 15, 4, "blue"], [128, 4, 6, "green"], [112, 6, 3, "red"], [97, 3, 8, "purple"], [85, 5, 4, "blue"],
+  [68, 12, 3, "yellow"], [50, 5, 6, "purple"], [35, 9, 3, "blue"], [20, 4, 10, "red"], [8, 7, 4, "green"],
+  [-8, 11, 3, "red"], [-25, 5, 7, "blue"], [-38, 8, 3, "green"], [-52, 4, 8, "yellow"], [-62, 9, 4, "blue"],
+  [-78, 4, 6, "red"], [-92, 10, 3, "purple"], [-108, 4, 8, "yellow"], [-122, 6, 4, "red"], [-140, 16, 4, "blue"],
+  [-160, 4, 8, "purple"], [-175, 13, 3, "green"], [168, 5, 9, "red"],
+  [140, 3, 22, "yellow"], [60, 3, 26, "blue"], [-45, 3, 24, "purple"], [-150, 3, 28, "yellow"], [100, 3, 20, "green"],
+];
+// Loose bubbles near the bottom corners: [x, y, radius, colour]
+const CORNERS: [number, number, number, BubbleColor][] = [
+  [0, 270, 21, "blue"], [207, 262, 17, "red"], [180, 252, 6, "green"], [189, 279, 3, "blue"],
+  [10, 214, 2.5, "purple"], [24, 236, 2.5, "yellow"],
+];
+
+function Bubbles({ uid }: { uid: string }) {
+  const colors = Object.keys(BUBBLE_STOPS) as BubbleColor[];
+  const ring = RING.map(([deg, r, gap, c]) => {
+    const d = PHOTO_R + r + gap;
+    const a = (deg * Math.PI) / 180;
+    return [PHOTO_CX + d * Math.cos(a), PHOTO_CY - d * Math.sin(a), r, c] as const;
+  });
+  return (
+    <svg
+      width={CARD_W}
+      height={CARD_H}
+      viewBox={`0 0 ${CARD_W} ${CARD_H}`}
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ position: "absolute", left: 0, top: 0 }}
+      aria-hidden="true"
+    >
+      <defs>
+        {colors.map((c) => (
+          <radialGradient key={c} id={`${uid}-${c}`} cx="35%" cy="30%" r="75%">
+            <stop offset="0" stopColor={BUBBLE_STOPS[c][0]} />
+            <stop offset="0.55" stopColor={BUBBLE_STOPS[c][1]} />
+            <stop offset="1" stopColor={BUBBLE_STOPS[c][2]} />
+          </radialGradient>
+        ))}
+      </defs>
+      {[...ring, ...CORNERS].map(([x, y, r, c], i) => (
+        <circle key={i} cx={x} cy={y} r={r} fill={`url(#${uid}-${c})`} />
+      ))}
+    </svg>
+  );
+}
+
+// Contactless mark (N + waves), top-right of the front
+const NfcMark = () => (
+  <svg width="30" height="20" viewBox="0 0 30 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", top: 10, right: 10 }} aria-hidden="true">
+    <path d="M2.5 17V4l8 13V4" stroke="#8C95A8" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+    <g stroke="#8C95A8" strokeWidth="1.8" strokeLinecap="round">
+      <path d="M15.5 6.6a5 5 0 0 1 0 6.8" />
+      <path d="M19 4.2a8.5 8.5 0 0 1 0 11.6" />
+      <path d="M22.5 1.9a12 12 0 0 1 0 16.2" />
     </g>
   </svg>
 );
 
-// Company Logo (LSPay blue logo)
-const CompanyLogo = () => (
-  <div className="w-7 h-7 rounded-full border border-gray-200 bg-white flex items-center justify-center shadow-sm shrink-0 overflow-hidden">
-    <div className="lspay-logo-img" style={{ width: "20px", height: "20px" }} />
-  </div>
-);
+const cardShell = (extra: React.CSSProperties = {}): React.CSSProperties => ({
+  width: `${CARD_W}px`,
+  height: `${CARD_H}px`,
+  position: "relative",
+  overflow: "hidden",
+  borderRadius: "12px",
+  boxSizing: "border-box",
+  background: "#FFFFFF",
+  color: "#111111",
+  fontFamily: SANS,
+  WebkitPrintColorAdjust: "exact",
+  printColorAdjust: "exact",
+  ...extra,
+});
+
+const initialsAvatar = (name: string) => `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`;
 
 export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: CardPrintStudioProps) {
   const [isFlipped, setIsFlipped] = useState(false);
@@ -89,7 +163,33 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
     return students && students.length > 0 ? students : student ? [student] : [];
   }, [students, student]);
 
+  const chunkedGrid = useMemo(() => {
+    const chunks: Student[][] = [];
+    for (let i = 0; i < printList.length; i += 8) {
+      chunks.push(printList.slice(i, i + 8));
+    }
+    return chunks;
+  }, [printList]);
+
   const activeStudent = (printList.length > 0 ? printList[Math.min(previewIndex, printList.length - 1)] : student) || null;
+
+  const activeStudentTenant = (activeStudent?.tenantId ? tenants.find(t => t.id === activeStudent.tenantId) : null) || tenant || (tenants.length === 1 ? tenants[0] : undefined);
+  const schoolName = titleCase(activeStudentTenant?.name || tenant?.name || "Demonstration Schools Kaduna");
+  const schoolAddress = activeStudentTenant?.address || tenant?.address || "5-7 Alor Close U/Pama Kaduna";
+  const schoolLogo = activeStudentTenant?.logoUrl || tenant?.logoUrl;
+
+  const cardCss = `
+    .id-card {
+      width: ${CARD_W}px !important;
+      height: ${CARD_H}px !important;
+      border: 1px solid #d1d5db !important;
+      border-radius: 12px !important;
+      overflow: hidden !important;
+      position: relative !important;
+      box-sizing: border-box !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }`;
 
   const handlePrint = () => {
     const printArea = document.getElementById("lspay-print-area");
@@ -158,8 +258,8 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
       width: 100%;
       min-height: 98vh;
       display: grid !important;
-      grid-template-columns: repeat(4, 204px) !important;
-      grid-template-rows: repeat(2, 324px) !important;
+      grid-template-columns: repeat(4, ${CARD_W}px) !important;
+      grid-template-rows: repeat(2, ${CARD_H}px) !important;
       gap: 12px 18px !important;
       justify-content: center !important;
       align-content: center !important;
@@ -172,36 +272,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
       page-break-after: avoid !important;
       break-after: avoid !important;
     }
-    .print-card-box {
-      width: 204px !important;
-      height: 324px !important;
-      border: 1px solid #cbd5e1 !important;
-      border-radius: 12px !important;
-      background: white !important;
-      color: black !important;
-      display: flex !important;
-      flex-direction: column !important;
-      align-items: center !important;
-      padding: 12px !important;
-      box-sizing: border-box !important;
-      position: relative !important;
-    }
-    .print-card-box.card-back-african {
-      padding: 3.5px !important;
-      background-image: url('/african-pattern.jpg') !important;
-      background-size: cover !important;
-      background-position: center !important;
-      background-repeat: no-repeat !important;
-    }
-    .lspay-logo-img {
-      width: 20px !important;
-      height: 20px !important;
-      background-image: url('/logo-new.png') !important;
-      background-size: contain !important;
-      background-repeat: no-repeat !important;
-      background-position: center !important;
-      display: inline-block !important;
-    }
+    ${cardCss}
   </style>
 </head>
 <body>
@@ -222,12 +293,6 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
       }, 3000);
     }, 400);
   };
-
-  const activeStudentTenant = (activeStudent?.tenantId ? tenants.find(t => t.id === activeStudent.tenantId) : null) || tenant || (tenants.length === 1 ? tenants[0] : undefined);
-  const schoolName = titleCase(activeStudentTenant?.name || tenant?.name || "Demonstration Schools Kaduna");
-  const schoolAddress = activeStudentTenant?.address || tenant?.address || "5-7 Alor Close U/Pama Kaduna";
-  const schoolPhone = activeStudentTenant?.phone || tenant?.phone || "";
-  const schoolLogo = activeStudentTenant?.logoUrl || tenant?.logoUrl;
 
   const handleExportHTML = async () => {
     const printArea = document.getElementById("lspay-print-area");
@@ -251,7 +316,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
       console.warn("Could not pre-encode assets to base64", e);
     }
 
-    // Replace any img src occurrences in HTML markup as well
+    // Replace img src occurrences so the file works offline
     htmlContent = htmlContent.replace(/src=["'][^"']*logo-new\.png["']/g, `src="${logoBase64}"`);
     htmlContent = htmlContent.replace(/src=["'][^"']*african-pattern\.jpg["']/g, `src="${patternBase64}"`);
 
@@ -274,8 +339,8 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
       margin: 0;
       padding: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #0f172a;
-      color: #f8fafc;
+      background: #1B1942;
+      color: #F7F5FD;
     }
     .no-print {
       display: block;
@@ -285,15 +350,15 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
       top: 0;
       left: 0;
       right: 0;
-      background: #1e293b;
-      border-bottom: 2px solid #334155;
+      background: #2B2863;
+      border-bottom: 1px solid #3D3990;
       padding: 16px 28px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
       z-index: 9999;
-      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4);
     }
     .export-title {
       font-size: 18px;
@@ -305,26 +370,26 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
     }
     .export-subtitle {
       font-size: 13px;
-      color: #94a3b8;
+      color: #C9C4EC;
       margin-top: 4px;
     }
     .btn-print {
-      background: #10b981;
-      color: #ffffff;
+      background: #F2B33D;
+      color: #2B2863;
       border: none;
       padding: 12px 24px;
       font-size: 15px;
-      font-weight: 700;
-      border-radius: 8px;
+      font-weight: 800;
+      border-radius: 12px;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 8px;
-      transition: background 0.2s, transform 0.1s;
-      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+      transition: filter 0.2s, transform 0.1s;
+      box-shadow: 0 6px 16px rgba(242, 179, 61, 0.35);
     }
     .btn-print:hover {
-      background: #059669;
+      filter: brightness(1.05);
       transform: translateY(-1px);
     }
     .btn-print:active {
@@ -335,7 +400,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
       flex-direction: column;
       align-items: center;
       padding: 36px 12px;
-      background: #0f172a;
+      background: #1B1942;
       min-height: 100vh;
       gap: 28px;
     }
@@ -352,8 +417,8 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
     }
     .print-grid-sheet-8 {
       display: grid;
-      grid-template-columns: repeat(4, 204px);
-      grid-template-rows: repeat(2, 324px);
+      grid-template-columns: repeat(4, ${CARD_W}px);
+      grid-template-rows: repeat(2, ${CARD_H}px);
       gap: 12px 18px;
       justify-content: center;
       background: #ffffff;
@@ -361,38 +426,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
       border-radius: 16px;
       box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4);
     }
-    .print-card-box {
-      width: 204px;
-      height: 324px;
-      border: 1px solid #cbd5e1;
-      border-radius: 12px;
-      overflow: hidden;
-      box-sizing: border-box;
-      background: white !important;
-      color: black !important;
-      font-family: sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 12px;
-      position: relative;
-    }
-    .print-card-box.card-back-african {
-      padding: 3.5px !important;
-      background-image: url('${patternBase64}') !important;
-      background-size: cover !important;
-      background-position: center !important;
-      background-repeat: no-repeat !important;
-    }
-    .lspay-logo-img {
-      width: 20px;
-      height: 20px;
-      background-image: url('${logoBase64}') !important;
-      background-size: contain !important;
-      background-repeat: no-repeat !important;
-      background-position: center !important;
-      display: inline-block !important;
-    }
+    ${cardCss}
     @page {
       margin: 6mm;
       size: ${pageOrientation};
@@ -435,8 +469,8 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
         background: transparent !important;
         min-height: 98vh !important;
         display: grid !important;
-        grid-template-columns: repeat(4, 204px) !important;
-        grid-template-rows: repeat(2, 324px) !important;
+        grid-template-columns: repeat(4, ${CARD_W}px) !important;
+        grid-template-rows: repeat(2, ${CARD_H}px) !important;
         gap: 12px 18px !important;
         justify-content: center !important;
         align-content: center !important;
@@ -447,30 +481,6 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
         page-break-after: avoid !important;
         break-after: avoid !important;
       }
-      .print-card-box {
-        width: 204px !important;
-        height: 324px !important;
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 12px !important;
-        background: white !important;
-        color: black !important;
-      }
-      .print-card-box.card-back-african {
-        padding: 3.5px !important;
-        background-image: url('${patternBase64}') !important;
-        background-size: cover !important;
-        background-position: center !important;
-        background-repeat: no-repeat !important;
-      }
-      .lspay-logo-img {
-        width: 20px !important;
-        height: 20px !important;
-        background-image: url('${logoBase64}') !important;
-        background-size: contain !important;
-        background-repeat: no-repeat !important;
-        background-position: center !important;
-        display: inline-block !important;
-      }
     }
   </style>
 </head>
@@ -478,7 +488,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
   <div class="no-print export-header">
     <div>
       <div class="export-title">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/><path d="M6 8V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4"/></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F2B33D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/><path d="M6 8V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4"/></svg>
         <span>${schoolName} — Ready for Printing</span>
       </div>
       <div class="export-subtitle">${printList.length} Student ID Cards • Layout: ${printLayout === 'grid_a4' ? 'A4 Sheet (8 per Page — Landscape 4×2)' : printLayout === 'pair' ? 'CR80 Pair (Front & Back)' : 'Front Cards Only'}</div>
@@ -506,212 +516,196 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
 
   if (!activeStudent) return null;
 
-  // Format today's date to match template format: "14 July 2026"
-  const formattedDate = new Date().toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const tenantFor = (stud: Student) =>
+    (stud.tenantId ? tenants.find(t => t.id === stud.tenantId) : null) || tenant || (tenants.length === 1 ? tenants[0] : undefined);
 
-  const chunkedGrid = useMemo(() => {
-    const chunks: Student[][] = [];
-    for (let i = 0; i < printList.length; i += 8) {
-      chunks.push(printList.slice(i, i + 8));
-    }
-    return chunks;
-  }, [printList]);
-
-  const renderFrontCard = (stud: Student) => {
-    const studTenant = (stud.tenantId ? tenants.find(t => t.id === stud.tenantId) : null) || tenant || (tenants.length === 1 ? tenants[0] : undefined);
+  // FRONT — photo in a ring of bubbles, student number, name, school footer. No QR code on the front.
+  const renderFrontCard = (stud: Student, uid: string) => {
+    const studTenant = tenantFor(stud);
     const studSchoolName = titleCase(studTenant?.name || schoolName);
     const studSchoolLogo = studTenant?.logoUrl || schoolLogo;
 
     return (
-      // Outer: full African pattern frame
-      <div
-        className="print-card-box"
-        style={{
-          width: "204px", height: "324px", borderRadius: "12px",
-          boxSizing: "border-box", padding: "3.5px",
-          backgroundImage: "url('/african-pattern.jpg')",
-          backgroundSize: "cover", backgroundPosition: "center",
-          border: "none", overflow: "hidden", position: "relative",
-          fontFamily: "Aptos, 'Aptos Display', 'Segoe UI', sans-serif", color: "black",
-          WebkitPrintColorAdjust: "exact",
-        }}
-      >
-        {/* Inner white content plate */}
-        <div style={{
-          width: "100%", height: "100%", borderRadius: "8px",
-          background: "white",
-          border: "1px solid #f1f5f9",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.10)",
-          display: "flex", flexDirection: "column", alignItems: "center",
-          overflow: "hidden", boxSizing: "border-box", position: "relative",
-        }}>
+      <div className="id-card" style={cardShell({ background: "linear-gradient(180deg, #FFFFFF 0%, #FAFBFC 100%)", border: "1px solid #d1d5db" })}>
+        <Bubbles uid={uid} />
+        <NfcMark />
 
-          <NfcLogo size={29} />
-          {/* Avatar */}
-          <div style={{ margin: "auto 0 6px", paddingTop: "10px" }}>
-            <div style={{ width: "112px", height: "112px", borderRadius: "50%", border: "3px solid #e2e8f0", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#ffffff", boxShadow: "0 2px 6px rgba(0,0,0,0.08)", boxSizing: "border-box" }}>
-              <img
-                src={stud.imageUrl} alt=""
-                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top" }}
-                onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(stud.name)}`; }}
-              />
-            </div>
-          </div>
+        {/* Photo */}
+        <div
+          style={{
+            position: "absolute",
+            left: `${PHOTO_CX - PHOTO_R}px`,
+            top: `${PHOTO_CY - PHOTO_R}px`,
+            width: `${PHOTO_R * 2}px`,
+            height: `${PHOTO_R * 2}px`,
+            borderRadius: "50%",
+            background: "#FFFFFF",
+            padding: "4px",
+            boxSizing: "border-box",
+            boxShadow: "0 0 0 1px #D9DDE3, 0 3px 10px rgba(17,24,39,0.18)",
+          }}
+        >
+          <img
+            src={stud.imageUrl || initialsAvatar(stud.name)}
+            alt=""
+            style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", objectPosition: "center top", display: "block", background: "#E5E7EB" }}
+            onError={(e) => { (e.target as HTMLImageElement).src = initialsAvatar(stud.name); }}
+          />
+        </div>
 
-          {/* Details */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: "auto", gap: "3px", width: "100%", padding: "0 8px" }}>
-            <span style={{ color: "#2563eb", fontWeight: "700", fontSize: "9px", fontFamily: "monospace", letterSpacing: "0.04em" }}>{stud.studentId}</span>
-            <span style={{ color: "#0f172a", fontWeight: "800", fontSize: "10px", lineHeight: "1.25", width: "164px", textAlign: "center", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{stud.name}</span>
+        {/* Student number + name */}
+        <div style={{ position: "absolute", left: "16px", right: "16px", top: "186px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "4px" }}>
+          <span style={{ fontFamily: SANS, fontSize: "12px", color: "#374151", letterSpacing: "0.02em", lineHeight: 1 }}>{stud.studentId}</span>
+          <span
+            style={{
+              fontFamily: SERIF,
+              fontWeight: 700,
+              fontSize: "15px",
+              lineHeight: 1.2,
+              color: "#111111",
+              maxWidth: "172px",
+              overflow: "hidden",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+            }}
+          >
+            {stud.name}
+          </span>
+        </div>
 
-            {/* QR Code */}
-            <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", padding: "4px", background: "white", display: "flex", alignItems: "center", justifyContent: "center", width: "74px", height: "74px", marginTop: "2px" }}>
-              <QRCodeSVG value={stud.cardHardwareId || stud.studentId} size={66} />
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div style={{ width: "100%", display: "flex", alignItems: "center", gap: "8px", borderTop: "1px solid #f1f5f9", padding: "5px 8px", marginTop: "2px", boxSizing: "border-box" }}>
+        {/* School footer */}
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: "40px",
+            background: "#F3F4F6",
+            borderTop: "1px solid #E5E7EB",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "0 10px",
+            boxSizing: "border-box",
+          }}
+        >
+          <div style={{ width: "26px", height: "26px", borderRadius: "50%", background: "#FFFFFF", border: "1px solid #E5E7EB", boxShadow: "0 1px 3px rgba(0,0,0,0.12)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
             {studSchoolLogo ? (
-              <div style={{ width: "22px", height: "22px", borderRadius: "50%", border: "1px solid #e2e8f0", background: "white", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-                <img src={studSchoolLogo} alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} />
-              </div>
-            ) : null}
-            <span style={{ flex: 1, minWidth: 0, color: "#000000", fontWeight: "400", fontSize: "7.5px", lineHeight: "1.2", whiteSpace: "normal", wordBreak: "break-word" }}>{studSchoolName}</span>
+              <img src={studSchoolLogo} alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />
+            ) : (
+              <span style={{ fontFamily: SANS, fontWeight: 700, fontSize: "9px", color: "#2B2863" }}>
+                {studSchoolName.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase()}
+              </span>
+            )}
           </div>
-
+          <span style={{ flex: 1, minWidth: 0, fontFamily: SANS, fontWeight: 700, fontSize: "9.5px", lineHeight: 1.2, color: "#111111", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+            {studSchoolName}
+          </span>
         </div>
       </div>
     );
   };
 
+  // BACK — QR code, school name, address, phone numbers, umusa.cloud / VERIFIED footer over the pattern.
   const renderBackCard = (stud: Student) => {
-    const studTenant = (stud.tenantId ? tenants.find(t => t.id === stud.tenantId) : null) || tenant || (tenants.length === 1 ? tenants[0] : undefined);
+    const studTenant = tenantFor(stud);
     const studSchoolName = titleCase(studTenant?.name || schoolName);
     const studSchoolAddress = studTenant?.address || schoolAddress;
     const studSchoolPhone = studTenant?.phone || "";
-    const studSchoolLogo = studTenant?.logoUrl || schoolLogo;
 
     return (
-      <div
-        className="print-card-box card-back-african"
-        style={{
-          width: "204px",
-          height: "324px",
-          borderRadius: "12px",
-          border: "1px solid #cbd5e1",
-          background: "white",
-          color: "black",
-          padding: "3.5px",
-          boxSizing: "border-box",
-          display: "flex",
-          flexDirection: "column",
-          fontFamily: "Aptos, 'Aptos Display', 'Segoe UI', sans-serif",
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        {/* White / Frosted Inner Credential Container */}
+      <div className="id-card" style={cardShell({ border: "1px solid #d1d5db" })}>
+        {/* Pattern background, softened */}
+        <img src="/african-pattern.jpg" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+        <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.82)" }} />
+        <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: "210px", background: "linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.9) 60%, rgba(255,255,255,0) 100%)" }} />
+
+        {/* QR code */}
         <div
           style={{
-            width: "100%",
-            height: "100%",
-            borderRadius: "9px",
-            background: "rgba(255, 255, 255, 0.94)",
-            border: "1px solid rgba(255, 255, 255, 0.7)",
-            boxShadow: "0 2px 6px rgba(0, 0, 0, 0.12)",
-            padding: "10px 8px",
+            position: "absolute",
+            left: "50%",
+            top: "20px",
+            transform: "translateX(-50%)",
+            width: "136px",
+            height: "136px",
+            borderRadius: "16px",
+            background: "#FFFFFF",
+            border: "1.5px solid #D1D5DB",
+            boxShadow: "0 2px 8px rgba(17,24,39,0.10)",
             display: "flex",
-            flexDirection: "column",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "center",
             boxSizing: "border-box",
-            textAlign: "center",
           }}
         >
-          {/* School Crest & Name */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5px", width: "100%", marginTop: "2px" }}>
-            <div style={{ width: "80px", height: "80px", borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", background: "white", overflow: "hidden", boxShadow: "0 2px 4px rgba(0,0,0,0.06)" }}>
-              {studSchoolLogo ? (
-                <img src={studSchoolLogo} alt="" style={{ width: "66px", height: "66px", objectFit: "contain", padding: "2px" }} />
-              ) : (
-                <svg style={{ width: "52px", height: "52px" }} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="#1e3a8a" strokeWidth="1.5" strokeLinecap="round"/>
-                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="#1e3a8a" strokeWidth="1.5" />
-                  <circle cx="12" cy="9" r="2.5" fill="#ef4444"/>
-                  <path d="M8 15c0-2.5 1.8-4 4-4s4 1.5 4 4" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              )}
-            </div>
-            <span style={{ fontSize: "9.5px", fontWeight: "900", color: "#0f172a", marginTop: "4px", textAlign: "center", width: "168px", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", lineHeight: "1.25", letterSpacing: "0.01em" }}>
-              {studSchoolName}
-            </span>
-          </div>
+          <QRCodeSVG value={stud.cardHardwareId || stud.studentId} size={114} level="M" />
+        </div>
 
-          {/* Details */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "4px", width: "100%", margin: "auto 0" }}>
-            <span style={{ color: "#000000", fontSize: "8px", lineHeight: "1.35", maxWidth: "155px", fontWeight: "800" }}>
-              {studSchoolAddress}
-            </span>
-            <span style={{ color: "#000000", fontSize: "8px", fontWeight: "800", marginTop: "2px" }}>
-              {studSchoolPhone}
-            </span>
-          </div>
+        {/* School details */}
+        <div style={{ position: "absolute", left: "12px", right: "12px", top: "176px", bottom: "40px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: "7px" }}>
+          <span style={{ fontFamily: SANS, fontWeight: 800, fontSize: "14px", lineHeight: 1.2, color: "#111111", maxWidth: "180px", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+            {studSchoolName}
+          </span>
+          <span style={{ fontFamily: SANS, fontSize: "8px", lineHeight: 1.35, color: "#333333", maxWidth: "170px" }}>{studSchoolAddress}</span>
+          {studSchoolPhone ? (
+            <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: "8px", lineHeight: 1.35, color: "#111111", maxWidth: "180px" }}>{studSchoolPhone}</span>
+          ) : null}
+        </div>
 
-          {/* Footer Brand */}
-          <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid #e2e8f0", paddingTop: "5px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              <div style={{ width: "22px", height: "22px", borderRadius: "50%", border: "1px solid #e2e8f0", background: "white", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-                <div className="lspay-logo-img" style={{ width: "16px", height: "16px" }} />
-              </div>
-              <span style={{ fontSize: "7.5px", color: "#000000", fontWeight: "400" }}>umusa.cloud</span>
+        {/* Footer */}
+        <div style={{ position: "absolute", left: "10px", right: "10px", bottom: 0, height: "38px", borderTop: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+            <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#FFFFFF", border: "1px solid #E5E7EB", boxShadow: "0 1px 3px rgba(0,0,0,0.10)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+              <img src="/logo-new.png" alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} />
             </div>
-            <span style={{ fontSize: "7px", color: "#000000", fontWeight: "400" }}>VERIFIED</span>
+            <span style={{ fontFamily: MONO, fontSize: "8.5px", color: "#222222" }}>umusa.cloud</span>
           </div>
+          <span style={{ fontFamily: MONO, fontSize: "7.5px", color: "#9CA3AF", letterSpacing: "0.08em" }}>VERIFIED</span>
         </div>
       </div>
     );
   };
 
+  // Preview is drawn at 220 px wide
+  const previewScale = 220 / CARD_W;
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[620px] w-full bg-card border-border text-foreground overflow-hidden p-6">
-        <DialogHeader className="border-b border-border pb-4 pr-10">
+      <DialogContent className="sm:max-w-[620px] w-full bg-card border-border text-foreground p-5 sm:p-6">
+        <DialogHeader className="border-b border-border pb-4 pr-10 text-left">
           <div className="flex items-center justify-between gap-4">
-            <DialogTitle className="text-xl font-bold flex items-center gap-2.5">
-              <Printer className="text-primary w-5 h-5" />
-              <span>Card Printing Studio</span>
+            <DialogTitle className="text-xl flex items-center gap-2.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-lilac text-ink-2"><Printer className="w-4 h-4" /></span>
+              <span className="font-display">Card Printing Studio</span>
             </DialogTitle>
             {printList.length > 1 && (
-              <Badge variant="outline" className="text-xs font-semibold px-2.5 py-0.5 bg-primary/10 text-primary border-primary/30 shrink-0">
-                {printList.length} Cards Total
+              <Badge variant="outline" className="text-xs px-2.5 py-0.5 bg-lilac text-ink-2 border-transparent shrink-0">
+                {printList.length} cards
               </Badge>
             )}
           </div>
         </DialogHeader>
 
-        <div className="flex flex-col items-center pt-2 pb-2 space-y-4">
-          <div className="text-center max-w-sm">
-            <p className="text-xs text-muted-foreground">
-              Verify credentials. Layout formatted for standard CR80 cards (85.6mm × 54mm).
-            </p>
-          </div>
+        <div className="flex flex-col items-center pt-1 pb-1 space-y-4">
+          <p className="text-center text-xs text-muted-foreground max-w-sm">
+            Standard CR80 card (85.6mm × 54mm). Tap the card to see the back — the QR code is printed on the back.
+          </p>
 
           {printList.length > 1 && (
-            <div className="flex items-center justify-between w-full max-w-[280px] px-2 py-1 bg-muted/40 rounded-lg border border-border/50 text-xs">
+            <div className="flex items-center justify-between w-full max-w-[300px] px-1.5 py-1 bg-muted rounded-xl text-xs">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setPreviewIndex(i => Math.max(0, i - 1))}
                 disabled={previewIndex === 0}
-                className="h-7 px-2 text-xs"
+                className="h-8 px-2 text-xs"
               >
                 <ChevronLeft className="w-3.5 h-3.5 mr-1" /> Prev
               </Button>
-              <span className="font-semibold text-foreground">
+              <span className="font-bold text-foreground">
                 Card {previewIndex + 1} of {printList.length}
               </span>
               <Button
@@ -719,146 +713,46 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
                 size="sm"
                 onClick={() => setPreviewIndex(i => Math.min(printList.length - 1, i + 1))}
                 disabled={previewIndex >= printList.length - 1}
-                className="h-7 px-2 text-xs"
+                className="h-8 px-2 text-xs"
               >
                 Next <ChevronRight className="w-3.5 h-3.5 ml-1" />
               </Button>
             </div>
           )}
 
-          {/* Interactive 3D Card Preview Container */}
-          <div className="perspective-1000 w-[220px] h-[348px] cursor-pointer" onClick={() => setIsFlipped(!isFlipped)}>
-            <div
-              className={`relative w-full h-full transition-transform duration-700 transform-style-3d ${
-                isFlipped ? "rotate-y-180" : ""
-              }`}
-            >
-              {/* CARD FRONT */}
-              <div
-                className="absolute inset-0 w-full h-full rounded-2xl backface-hidden shadow-xl text-black overflow-hidden select-none"
-                style={{
-                  padding: "3.5px",
-                  fontFamily: "Aptos, 'Aptos Display', 'Segoe UI', sans-serif",
-                  backgroundImage: "url('/african-pattern.jpg')",
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }}
-              >
-                {/* Inner white content plate */}
-                <div className="relative w-full h-full rounded-xl flex flex-col items-center overflow-hidden" style={{ background: "rgba(255,255,255,0.97)", border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 2px 8px rgba(0,0,0,0.10)" }}>
-
-                  <NfcLogo size={31} />
-                  {/* Avatar */}
-                  <div className="flex justify-center mt-auto pt-3 mb-1.5 shrink-0">
-                    <div className="w-[120px] h-[120px] rounded-full border-[3px] border-gray-200 overflow-hidden bg-white flex items-center justify-center" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.10)" }}>
-                      <img
-                        src={activeStudent.imageUrl}
-                        alt={activeStudent.name}
-                        className="w-full h-full object-cover object-top"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(activeStudent.name)}`;
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Details */}
-                  <div className="flex flex-col items-center text-center mb-auto px-2" style={{ gap: "3px" }}>
-                    <span className="text-blue-600 font-bold text-[10px] tracking-widest font-mono leading-none">
-                      {activeStudent.studentId}
-                    </span>
-                    <span className="text-slate-900 font-extrabold text-[11px] leading-snug text-center" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", width: "164px" }}>
-                      {activeStudent.name}
-                    </span>
-
-                    {/* QR Code */}
-                    <div className="border border-gray-200 rounded-lg p-1.5 bg-white flex items-center justify-center w-[76px] h-[76px] shrink-0 mt-1" style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-                      <QRCodeSVG value={activeStudent.cardHardwareId || activeStudent.studentId} size={66} />
-                    </div>
-                  </div>
-
-                  {/* Footer */}
-                  <div className="w-full flex items-center gap-2 border-t border-gray-100 px-2.5 py-1.5 mt-auto">
-                    {schoolLogo ? (
-                      <div className="w-6 h-6 rounded-full border border-gray-200 bg-white flex items-center justify-center shrink-0 overflow-hidden">
-                        <img src={schoolLogo} alt={schoolName} className="w-[18px] h-[18px] object-contain" />
-                      </div>
-                    ) : null}
-                    <span className="flex-1 min-w-0 whitespace-normal break-words leading-tight text-[8px] text-black">{schoolName}</span>
-                  </div>
-
+          {/* Interactive 3D card preview */}
+          <div
+            className="perspective-1000 cursor-pointer"
+            style={{ width: `${CARD_W * previewScale}px`, height: `${CARD_H * previewScale}px` }}
+            onClick={() => setIsFlipped(!isFlipped)}
+            title="Tap to flip"
+            data-testid="card-preview"
+          >
+            <div className={`relative w-full h-full transition-transform duration-700 transform-style-3d ${isFlipped ? "rotate-y-180" : ""}`}>
+              <div className="absolute inset-0 backface-hidden rounded-[13px] shadow-xl select-none">
+                <div style={{ transform: `scale(${previewScale})`, transformOrigin: "top left" }}>
+                  {renderFrontCard(activeStudent, `pv-${activeStudent.id}`)}
                 </div>
               </div>
-
-              {/* CARD BACK */}
-              <div
-                className="absolute inset-0 w-full h-full rounded-2xl backface-hidden rotate-y-180 border border-gray-200 shadow-xl text-black overflow-hidden select-none"
-                style={{
-                  padding: "3.5px",
-                  fontFamily: "Aptos, 'Aptos Display', 'Segoe UI', sans-serif",
-                  backgroundImage: "url('/african-pattern.jpg')",
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }}
-              >
-                {/* Frosted inner credential plate */}
-                <div className="w-full h-full rounded-xl flex flex-col items-center justify-between text-black"
-                  style={{
-                    background: "white",
-                    border: "1px solid #f1f5f9",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-                    padding: "10px 8px",
-                  }}
-                >
-                  {/* School Logo & Name */}
-                  <div className="flex flex-col items-center gap-1 mt-2 w-full">
-                    <div className="w-20 h-20 rounded-full border border-gray-200 flex items-center justify-center bg-white overflow-hidden" style={{ boxShadow: "0 2px 4px rgba(0,0,0,0.06)" }}>
-                      {schoolLogo ? (
-                        <img src={schoolLogo} alt={schoolName} className="w-[66px] h-[66px] object-contain p-0.5" />
-                      ) : (
-                        <svg className="w-12 h-12 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="#1e3a8a" strokeWidth="1.5" strokeLinecap="round"/>
-                          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="#1e3a8a" strokeWidth="1.5" />
-                          <circle cx="12" cy="9" r="2.5" fill="#ef4444"/>
-                          <path d="M8 15c0-2.5 1.8-4 4-4s4 1.5 4 4" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round"/>
-                        </svg>
-                      )}
-                    </div>
-                    <span className="text-[10px] font-black text-slate-900 tracking-wide mt-1.5 px-2 text-center leading-tight" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", width: "168px" }}>
-                      {schoolName}
-                    </span>
-                  </div>
-
-                  {/* Details */}
-                  <div className="flex flex-col items-center text-center my-auto px-2 space-y-1.5">
-                    <p className="text-black text-[9px] font-extrabold leading-relaxed max-w-[150px]">
-                      {schoolAddress}
-                    </p>
-                    <p className="text-black text-[9px] font-extrabold leading-none">
-                      {schoolPhone}
-                    </p>
-                  </div>
-
-                  {/* Footer Brand */}
-                  <div className="w-full flex items-center justify-between border-t border-gray-200 pt-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <CompanyLogo />
-                      <span className="text-[9px] text-black">umusa.cloud</span>
-                    </div>
-                    <span className="text-[7px] text-black">VERIFIED</span>
-                  </div>
+              <div className="absolute inset-0 backface-hidden rotate-y-180 rounded-[13px] shadow-xl select-none">
+                <div style={{ transform: `scale(${previewScale})`, transformOrigin: "top left" }}>
+                  {renderBackCard(activeStudent)}
                 </div>
               </div>
             </div>
           </div>
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground">
+            <span className={`h-1.5 w-1.5 rounded-full ${!isFlipped ? "bg-primary" : "bg-border"}`} /> Front
+            <span className={`ml-2 h-1.5 w-1.5 rounded-full ${isFlipped ? "bg-primary" : "bg-border"}`} /> Back
+          </div>
 
           {/* Controls: Flip & Print Layout */}
-          <div className="w-full bg-muted/40 border border-border/60 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+          <div className="w-full bg-muted/50 border border-border rounded-2xl p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-foreground min-w-0">
               <Layers className="w-4 h-4 text-primary shrink-0" />
-              <span className="shrink-0">Layout:</span>
+              <span className="shrink-0">Layout</span>
               <Select value={printLayout} onValueChange={(v: any) => setPrintLayout(v)}>
-                <SelectTrigger className="bg-card border-border text-foreground text-xs h-8.5 w-[260px] font-medium">
+                <SelectTrigger className="bg-card border-border text-foreground text-xs h-9 w-full sm:w-[250px] font-semibold">
                   <SelectValue placeholder="Print Layout" />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border text-foreground">
@@ -873,31 +767,32 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
               variant="outline"
               size="sm"
               onClick={() => setIsFlipped(!isFlipped)}
-              className="border-border hover:bg-muted text-foreground text-xs h-8.5 shrink-0"
+              className="text-xs h-9 shrink-0"
             >
-              <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Flip Card View
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Flip card
             </Button>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between w-full gap-2 border-t border-border pt-4 px-1">
-            <Button variant="ghost" onClick={onClose} className="border-border text-foreground text-xs sm:text-sm">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between w-full gap-2 border-t border-border pt-4">
+            <Button variant="ghost" onClick={onClose} className="text-xs sm:text-sm">
               Close
             </Button>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <Button
                 variant="outline"
                 onClick={handleExportHTML}
-                className="border-border hover:bg-muted text-foreground font-semibold flex items-center justify-center gap-1.5 text-xs sm:text-sm h-10 px-4"
+                className="font-bold flex items-center justify-center gap-1.5 text-xs sm:text-sm h-10 px-4"
                 title="Download single self-contained HTML file ready for printing on any machine"
               >
                 <Download className="w-4 h-4 text-primary" /> Export File (.html)
               </Button>
               <Button
                 onClick={handlePrint}
-                className="bg-primary hover:bg-primary/90 text-white font-bold flex items-center justify-center gap-1.5 text-xs sm:text-sm h-10 px-5 shadow-md shadow-primary/20"
+                variant="highlight"
+                className="flex items-center justify-center gap-1.5 text-xs sm:text-sm h-10 px-5"
               >
-                <Printer className="mr-1.5 h-4 w-4" /> Print / Save PDF ({printList.length})
+                <Printer className="mr-1 h-4 w-4" /> Print / Save PDF ({printList.length})
               </Button>
             </div>
           </div>
@@ -942,8 +837,8 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
                 width: 100%;
                 min-height: 98vh;
                 display: grid !important;
-                grid-template-columns: repeat(4, 204px) !important;
-                grid-template-rows: repeat(2, 324px) !important;
+                grid-template-columns: repeat(4, ${CARD_W}px) !important;
+                grid-template-rows: repeat(2, ${CARD_H}px) !important;
                 gap: 12px 18px !important;
                 justify-content: center !important;
                 align-content: center !important;
@@ -956,50 +851,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
                 page-break-after: avoid;
                 break-after: avoid;
               }
-              .print-card-box {
-                width: 204px;
-                height: 324px;
-                border: 1px solid #cbd5e1;
-                border-radius: 12px;
-                overflow: hidden;
-                box-sizing: border-box;
-                background: white !important;
-                color: black !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-                font-family: sans-serif;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                padding: 0;
-                position: relative;
-              }
-              .print-card-box.card-back-african {
-                padding: 3.5px !important;
-                background-image: url('/african-pattern.jpg') !important;
-                background-size: cover !important;
-                background-position: center !important;
-                background-repeat: no-repeat !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-              .card-front-header {
-                background-image: url('/african-pattern.jpg') !important;
-                background-size: cover !important;
-                background-position: center top !important;
-                background-repeat: no-repeat !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-              .lspay-logo-img {
-                width: 20px;
-                height: 20px;
-                background-image: url('/logo-new.png');
-                background-size: contain;
-                background-repeat: no-repeat;
-                background-position: center;
-                display: inline-block;
-              }
+              ${cardCss}
             }
           `}</style>
 
@@ -1008,7 +860,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
               <div className="print-grid-sheet-8" key={gIdx}>
                 {group.map((stud) => (
                   <Fragment key={stud.id}>
-                    {renderFrontCard(stud)}
+                    {renderFrontCard(stud, `pr-${stud.id}`)}
                   </Fragment>
                 ))}
               </div>
@@ -1016,13 +868,13 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
           ) : printLayout === "front_only" ? (
             printList.map((stud) => (
               <div className="print-card-page" key={stud.id}>
-                {renderFrontCard(stud)}
+                {renderFrontCard(stud, `pr-${stud.id}`)}
               </div>
             ))
           ) : (
             printList.map((stud) => (
               <div className="print-card-page" key={stud.id}>
-                {renderFrontCard(stud)}
+                {renderFrontCard(stud, `pr-${stud.id}`)}
                 {renderBackCard(stud)}
               </div>
             ))

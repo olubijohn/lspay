@@ -6,14 +6,14 @@ import { TenantStudents } from "@/components/tenant/TenantStudents";
 import { TenantInventory } from "@/components/tenant/TenantInventory";
 import { TenantStockManagement } from "@/components/tenant/TenantStockManagement";
 import { TenantReporting } from "@/components/tenant/TenantReporting";
-import { TenantNotifications } from "@/components/tenant/TenantNotifications";
 import { TenantKiosk } from "@/components/tenant/TenantKiosk";
 import { TenantDashboard } from "@/components/tenant/TenantDashboard";
 import {
   Bell, CreditCard, Receipt, XCircle, AlertTriangle,
   Users, Plus, Monitor, Store,
 } from "lucide-react";
-import { MobileTopBar } from "@/components/layout/MobileTopBar";
+import { AppTopBar } from "@/components/layout/AppTopBar";
+import { NotificationCenter } from "@/components/layout/NotificationCenter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -214,14 +214,21 @@ export function TenantConsole() {
         mobileOpen={mobileNav}
         onMobileOpenChange={setMobileNav}
       />
-      <MobileTopBar
+      <AppTopBar
         title={activeTenant.name}
+        subtitle={user.role === "tenant_admin" ? "School admin" : user.role === "backoffice" ? "Back office" : "Kiosk"}
         icon={Store}
         logoUrl={activeTenant.logoUrl}
         onMenuClick={() => setMobileNav(true)}
+        actions={canSeeOthers ? (
+          <NotificationCenter
+            notifications={tenantNotifications}
+            onViewAll={() => handleSetActiveTab("notifications")}
+          />
+        ) : undefined}
       />
 
-      <main className="flex-1 lg:ml-64 overflow-y-auto bg-background px-4 pb-6 pt-20 lg:px-8 lg:pb-8 lg:pt-8">
+      <main className="flex-1 lg:ml-64 overflow-y-auto bg-background px-4 pb-8 pt-20 sm:px-6 lg:px-8 lg:pb-10 lg:pt-24">
         <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
           {cancelSuccessMsg && (
@@ -242,7 +249,6 @@ export function TenantConsole() {
           {activeTab === "inventory" && canSeeOthers && <TenantInventory tenantId={activeTenant.id} />}
           {activeTab === "stock" && canSeeOthers && <TenantStockManagement tenantId={activeTenant.id} />}
           {activeTab === "reporting" && canSeeOthers && <TenantReporting tenantId={activeTenant.id} />}
-          {activeTab === "notifications" && canSeeOthers && <TenantNotifications tenantId={activeTenant.id} />}
 
           {/* ─── TRANSACTIONS ───────────────────────────────────── */}
           {activeTab === "transactions" && canSeeOthers && (
@@ -271,7 +277,7 @@ export function TenantConsole() {
                   <Card key={c.label} className="bg-card border-border">
                     <CardContent className="p-6">
                       <div className="text-muted-foreground text-xs uppercase tracking-wide mb-2">{c.label}</div>
-                      <div className={`text-3xl font-black ${c.color}`}>{c.value}</div>
+                      <div className={`text-3xl font-display ${c.color}`}>{c.value}</div>
                     </CardContent>
                   </Card>
                 ))}
@@ -334,7 +340,7 @@ export function TenantConsole() {
                 <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
                   <Users className="text-primary" /> Console Users
                 </h1>
-                <Button onClick={() => setShowUserModal(true)} className="bg-primary hover:bg-primary/90 text-white" data-testid="btn-add-user">
+                <Button onClick={() => setShowUserModal(true)} className="bg-primary hover:bg-primary-hover text-primary-foreground" data-testid="btn-add-user">
                   <Plus className="h-4 w-4 mr-2" /> Add User
                 </Button>
               </div>
@@ -408,7 +414,7 @@ export function TenantConsole() {
                           <p className={`mb-3 text-sm ${!n.isRead ? "text-foreground" : "text-muted-foreground"}`}>{n.message}</p>
                           {!n.isRead && (
                             <div className="flex gap-3">
-                              <Button size="sm" onClick={() => { setActiveTab("students"); markNotificationRead(n.id); }} className="bg-primary hover:bg-primary/90 text-white">View Student</Button>
+                              <Button size="sm" onClick={() => { setActiveTab("students"); markNotificationRead(n.id); }} className="bg-primary hover:bg-primary-hover text-primary-foreground">View Student</Button>
                               <Button size="sm" variant="ghost" onClick={() => markNotificationRead(n.id)} className="text-muted-foreground hover:text-foreground">Mark as Read</Button>
                             </div>
                           )}
@@ -440,7 +446,7 @@ export function TenantConsole() {
             <Button variant="ghost" onClick={() => setShowKioskConfirm(false)} className="text-muted-foreground">Cancel</Button>
             <Button
               onClick={() => { setShowKioskConfirm(false); setActiveTab("kiosk"); }}
-              className="bg-primary hover:bg-primary/90 text-white"
+              className="bg-primary hover:bg-primary-hover text-primary-foreground"
               data-testid="btn-confirm-kiosk"
             >
               Open Kiosk
@@ -553,7 +559,7 @@ export function TenantConsole() {
               <Button
                 type="submit"
                 disabled={isSubmittingUser}
-                className="bg-primary hover:bg-primary/90 text-white px-6 font-semibold"
+                className="bg-primary hover:bg-primary-hover text-primary-foreground px-6 font-semibold"
               >
                 {isSubmittingUser ? "Creating User..." : "Create User"}
               </Button>

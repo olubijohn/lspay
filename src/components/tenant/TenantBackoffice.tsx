@@ -97,7 +97,7 @@ export function TenantBackoffice({ tenantId }: { tenantId: string }) {
                 <Label className="text-xs text-muted-foreground">Price (₦)</Label>
                 <Input value={invPrice} onChange={e => setInvPrice(e.target.value)} type="number" step="0.01" placeholder="0.00" className="bg-card border-border text-foreground h-9" />
               </div>
-              <Button type="submit" className="col-span-2 sm:col-span-4 bg-primary hover:bg-primary/90 text-white h-9">Add Item</Button>
+              <Button type="submit" className="col-span-2 sm:col-span-4 bg-primary hover:bg-primary-hover text-primary-foreground h-9">Add Item</Button>
             </form>
 
             <div className="max-h-[500px] overflow-auto border border-border rounded-md">

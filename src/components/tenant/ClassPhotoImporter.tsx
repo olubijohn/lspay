@@ -293,7 +293,7 @@ export function ClassPhotoImporter({
                   <Button
                     type="button"
                     variant="default"
-                    className="bg-primary hover:bg-primary/90 text-white font-semibold h-10 px-5"
+                    className="bg-primary hover:bg-primary-hover text-primary-foreground font-semibold h-10 px-5"
                     onClick={(e) => {
                       e.stopPropagation();
                       fileInputRef.current?.click();
@@ -419,7 +419,7 @@ export function ClassPhotoImporter({
                       type="button"
                       onClick={() => setHeadroomPercent(10)}
                       className={`px-2.5 py-1 rounded-md font-medium text-xs transition-all ${
-                        headroomPercent === 10 ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"
+                        headroomPercent === 10 ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       Snug (10%)
@@ -428,7 +428,7 @@ export function ClassPhotoImporter({
                       type="button"
                       onClick={() => setHeadroomPercent(14)}
                       className={`px-2.5 py-1 rounded-md font-medium text-xs transition-all ${
-                        headroomPercent === 14 ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"
+                        headroomPercent === 14 ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       Balanced (14%) ★
@@ -437,7 +437,7 @@ export function ClassPhotoImporter({
                       type="button"
                       onClick={() => setHeadroomPercent(18)}
                       className={`px-2.5 py-1 rounded-md font-medium text-xs transition-all ${
-                        headroomPercent === 18 ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"
+                        headroomPercent === 18 ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       Spacious (18%)
@@ -694,7 +694,7 @@ export function ClassPhotoImporter({
                       onClose();
                       onOpenCardPrintStudio(updated.length > 0 ? updated : tenantStudents);
                     }}
-                    className="bg-primary hover:bg-primary/90 text-white font-bold h-11 px-6 shadow-lg shadow-primary/20"
+                    className="bg-primary hover:bg-primary-hover text-primary-foreground font-bold h-11 px-6 shadow-lg shadow-primary/20"
                   >
                     <Printer className="w-4 h-4 mr-2" /> Open in Card Print Studio
                   </Button>

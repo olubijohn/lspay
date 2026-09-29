@@ -10,15 +10,16 @@ interface ThemeContextValue {
   setTheme: (theme: Theme) => void;
 }
 
-const STORAGE_KEY = "lsp-theme";
+// New key so everyone starts on the light Paper theme once; the old "lsp-theme" was written on every visit.
+const STORAGE_KEY = "lspay-theme";
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function getInitialTheme(): Theme {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
   const stored = window.localStorage.getItem(STORAGE_KEY);
   if (stored === "light" || stored === "dark") return stored;
-  return "dark";
+  return "light";
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -60,7 +61,8 @@ export function useChartTheme() {
         backgroundColor: v("--popover"),
         borderColor: v("--border"),
         color: v("--popover-foreground"),
-        borderRadius: 8,
+        borderRadius: 12,
+        fontFamily: "var(--app-font-sans)",
       },
     };
   }, [theme]);

@@ -65,7 +65,7 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
                   <Icon className={`h-4 w-4 ${c.color}`} />
                   <span className="text-muted-foreground text-xs uppercase tracking-wide">{c.label}</span>
                 </div>
-                <div className={`text-xl font-black ${c.color}`}>{c.value}</div>
+                <div className={`text-xl font-display ${c.color}`}>{c.value}</div>
               </div>
             );
           })}
@@ -82,7 +82,7 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
                   <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={10} />
                   <YAxis stroke={chartTheme.axis} fontSize={10} allowDecimals={false} />
                   <RechartsTooltip contentStyle={chartTheme.tooltip} />
-                  <Bar dataKey="qty" fill="#10b981" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="qty" fill="hsl(var(--chart-1))" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -212,7 +212,7 @@ export function TenantInventory({ tenantId }: { tenantId: string }) {
         </h1>
         <Dialog open={isOpen} onOpenChange={open => { setIsOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-lg" data-testid="btn-add-item">
+            <Button className="bg-primary hover:bg-primary-hover text-primary-foreground font-bold h-10 px-6 rounded-lg" data-testid="btn-add-item">
               Add Item
             </Button>
           </DialogTrigger>
@@ -261,14 +261,14 @@ export function TenantInventory({ tenantId }: { tenantId: string }) {
                 <Input value={invPrice} onChange={e => setInvPrice(e.target.value)} type="number" step="0.01" min="0" required className="bg-background border-border text-foreground h-11" />
               </div>
               <div className="col-span-2 flex justify-end mt-4">
-                <Button type="submit" className="bg-primary hover:bg-primary/90 text-white h-12 px-8 font-bold text-lg w-full">Save Item</Button>
+                <Button type="submit" className="bg-primary hover:bg-primary-hover text-primary-foreground h-12 px-8 font-bold text-lg w-full">Save Item</Button>
               </div>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <Card className="bg-card border-border shadow-xl">
+      <Card className="bg-card border-border shadow-sm">
         <CardContent className="p-0">
           <div className="overflow-auto rounded-xl">
             <Table>

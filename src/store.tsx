@@ -822,9 +822,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // ------------------------------ parent-child linking ------------------------------
   // The edge function confirms the enrollment-fee payment with Paystack before linking the child.
-  const addParentChild = async (parentId: string, enrollmentKey: string, studentIdText: string, parentEmail: string, paystackReference: string) => {
+  // No enrollment fee: the lspay-enroll edge function links the child after checking the school code, student
+  // reg no and that the signed-in parent's email matches the guardian email on file, and records the consent.
+  const addParentChild = async (parentId: string, enrollmentKey: string, studentIdText: string, privacy: { policyVersion: string; acceptedAt: string }) => {
     const { data, error } = await getSupabase().functions.invoke("lspay-enroll", {
-      body: { reference: paystackReference, enrollmentKey, studentRegNo: studentIdText, parentEmail },
+      body: { enrollmentKey, studentRegNo: studentIdText, privacyPolicyVersion: privacy.policyVersion, privacyAcceptedAt: privacy.acceptedAt },
     });
     if (error) return { success: false, message: (await functionError(error)).message };
     if (!data?.success) return { success: false, message: data?.message };

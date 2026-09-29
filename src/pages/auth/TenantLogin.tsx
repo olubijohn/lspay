@@ -34,7 +34,7 @@ export function TenantLogin() {
     <div className="min-h-[80vh] flex flex-col items-center justify-center p-4">
       <div className="flex items-center space-x-2 mb-8">
         <Wallet className="h-8 w-8 text-primary" />
-        <div className="text-foreground font-bold text-2xl tracking-tight">LSPay</div>
+        <div className="text-foreground font-display text-3xl">LSPay</div>
       </div>
       
       <Card className="w-full max-w-md bg-card border-border">
@@ -42,7 +42,7 @@ export function TenantLogin() {
           <div className="mx-auto bg-primary/30 w-12 h-12 rounded-full flex items-center justify-center mb-4 border border-primary/30">
             <Store className="text-primary w-6 h-6" />
           </div>
-          <CardTitle className="text-2xl text-foreground">School Console</CardTitle>
+          <CardTitle className="text-2xl font-display text-foreground">School Console</CardTitle>
           <CardDescription className="text-muted-foreground">Administration & POS Access</CardDescription>
         </CardHeader>
         <CardContent>
@@ -74,7 +74,7 @@ export function TenantLogin() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white mt-2">Sign In</Button>
+            <Button type="submit" className="w-full bg-primary hover:bg-primary-hover text-primary-foreground mt-2">Sign In</Button>
             
             <div className="mt-4 p-3 bg-background rounded border border-border text-xs text-muted-foreground space-y-1">
               <span className="block font-medium mb-1">Demo Credentials:</span>

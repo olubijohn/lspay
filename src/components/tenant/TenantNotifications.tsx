@@ -25,7 +25,7 @@ export function TenantNotifications({ tenantId }: { tenantId: string }) {
         </h1>
       </div>
 
-      <Card className="bg-card border-border shadow-xl">
+      <Card className="bg-card border-border shadow-sm">
         <CardHeader>
           <CardTitle className="text-foreground">Alerts & Updates</CardTitle>
         </CardHeader>

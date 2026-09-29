@@ -14,7 +14,8 @@ import { CheckCircle2, Shield, ShieldAlert, Building2, Users, Bell, CreditCard, 
 import { SystemUser, AppNotification, CardLifecycleStatus, cardLifecycleLabel } from "@/lib/types";
 import { SuperAdminSidebar } from "@/components/layout/SuperAdminSidebar";
 import { CardPrintStudio } from "@/components/CardPrintStudio";
-import { MobileTopBar } from "@/components/layout/MobileTopBar";
+import { AppTopBar } from "@/components/layout/AppTopBar";
+import { NotificationCenter } from "@/components/layout/NotificationCenter";
 import { Wallet } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 import { useChartTheme } from "@/theme";
@@ -513,9 +514,20 @@ export function SuperAdmin() {
   return (
     <div className="flex h-screen overflow-hidden">
       <SuperAdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} mobileOpen={mobileNav} onMobileOpenChange={setMobileNav} />
-      <MobileTopBar title="LSPay" icon={Wallet} onMenuClick={() => setMobileNav(true)} />
+      <AppTopBar
+        title="LSPay"
+        subtitle="Super Admin Console"
+        icon={Wallet}
+        onMenuClick={() => setMobileNav(true)}
+        actions={
+          <NotificationCenter
+            notifications={notifications.filter(n => n.targetRole === "super_admin")}
+            onViewAll={() => setActiveTab("notifications")}
+          />
+        }
+      />
 
-      <main className="flex-1 lg:ml-64 overflow-y-auto bg-background px-4 pb-6 pt-20 lg:px-8 lg:pb-8 lg:pt-8">
+      <main className="flex-1 lg:ml-64 overflow-y-auto bg-background px-4 pb-8 pt-20 sm:px-6 lg:px-8 lg:pb-10 lg:pt-24">
         <div className="w-full max-w-[1700px] mx-auto space-y-8">
           {successMsg && (
             <Alert className="bg-primary/30 border border-primary text-primary">
@@ -525,13 +537,22 @@ export function SuperAdmin() {
           )}
 
           {/* ─── OVERVIEW ─────────────────────────────────────────── */}
-          {activeTab === "overview" && (
-            <div className="space-y-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3">
-                  <LayoutDashboard className="text-primary" /> Global Overview
-                </h1>
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-card p-2 rounded-lg border border-border">
+          {activeTab === "overview" && (() => {
+            const overviewVolume = filteredTx.reduce((s, t) => s + t.amount, 0);
+            const overviewActiveStudents = students.filter(s => s.cardStatus === "Active" && (filterSchool === "all" || s.tenantId === filterSchool)).length;
+            const overviewSchoolName = filterSchool === "all" ? "All schools" : (tenants.find(t => t.id.toString() === filterSchool)?.name ?? "Selected school");
+            const hour = new Date().getHours();
+            const overviewGreeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+            return (
+            <div className="space-y-6 md:space-y-8">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                <div className="space-y-1">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3">
+                    <LayoutDashboard className="text-primary" /> Global Overview
+                  </h1>
+                  <p className="text-sm text-muted-foreground">Platform activity across every school on LSPay.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-card p-2 rounded-2xl border border-border shadow-sm">
                   <Select value={filterSchool} onValueChange={setFilterSchool}>
                     <SelectTrigger className="w-full sm:w-44 bg-background border-border text-foreground" data-testid="select-filter-school">
                       <SelectValue placeholder="All Schools" />
@@ -542,82 +563,135 @@ export function SuperAdmin() {
                     </SelectContent>
                   </Select>
                   <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="flex-1 min-w-[8rem] sm:flex-none sm:w-36 bg-background border-border text-foreground" data-testid="input-start-date" />
-                  <span className="text-muted-foreground text-sm">to</span>
+                  <span className="text-muted-foreground text-sm font-extrabold">to</span>
                   <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="flex-1 min-w-[8rem] sm:flex-none sm:w-36 bg-background border-border text-foreground" data-testid="input-end-date" />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* ── Platform hero ── */}
+              <div className="on-ink relative overflow-hidden rounded-3xl bg-ink p-5 text-white shadow-lg sm:p-7">
+                <div className="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full bg-white/[0.07]" />
+                <div className="pointer-events-none absolute -bottom-24 right-16 h-48 w-48 rounded-full bg-gold/15" />
+                <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                  <div className="min-w-0">
+                    <div className="text-sm font-extrabold text-lilac/80">{overviewGreeting}</div>
+                    <div className="mt-3 text-xs font-extrabold uppercase tracking-widest text-lilac/70">Platform volume</div>
+                    <div className="mt-1 font-display text-4xl sm:text-5xl text-gold break-all">₦{overviewVolume.toFixed(2)}</div>
+                    <div className="mt-1 text-sm text-lilac/80">
+                      {overviewSchoolName} · {startDate} → {endDate} · {filteredTx.length} operation{filteredTx.length === 1 ? "" : "s"}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button onClick={() => setActiveTab("transactions")} variant="highlight" className="h-11 rounded-2xl px-5">
+                      <Receipt /> View transactions
+                    </Button>
+                    <Button onClick={() => setActiveTab("schools")} variant="ghost" className="h-11 rounded-2xl px-4 bg-white/10 text-white hover:bg-white/15 hover:text-white">
+                      <Building2 /> Schools
+                    </Button>
+                    <Button onClick={() => setActiveTab("cards")} variant="ghost" className="h-11 rounded-2xl px-4 bg-white/10 text-white hover:bg-white/15 hover:text-white">
+                      <CreditCard /> Cards
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── KPI tiles ── */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
                 {[
-                  { label: "Total Schools", value: tenants.length, color: "text-foreground" },
-                  { label: "Transaction Volume", value: `₦${filteredTx.reduce((s, t) => s + t.amount, 0).toFixed(2)}`, color: "text-primary" },
-                  { label: "Total Operations", value: filteredTx.length, color: "text-foreground" },
-                  { label: "Active Students", value: students.filter(s => s.cardStatus === "Active" && (filterSchool === "all" || s.tenantId === filterSchool)).length, color: "text-blue-400" },
+                  { label: "Total Schools", value: tenants.length, color: "text-foreground", icon: Building2, tint: "bg-lilac text-purple-700" },
+                  { label: "Transaction Volume", value: `₦${overviewVolume.toFixed(2)}`, color: "text-primary", icon: Wallet, tint: "bg-mint text-green-700" },
+                  { label: "Total Operations", value: filteredTx.length, color: "text-foreground", icon: Receipt, tint: "bg-peach text-amber-700" },
+                  { label: "Active Students", value: overviewActiveStudents, color: "text-blue-400", icon: Users, tint: "bg-sky text-blue-700" },
                 ].map(c => (
-                  <Card key={c.label} className="bg-card border-border">
-                    <CardContent className="p-6">
-                      <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase mb-2">{c.label}</div>
-                      <div className={`text-3xl font-black ${c.color}`}>{c.value}</div>
+                  <Card key={c.label} className="bg-card border-border shadow-sm">
+                    <CardContent className="p-4 md:p-6">
+                      <span className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${c.tint}`}><c.icon className="h-4 w-4" /></span>
+                      <div className="text-muted-foreground text-xs font-extrabold tracking-wide uppercase mb-1">{c.label}</div>
+                      <div className={`text-2xl md:text-3xl font-display truncate ${c.color}`}>{c.value}</div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
 
-              <Card className="bg-card border-border">
-                <CardHeader><CardTitle className="text-foreground">Revenue Trend</CardTitle></CardHeader>
+              <Card className="bg-card border-border shadow-sm">
+                <CardHeader className="space-y-1">
+                  <CardTitle className="text-foreground">Revenue Trend</CardTitle>
+                  <p className="text-sm text-muted-foreground">Daily net transaction value · {overviewSchoolName}</p>
+                </CardHeader>
                 <CardContent className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={dailyRevData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
-                      <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={12} />
-                      <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={v => `₦${v}`} />
-                      <RechartsTooltip contentStyle={chartTheme.tooltip} />
-                      <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: "#10b981" }} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  {dailyRevData.length === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border text-center px-6">
+                      <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-lilac text-ink-2"><Sparkles className="h-5 w-5" /></span>
+                      <p className="font-extrabold text-foreground">No activity in this range yet</p>
+                      <p className="text-sm text-muted-foreground mt-1">Try widening the dates or picking another school.</p>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={dailyRevData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
+                        <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={v => `₦${v}`} tickLine={false} axisLine={false} width={64} />
+                        <RechartsTooltip contentStyle={chartTheme.tooltip} />
+                        <Line type="monotone" dataKey="revenue" stroke="hsl(var(--chart-1))" strokeWidth={3} dot={{ r: 3, fill: "hsl(var(--chart-1))" }} activeDot={{ r: 6 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
                 </CardContent>
               </Card>
 
-              <Card className="bg-card border-border">
+              <Card className="bg-card border-border shadow-sm">
                 <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
-                  <CardTitle className="text-foreground">Recent Transactions</CardTitle>
-                  <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
-                    <button onClick={() => setOverviewTxFilter('all')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${overviewTxFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
-                    <button onClick={() => setOverviewTxFilter('in')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${overviewTxFilter === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
-                    <button onClick={() => setOverviewTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${overviewTxFilter === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
+                  <div className="space-y-1">
+                    <CardTitle className="text-foreground flex items-center gap-2">
+                      Recent Transactions
+                      <Badge variant="outline" className="border-border text-muted-foreground font-extrabold">{filteredTx.length}</Badge>
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">Every payment and top-up matching your filters</p>
+                  </div>
+                  <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border w-full sm:w-auto">
+                    <button onClick={() => setOverviewTxFilter('all')} className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-extrabold rounded-lg transition-colors ${overviewTxFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
+                    <button onClick={() => setOverviewTxFilter('in')} className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-extrabold rounded-lg transition-colors ${overviewTxFilter === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
+                    <button onClick={() => setOverviewTxFilter('out')} className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-extrabold rounded-lg transition-colors ${overviewTxFilter === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="max-h-96 overflow-auto rounded-lg border border-border">
-                    <Table>
-                      <TableHeader className="bg-background sticky top-0">
-                        <TableRow className="border-border">
-                          <TableHead className="text-muted-foreground">Date</TableHead>
-                          <TableHead className="text-muted-foreground">School</TableHead>
-                          <TableHead className="text-muted-foreground">Student</TableHead>
-                          <TableHead className="text-muted-foreground">Items</TableHead>
-                          <TableHead className="text-muted-foreground text-right">Amount</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredTx.length === 0 ? (
-                          <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">No transactions in this range.</TableCell></TableRow>
-                        ) : filteredTx.map(tx => (
-                          <TableRow key={tx.id} className="border-border/50">
-                            <TableCell className="text-foreground">{tx.date}</TableCell>
-                            <TableCell className="text-foreground">{tx.schoolName}</TableCell>
-                            <TableCell className="text-foreground">{tx.studentName}</TableCell>
-                            <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
-                            <TableCell className={`font-bold text-right ${tx.amount < 0 ? 'text-green-500' : 'text-red-500'}`}>{tx.amount < 0 ? '+' : '-'}₦{Math.abs(tx.amount).toFixed(2)}</TableCell>
+                  {filteredTx.length === 0 ? (
+                    <div className="text-center px-6 py-12 rounded-2xl border-2 border-dashed border-border">
+                      <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-lilac text-ink-2"><Receipt className="h-5 w-5" /></span>
+                      <p className="font-extrabold text-foreground">No transactions in this range.</p>
+                      <p className="text-sm text-muted-foreground mt-1">Adjust the school or date filters above to see more.</p>
+                    </div>
+                  ) : (
+                    <div className="max-h-96 overflow-auto rounded-2xl border border-border">
+                      <Table>
+                        <TableHeader className="bg-muted/60">
+                          <TableRow className="border-border">
+                            <TableHead className="text-muted-foreground text-xs font-extrabold uppercase tracking-wide whitespace-nowrap">Date</TableHead>
+                            <TableHead className="text-muted-foreground text-xs font-extrabold uppercase tracking-wide">School</TableHead>
+                            <TableHead className="text-muted-foreground text-xs font-extrabold uppercase tracking-wide">Student</TableHead>
+                            <TableHead className="text-muted-foreground text-xs font-extrabold uppercase tracking-wide">Items</TableHead>
+                            <TableHead className="text-muted-foreground text-xs font-extrabold uppercase tracking-wide text-right">Amount</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredTx.map(tx => (
+                            <TableRow key={tx.id} className="border-border/50 hover:bg-muted/40">
+                              <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{tx.date}</TableCell>
+                              <TableCell className="text-foreground">{tx.schoolName}</TableCell>
+                              <TableCell className="text-foreground font-extrabold">{tx.studentName}</TableCell>
+                              <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
+                              <TableCell className={`font-display text-base text-right whitespace-nowrap ${tx.amount < 0 ? 'text-green-500' : 'text-red-500'}`}>{tx.amount < 0 ? '+' : '-'}₦{Math.abs(tx.amount).toFixed(2)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
-          )}
+            );
+          })()}
 
           {/* ─── TRANSACTIONS ─────────────────────────────────────── */}
           {activeTab === "transactions" && (
@@ -647,23 +721,26 @@ export function SuperAdmin() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Card className="bg-card border-border">
-                  <CardContent className="p-6">
-                    <div className="text-muted-foreground text-xs uppercase tracking-wide mb-2">Total Volume</div>
-                    <div className="text-3xl font-black text-primary">₦{txFiltered.reduce((s, t) => s + t.amount, 0).toFixed(2)}</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-6">
+                <Card className="col-span-2 sm:col-span-1 bg-card border-border shadow-sm">
+                  <CardContent className="p-4 md:p-6">
+                    <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-mint text-green-700"><Wallet className="h-4 w-4" /></span>
+                    <div className="text-muted-foreground text-xs font-extrabold uppercase tracking-wide mb-1">Total Volume</div>
+                    <div className="text-2xl md:text-3xl font-display text-primary truncate">₦{txFiltered.reduce((s, t) => s + t.amount, 0).toFixed(2)}</div>
                   </CardContent>
                 </Card>
-                <Card className="bg-card border-border">
-                  <CardContent className="p-6">
-                    <div className="text-muted-foreground text-xs uppercase tracking-wide mb-2">Total Transactions</div>
-                    <div className="text-3xl font-black text-foreground">{txFiltered.length}</div>
+                <Card className="bg-card border-border shadow-sm">
+                  <CardContent className="p-4 md:p-6">
+                    <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-peach text-amber-700"><Receipt className="h-4 w-4" /></span>
+                    <div className="text-muted-foreground text-xs font-extrabold uppercase tracking-wide mb-1">Total Transactions</div>
+                    <div className="text-2xl md:text-3xl font-display text-foreground">{txFiltered.length}</div>
                   </CardContent>
                 </Card>
-                <Card className="bg-card border-border">
-                  <CardContent className="p-6">
-                    <div className="text-muted-foreground text-xs uppercase tracking-wide mb-2">Schools Active</div>
-                    <div className="text-3xl font-black text-blue-400">{new Set(txFiltered.map(t => t.tenantId)).size}</div>
+                <Card className="bg-card border-border shadow-sm">
+                  <CardContent className="p-4 md:p-6">
+                    <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-sky text-blue-700"><Building2 className="h-4 w-4" /></span>
+                    <div className="text-muted-foreground text-xs font-extrabold uppercase tracking-wide mb-1">Schools Active</div>
+                    <div className="text-2xl md:text-3xl font-display text-blue-400">{new Set(txFiltered.map(t => t.tenantId)).size}</div>
                   </CardContent>
                 </Card>
               </div>
@@ -683,7 +760,7 @@ export function SuperAdmin() {
                         <span className="text-foreground font-bold text-lg">{date}</span>
                         <Badge variant="outline" className="text-muted-foreground border-border ml-2">{Object.values(schoolMap).reduce((s, v) => s + v.count, 0)} transactions</Badge>
                       </div>
-                      <span className="text-primary font-black text-xl">₦{dayTotal.toFixed(2)}</span>
+                      <span className="text-primary font-display text-xl">₦{dayTotal.toFixed(2)}</span>
                     </div>
                     <div className="divide-y divide-border">
                       {Object.entries(schoolMap).map(([tenantKey, data]) => {
@@ -766,7 +843,7 @@ export function SuperAdmin() {
                         <Button onClick={() => handleEditSchoolClick(school)} variant="outline" className="border-border text-foreground hover:bg-muted" data-testid="btn-profile-edit-school">
                           Edit Details
                         </Button>
-                        <Button onClick={() => setShowImportModal(true)} className="bg-primary hover:bg-primary/90 text-white font-bold" data-testid="btn-open-import-students">
+                        <Button onClick={() => setShowImportModal(true)} className="bg-primary hover:bg-primary-hover text-primary-foreground font-bold" data-testid="btn-open-import-students">
                           <Plus className="h-4 w-4 mr-2" /> Import Students (CSV)
                         </Button>
                       </div>
@@ -783,12 +860,12 @@ export function SuperAdmin() {
                               <svg className="w-8 h-8 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" strokeWidth="1.5" />
-                                <circle cx="12" cy="9" r="2.5" fill="#ef4444" />
-                                <path d="M8 15c0-2.5 1.8-4 4-4s4 1.5 4 4" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" />
+                                <circle cx="12" cy="9" r="2.5" fill="hsl(var(--chart-5))" />
+                                <path d="M8 15c0-2.5 1.8-4 4-4s4 1.5 4 4" stroke="hsl(var(--chart-5))" strokeWidth="1.5" strokeLinecap="round" />
                               </svg>
                             ) : (
                               <img
-                                src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(school.name)}&backgroundColor=0284c7&textColor=ffffff`}
+                                src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(school.name)}&backgroundColor=2b2863&textColor=ffffff`}
                                 alt="School Logo"
                                 className="w-full h-full object-cover"
                               />
@@ -811,7 +888,7 @@ export function SuperAdmin() {
                             </div>
                             <div>
                               <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Enrollment Key</span>
-                              <p className="text-primary font-semibold font-mono">{school.enrollmentKey}</p>
+                              <p className="text-primary font-display text-lg tracking-wide">{school.enrollmentKey}</p>
                             </div>
                             <div>
                               <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Contact Person</span>
@@ -837,15 +914,15 @@ export function SuperAdmin() {
                         <CardContent className="space-y-6">
                           <div className="flex justify-between items-center pb-3 border-b border-border">
                             <span className="text-muted-foreground">Total Enrolled Students</span>
-                            <span className="text-foreground font-black text-2xl">{schoolStudents.length}</span>
+                            <span className="text-foreground font-display text-2xl">{schoolStudents.length}</span>
                           </div>
                           <div className="flex justify-between items-center pb-3 border-b border-border">
                             <span className="text-muted-foreground">Active Cards</span>
-                            <span className="text-primary font-black text-2xl">{schoolStudents.filter(s => s.cardStatus === "Active").length}</span>
+                            <span className="text-primary font-display text-2xl">{schoolStudents.filter(s => s.cardStatus === "Active").length}</span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">Total Transactions</span>
-                            <span className="text-blue-400 font-black text-2xl">{schoolTransactions.length}</span>
+                            <span className="text-blue-400 font-display text-2xl">{schoolTransactions.length}</span>
                           </div>
                         </CardContent>
                       </Card>
@@ -996,7 +1073,7 @@ export function SuperAdmin() {
                   <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
                     <Building2 className="text-primary" /> Schools
                   </h1>
-                  <Button onClick={() => setShowSchoolModal(true)} className="bg-primary hover:bg-primary/90 text-white" data-testid="btn-provision-school">
+                  <Button onClick={() => setShowSchoolModal(true)} className="bg-primary hover:bg-primary-hover text-primary-foreground" data-testid="btn-provision-school">
                     <Plus className="h-4 w-4 mr-2" /> Provision School
                   </Button>
                 </div>
@@ -1027,7 +1104,7 @@ export function SuperAdmin() {
                               className="cursor-pointer hover:bg-muted/50 transition-colors"
                               onClick={() => setSelectedSchoolId(t.id)}
                             >
-                              <Badge variant="outline" className="bg-background text-primary border-primary/50 font-mono">{t.enrollmentKey}</Badge>
+                              <Badge variant="outline" className="bg-background text-primary border-primary/50 font-display tracking-wide">{t.enrollmentKey}</Badge>
                             </TableCell>
                             <TableCell
                               className="cursor-pointer hover:bg-muted/50 transition-colors"
@@ -1279,7 +1356,7 @@ export function SuperAdmin() {
                       student.cardLifecycleStatus !== "pending_assignment"
                     );
                     return (
-                      <Card className="bg-card border-border shadow-xl sticky top-8">
+                      <Card className="bg-card border-border shadow-sm sticky top-8">
                         <CardHeader>
                           <CardTitle className="text-foreground flex items-center gap-3">
                             <img src={student.imageUrl} alt="" className="w-10 h-10 rounded-full bg-muted" onError={e => { (e.target as HTMLImageElement).src = `https://placehold.co/40x40/1e293b/94a3b8?text=${student.name[0]}`; }} />
@@ -1381,7 +1458,7 @@ export function SuperAdmin() {
                                 )}
                                 {nfcError && <p className="text-xs text-red-400">{nfcError}</p>}
                               </div>
-                              <Button onClick={handleAssignCard} className="w-full bg-primary hover:bg-primary/90 text-white h-11 font-bold mb-2" data-testid="btn-assign-card">
+                              <Button onClick={handleAssignCard} className="w-full bg-primary hover:bg-primary-hover text-primary-foreground h-11 font-bold mb-2" data-testid="btn-assign-card">
                                 Assign & Map Card
                               </Button>
                               <Button disabled variant="outline" className="w-full border-border text-muted-foreground h-11 font-bold opacity-50 cursor-not-allowed">
@@ -1509,7 +1586,7 @@ export function SuperAdmin() {
                                     </p>
                                     <div className="grid grid-cols-2 gap-2">
                                       <Button type="button" variant="ghost" onClick={() => { setReplaceMode(false); setHardwareId(""); }} className="text-muted-foreground h-10" data-testid="btn-cancel-replace">Cancel</Button>
-                                      <Button type="button" onClick={() => handleReplaceCard(student.id)} disabled={!hardwareId.trim()} className="bg-primary hover:bg-primary/90 text-white h-10 font-bold" data-testid="btn-confirm-replace">Confirm Replacement</Button>
+                                      <Button type="button" onClick={() => handleReplaceCard(student.id)} disabled={!hardwareId.trim()} className="bg-primary hover:bg-primary-hover text-primary-foreground h-10 font-bold" data-testid="btn-confirm-replace">Confirm Replacement</Button>
                                     </div>
                                   </div>
                                 )}
@@ -1547,7 +1624,7 @@ export function SuperAdmin() {
                 <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
                   <Shield className="text-primary" /> Platform Users
                 </h1>
-                <Button onClick={() => setShowPlatformUserModal(true)} className="bg-primary hover:bg-primary/90 text-white" data-testid="btn-add-platform-user">
+                <Button onClick={() => setShowPlatformUserModal(true)} className="bg-primary hover:bg-primary-hover text-primary-foreground" data-testid="btn-add-platform-user">
                   <Plus className="h-4 w-4 mr-2" /> Add User
                 </Button>
               </div>
@@ -1602,7 +1679,7 @@ export function SuperAdmin() {
                     </SelectContent>
                   </Select>
                   {selectedUserTenantId && (
-                    <Button onClick={() => setShowTenantUserModal(true)} className="bg-primary hover:bg-primary/90 text-white" data-testid="btn-add-tenant-user">
+                    <Button onClick={() => setShowTenantUserModal(true)} className="bg-primary hover:bg-primary-hover text-primary-foreground" data-testid="btn-add-tenant-user">
                       <Plus className="h-4 w-4 mr-2" /> Add User
                     </Button>
                   )}
@@ -1679,7 +1756,7 @@ export function SuperAdmin() {
                           <p className={`mb-3 text-sm ${!n.isRead ? "text-foreground" : "text-muted-foreground"}`}>{n.message}</p>
                           {!n.isRead && (
                             <div className="flex gap-3">
-                              <Button size="sm" onClick={() => { setActiveTab("cards"); setSelectedStudentId(n.studentId.toString()); setReplaceMode(false); setRemoveConfirm(false); setHardwareId(""); markNotificationRead(n.id); }} className="bg-primary hover:bg-primary/90 text-white" data-testid={`btn-go-to-studio-${n.id}`}>
+                              <Button size="sm" onClick={() => { setActiveTab("cards"); setSelectedStudentId(n.studentId.toString()); setReplaceMode(false); setRemoveConfirm(false); setHardwareId(""); markNotificationRead(n.id); }} className="bg-primary hover:bg-primary-hover text-primary-foreground" data-testid={`btn-go-to-studio-${n.id}`}>
                                 Go to Studio
                               </Button>
                               <Button size="sm" variant="ghost" onClick={() => markNotificationRead(n.id)} className="text-muted-foreground hover:text-foreground">Mark as Read</Button>
@@ -1749,7 +1826,7 @@ export function SuperAdmin() {
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="ghost" onClick={() => setShowSchoolModal(false)} className="text-muted-foreground">Cancel</Button>
-              <Button type="submit" className="bg-primary hover:bg-primary/90 text-white px-6">Provision School</Button>
+              <Button type="submit" className="bg-primary hover:bg-primary-hover text-primary-foreground px-6">Provision School</Button>
             </div>
           </form>
         </DialogContent>
@@ -1808,7 +1885,7 @@ export function SuperAdmin() {
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="ghost" onClick={() => setEditingSchool(null)} className="text-muted-foreground">Cancel</Button>
-              <Button type="submit" className="bg-primary hover:bg-primary/90 text-white px-6">Save Changes</Button>
+              <Button type="submit" className="bg-primary hover:bg-primary-hover text-primary-foreground px-6">Save Changes</Button>
             </div>
           </form>
         </DialogContent>
@@ -1835,7 +1912,7 @@ export function SuperAdmin() {
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="ghost" onClick={() => setShowPlatformUserModal(false)} className="text-muted-foreground">Cancel</Button>
-              <Button type="submit" className="bg-primary hover:bg-primary/90 text-white px-6">Create User</Button>
+              <Button type="submit" className="bg-primary hover:bg-primary-hover text-primary-foreground px-6">Create User</Button>
             </div>
           </form>
         </DialogContent>
@@ -1875,7 +1952,7 @@ export function SuperAdmin() {
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="ghost" onClick={() => setShowTenantUserModal(false)} className="text-muted-foreground">Cancel</Button>
-              <Button type="submit" className="bg-primary hover:bg-primary/90 text-white px-6">Create User</Button>
+              <Button type="submit" className="bg-primary hover:bg-primary-hover text-primary-foreground px-6">Create User</Button>
             </div>
           </form>
         </DialogContent>
@@ -1945,7 +2022,7 @@ export function SuperAdmin() {
 
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="ghost" onClick={() => { setShowImportModal(false); setCsvText(""); setImportError(""); setImportSuccess(""); }} className="text-muted-foreground">Cancel</Button>
-              <Button type="submit" disabled={isImporting} className="bg-primary hover:bg-primary/90 text-white px-6">
+              <Button type="submit" disabled={isImporting} className="bg-primary hover:bg-primary-hover text-primary-foreground px-6">
                 {isImporting ? "Importing..." : "Start Import"}
               </Button>
             </div>

@@ -11,7 +11,7 @@ import { useChartTheme } from "@/theme";
 import { BarChart3, Filter } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6'];
+const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))', 'hsl(var(--chart-6))'];
 
 export function TenantReporting({ tenantId }: { tenantId: string }) {
   const chartTheme = useChartTheme();
@@ -260,7 +260,7 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
             <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-background border-border text-foreground h-10 w-[140px]" />
             <span className="text-muted-foreground">to</span>
             <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-background border-border text-foreground h-10 w-[140px]" />
-            <Button onClick={applyDates} className="bg-primary hover:bg-primary/90 text-white h-10 px-6 font-bold shadow-lg shadow-primary/20">Apply Filters</Button>
+            <Button onClick={applyDates} className="bg-primary hover:bg-primary-hover text-primary-foreground h-10 px-6 font-bold shadow-lg shadow-primary/20">Apply Filters</Button>
           </div>
         </div>
         
@@ -299,49 +299,49 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Total Revenue</div>
-            <div className="text-2xl font-black text-primary">₦{stats.rev.toFixed(2)}</div>
+            <div className="text-2xl font-display text-primary">₦{stats.rev.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Total COGS</div>
-            <div className="text-2xl font-black text-amber-400">₦{stats.cogs.toFixed(2)}</div>
+            <div className="text-2xl font-display text-amber-400">₦{stats.cogs.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Net Profit</div>
-            <div className="text-2xl font-black text-blue-400">₦{stats.profit.toFixed(2)}</div>
+            <div className="text-2xl font-display text-blue-400">₦{stats.profit.toFixed(2)}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Profit Margin</div>
-            <div className="text-2xl font-black text-foreground">{stats.margin.toFixed(1)}%</div>
+            <div className="text-2xl font-display text-foreground">{stats.margin.toFixed(1)}%</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Items Sold</div>
-            <div className="text-2xl font-black text-violet-400">{stats.itemsSold}</div>
+            <div className="text-2xl font-display text-violet-400">{stats.itemsSold}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Transactions</div>
-            <div className="text-2xl font-black text-foreground">{stats.txCount}</div>
+            <div className="text-2xl font-display text-foreground">{stats.txCount}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Avg Order Val</div>
-            <div className="text-2xl font-black text-foreground">₦{stats.avgOrderVal.toFixed(2)}</div>
+            <div className="text-2xl font-display text-foreground">₦{stats.avgOrderVal.toFixed(2)}</div>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="bg-card border-border shadow-xl">
+        <Card className="bg-card border-border shadow-sm">
           <CardHeader>
             <CardTitle className="text-foreground">Daily Revenue & Quantity Trend</CardTitle>
           </CardHeader>
@@ -361,15 +361,15 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
                   }} 
                 />
                 <Legend />
-                <Line yAxisId="left" type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 6 }} name="revenue" />
-                <Line yAxisId="right" type="monotone" dataKey="quantity" stroke="#8b5cf6" strokeWidth={2} strokeDasharray="3 3" dot={{ r: 3, fill: '#8b5cf6' }} name="quantity" />
+                <Line yAxisId="left" type="monotone" dataKey="revenue" stroke="hsl(var(--chart-1))" strokeWidth={3} dot={{ r: 4, fill: 'hsl(var(--chart-1))' }} activeDot={{ r: 6 }} name="revenue" />
+                <Line yAxisId="right" type="monotone" dataKey="quantity" stroke="hsl(var(--chart-4))" strokeWidth={2} strokeDasharray="3 3" dot={{ r: 3, fill: 'hsl(var(--chart-4))' }} name="quantity" />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
         {selectedStockItem !== "all" ? (
-          <Card className="bg-card border-border shadow-xl">
+          <Card className="bg-card border-border shadow-sm">
             <CardHeader>
               <CardTitle className="text-foreground">Top Students Buying this Item</CardTitle>
             </CardHeader>
@@ -388,13 +388,13 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
                       return [value, name];
                     }}
                   />
-                  <Bar dataKey="quantity" fill="#f59e0b" radius={[0, 4, 4, 0]} name="quantity" />
+                  <Bar dataKey="quantity" fill="hsl(var(--chart-3))" radius={[0, 4, 4, 0]} name="quantity" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
         ) : selectedStudent === "all" ? (
-          <Card className="bg-card border-border shadow-xl">
+          <Card className="bg-card border-border shadow-sm">
             <CardHeader>
               <CardTitle className="text-foreground">Revenue by Category</CardTitle>
             </CardHeader>
@@ -410,7 +410,7 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
             </CardContent>
           </Card>
         ) : (
-          <Card className="bg-card border-border shadow-xl">
+          <Card className="bg-card border-border shadow-sm">
             <CardHeader>
               <CardTitle className="text-foreground">Top 5 Purchased by Student</CardTitle>
             </CardHeader>
@@ -421,7 +421,7 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
                   <XAxis type="number" stroke={chartTheme.axis} fontSize={12} />
                   <YAxis dataKey="name" type="category" stroke={chartTheme.axis} fontSize={12} width={100} tick={{ fill: chartTheme.tickText }} />
                   <RechartsTooltip contentStyle={chartTheme.tooltip} cursor={{ fill: chartTheme.cursor }} />
-                  <Bar dataKey="quantity" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="quantity" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -430,7 +430,7 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
       </div>
 
       {/* Item Specific Analysis */}
-      <Card className="bg-card border-border shadow-xl overflow-hidden">
+      <Card className="bg-card border-border shadow-sm overflow-hidden">
         <div className="bg-card/50 p-6 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <CardTitle className="text-foreground">Product Deep Dive</CardTitle>
           <Select value={selectedStockItem} onValueChange={setSelectedStockItem}>
@@ -457,11 +457,11 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
                   <div className="flex gap-6">
                     <div>
                       <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Units Sold</div>
-                      <div className="text-2xl font-black text-foreground">{itemAnalysis.unitsSold}</div>
+                      <div className="text-2xl font-display text-foreground">{itemAnalysis.unitsSold}</div>
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Revenue</div>
-                      <div className="text-2xl font-black text-primary">₦{itemAnalysis.revenue.toFixed(2)}</div>
+                      <div className="text-2xl font-display text-primary">₦{itemAnalysis.revenue.toFixed(2)}</div>
                     </div>
                   </div>
                 </div>
@@ -473,7 +473,7 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
                     <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={10} />
                     <YAxis stroke={chartTheme.axis} fontSize={10} />
                     <RechartsTooltip contentStyle={chartTheme.tooltip} />
-                    <Area type="monotone" dataKey="qty" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.3} name="Units Sold" />
+                    <Area type="monotone" dataKey="qty" stroke="hsl(var(--chart-4))" fill="hsl(var(--chart-4))" fillOpacity={0.3} name="Units Sold" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -487,7 +487,7 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
       </Card>
 
       {selectedStudent === "all" && (
-        <Card className="bg-card border-border shadow-xl">
+        <Card className="bg-card border-border shadow-sm">
           <CardHeader>
             <CardTitle className="text-foreground">Student Spending Overview</CardTitle>
           </CardHeader>

@@ -45,7 +45,7 @@ export function TenantStockManagement({ tenantId }: { tenantId: string }) {
       </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="bg-card border-border shadow-xl lg:col-span-1 h-max">
+        <Card className="bg-card border-border shadow-sm lg:col-span-1 h-max">
           <CardHeader>
             <CardTitle className="text-foreground flex items-center gap-2">
               <Plus className="w-5 h-5 text-primary" /> Record Restock
@@ -80,14 +80,14 @@ export function TenantStockManagement({ tenantId }: { tenantId: string }) {
                 <Label className="text-foreground">Note (Optional)</Label>
                 <Input value={restockNote} onChange={e => setRestockNote(e.target.value)} placeholder="e.g. Weekly delivery" className="bg-background border-border text-foreground h-11" />
               </div>
-              <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white h-12 font-bold text-lg mt-2 shadow-lg shadow-primary/20">
+              <Button type="submit" className="w-full bg-primary hover:bg-primary-hover text-primary-foreground h-12 font-bold text-lg mt-2 shadow-lg shadow-primary/20">
                 Submit Restock
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        <Card className="bg-card border-border shadow-xl lg:col-span-2">
+        <Card className="bg-card border-border shadow-sm lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-foreground">Stock Movement Log</CardTitle>
           </CardHeader>

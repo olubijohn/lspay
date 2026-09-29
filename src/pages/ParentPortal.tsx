@@ -10,25 +10,75 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { AlertTriangle, ShieldAlert, Wallet, Lock, History, Link as LinkIcon, Settings, Bell, CreditCard, LayoutDashboard, ShieldCheck, CheckCircle2 } from "lucide-react";
-import { MobileTopBar } from "@/components/layout/MobileTopBar";
-import { Student, cardLifecycleLabel } from "@/lib/types";
+import { AlertTriangle, ShieldAlert, Wallet, Lock, History, Link as LinkIcon, Settings, Bell, CreditCard, ShieldCheck, CheckCircle2, ArrowDownLeft, ArrowUpRight, ChevronRight, Users, Plus, LogOut, FileText } from "lucide-react";
+import { AppTopBar } from "@/components/layout/AppTopBar";
+import { NotificationCenter } from "@/components/layout/NotificationCenter";
+import { ParentBottomNav } from "@/components/parent/ParentBottomNav";
+import { LinkChildPage } from "@/components/parent/LinkChildPage";
+import { PrivacyComplianceDialog } from "@/components/parent/PrivacyComplianceDialog";
+import { PRIVACY_POLICY_VERSION } from "@/lib/privacyPolicy";
+import { Student, Transaction, cardLifecycleLabel } from "@/lib/types";
 import { launchPaystack, isPaystackConfigured } from "@/lib/paystack";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 import { useChartTheme } from "@/theme";
 import { ParentSidebar } from "@/components/layout/ParentSidebar";
 
-// Termly enrollment fee in naira; must match ENROLLMENT_FEE in LSA/supabase/functions/lspay-enroll.
-const ENROLLMENT_FEE = 1000;
+const naira = (n: number) => `₦${n.toFixed(2)}`;
+
+/** Child photo, or their initials when the school hasn't uploaded one. */
+function ChildAvatar({ child, className }: { child: Student; className: string }) {
+  const [failed, setFailed] = useState(false);
+  if (child.imageUrl && !failed) {
+    return <img src={child.imageUrl} alt="" onError={() => setFailed(true)} className={`${className} bg-lilac object-cover`} />;
+  }
+  const initials = child.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  return <span className={`${className} flex items-center justify-center bg-lilac font-display text-ink`}>{initials}</span>;
+}
+
+/** Card list used instead of the transactions table on phones. */
+function MobileTxList({ txs, showChild }: { txs: Transaction[]; showChild?: boolean }) {
+  if (txs.length === 0) {
+    return <div className="py-10 text-center text-sm text-muted-foreground md:hidden">No transactions found.</div>;
+  }
+  return (
+    <ul className="divide-y divide-border md:hidden">
+      {txs.map(tx => {
+        const isIn = tx.amount < 0;
+        return (
+          <li key={tx.id} className="flex items-center gap-3 py-3">
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isIn ? "bg-mint text-green-700" : "bg-blush text-red-700"}`}>
+              {isIn ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-bold">{tx.itemsString || (isIn ? "Wallet top-up" : "Purchase")}</div>
+              <div className="truncate text-xs text-muted-foreground">
+                {showChild ? `${tx.studentName} · ` : ""}{tx.date}
+              </div>
+            </div>
+            <div className={`shrink-0 font-display text-base ${isIn ? "text-green-600" : "text-red-600"}`}>
+              {isIn ? "+" : "-"}{naira(Math.abs(tx.amount))}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 export function ParentPortal() {
   const chartTheme = useChartTheme();
-  const { tenants, students, transactions, updateStudent, parentSession, updateParentUser, addParentChild, notifications, markNotificationRead, activateCard, addTransaction, topupWallet } = useStore();
+  const { tenants, students, transactions, updateStudent, parentSession, updateParentUser, addParentChild, notifications, markNotificationRead, activateCard, addTransaction, topupWallet, logoutParent } = useStore();
   const [, setLocation] = useLocation();
 
-  const [activeTab, setActiveTab] = useState<string>("overview");
+  const [activeTab, setActiveTabState] = useState<string>("overview");
+  const setActiveTab = (tab: string) => {
+    setActiveTabState(tab);
+    document.getElementById("parent-main")?.scrollTo({ top: 0 });
+  };
 
-  const [showAddChild, setShowAddChild] = useState(false);
+  // ISO time the parent accepted the privacy & compliance notice in this session; required before linking.
+  const [privacyAcceptedAt, setPrivacyAcceptedAt] = useState<string | null>(null);
+  const [showPrivacyReview, setShowPrivacyReview] = useState(false);
   const [authCode, setAuthCode] = useState("");
   const [studentIdInput, setStudentIdInput] = useState("");
   const [regError, setRegError] = useState("");
@@ -61,7 +111,6 @@ export function ParentPortal() {
   const [phoneInput, setPhoneInput] = useState(parentSession?.phone ?? "");
   const [phoneSaved, setPhoneSaved] = useState(false);
 
-  const [mobileNav, setMobileNav] = useState(false);
   const [txFilter, setTxFilter] = useState<"all" | "in" | "out">("all");
 
   useEffect(() => {
@@ -74,6 +123,17 @@ export function ParentPortal() {
 
   const linkedChildren = students.filter(s => parentSession.linkedStudentIds.includes(s.id));
   const parentNotifications = notifications.filter(n => n.targetRole === 'parent' && n.targetParentEmail === parentSession.email);
+  const unreadCount = parentNotifications.filter(n => !n.isRead).length;
+  const firstName = parentSession.name.split(" ")[0] || "there";
+  const familyBalance = linkedChildren.reduce((sum, c) => sum + c.walletBalance, 0);
+
+  const pageTitle =
+    activeTab === "overview" ? "Family Overview" :
+    activeTab === "children" ? "My Children" :
+    activeTab === "link" ? "Link a Child" :
+    activeTab === "notifications" ? "Notifications" :
+    activeTab === "settings" ? "Account" :
+    activeTab.startsWith("child_") ? (students.find(s => s.id === activeTab.slice(6))?.name ?? "Child") : "Parent Portal";
 
   const handleOpenAddChild = () => {
     if (linkedChildren.length > 0 && !authCode) {
@@ -82,12 +142,28 @@ export function ParentPortal() {
         setAuthCode(tenant.enrollmentKey);
       }
     }
-    setShowAddChild(true);
+    setRegError(""); setRegSuccess("");
+    setActiveTab("link");
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleNavigate = (tab: string) => {
+    if (tab === "link") handleOpenAddChild();
+    else setActiveTab(tab);
+  };
+
+  const handleLogout = () => {
+    logoutParent();
+    setLocation('/');
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegError(""); setRegSuccess("");
+
+    if (!privacyAcceptedAt) {
+      setRegError("Please review and accept the privacy & compliance notice first.");
+      return;
+    }
 
     const codeMatch = authCode.match(/^SCH-([A-Z]{3})-2026$/i);
     if (!codeMatch) {
@@ -95,56 +171,28 @@ export function ParentPortal() {
       return;
     }
 
-    const tenant = tenants.find(t => t.enrollmentKey === authCode.toUpperCase());
-    if (!tenant) {
-      setRegError("Invalid Authorization Code — school not found.");
-      return;
-    }
-
-    if (!isPaystackConfigured(tenant.paystackPublicKey)) {
-      setRegError("Payments are not available yet — the school has not configured their Paystack integration.");
-      return;
-    }
-
+    // No enrollment fee: the school code, student ID and guardian email are checked on the server.
     setRegProcessing(true);
-    launchPaystack({
-      paystackPublicKey: tenant.paystackPublicKey,
-      email: parentSession!.email,
-      amountMajor: ENROLLMENT_FEE,
-      metadata: {
-        // purpose + key + reg no are checked by the lspay-enroll edge function before the child is linked
-        purpose: "lspay_enrollment", enrollment_key: authCode.toUpperCase(), student_reg_no: studentIdInput.toUpperCase(),
-        custom_fields: [
-          { display_name: "Action", variable_name: "action", value: "Enrollment Fee" },
-          { display_name: "Auth Code", variable_name: "auth_code", value: authCode },
-          { display_name: "Student ID", variable_name: "student_id", value: studentIdInput },
-        ],
-      },
-      onSuccess: async (reference) => {
-        const result = await addParentChild(parentSession.id, authCode.toUpperCase(), studentIdInput.toUpperCase(), parentSession.email, reference);
-
-        if (result.success) {
-          setRegSuccess(`Successfully linked student!`);
-          setAuthCode(""); setStudentIdInput("");
-          setRegProcessing(false);
-          setTimeout(() => {
-            setRegSuccess("");
-            setShowAddChild(false);
-          }, 2000);
-        } else {
-          setRegProcessing(false);
-          setRegError(`${result.message || "Failed to link student."} (Paystack ref ${reference})`);
-        }
-      },
-      onCancel: () => {
-        setRegProcessing(false);
-        setRegError("Payment was cancelled. You cannot link an account without the enrollment fee.");
-      },
-      onError: (message) => {
-        setRegProcessing(false);
-        setRegError(message);
-      },
-    });
+    try {
+      const result = await addParentChild(parentSession.id, authCode.toUpperCase(), studentIdInput.toUpperCase(), {
+        policyVersion: PRIVACY_POLICY_VERSION,
+        acceptedAt: privacyAcceptedAt,
+      });
+      if (result.success) {
+        setRegSuccess("Successfully linked student!");
+        setAuthCode(""); setStudentIdInput("");
+        setTimeout(() => {
+          setRegSuccess("");
+          setActiveTab("overview");
+        }, 2000);
+      } else {
+        setRegError(result.message || "Failed to link student.");
+      }
+    } catch (err: any) {
+      setRegError(err?.message ?? "Failed to link student. Please try again.");
+    } finally {
+      setRegProcessing(false);
+    }
   };
 
   const handleTopup = (e: React.FormEvent) => {
@@ -250,76 +298,78 @@ export function ParentPortal() {
           <span className="text-sm font-semibold">₦{topupSuccess.amount.toFixed(2)} added to {topupSuccess.name}'s wallet</span>
         </div>
       )}
-      <ParentSidebar activeTab={activeTab} setActiveTab={setActiveTab} onAddChild={handleOpenAddChild} mobileOpen={mobileNav} onMobileOpenChange={setMobileNav} />
-      <MobileTopBar title="Parent Portal" icon={ShieldCheck} onMenuClick={() => setMobileNav(true)} />
+      <ParentSidebar activeTab={activeTab} setActiveTab={setActiveTab} onAddChild={handleOpenAddChild} />
+      <AppTopBar
+        title={pageTitle}
+        subtitle={activeTab === "overview" ? `Hi ${firstName} 👋` : undefined}
+        icon={ShieldCheck}
+        actions={
+          <NotificationCenter
+            notifications={parentNotifications}
+            onViewAll={() => setActiveTab("notifications")}
+            onOpen={(n) => { if (n.studentId && students.some(s => s.id === n.studentId)) setActiveTab(`child_${n.studentId}`); }}
+          />
+        }
+      />
 
-      <main className="flex-1 lg:ml-64 overflow-y-auto bg-background px-4 pb-6 pt-20 lg:px-8 lg:pb-8 lg:pt-8">
-        <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <main id="parent-main" className="flex-1 lg:ml-64 overflow-y-auto bg-background px-4 pt-20 pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] sm:px-6 lg:px-8 lg:pb-10 lg:pt-24">
+        <div key={activeTab} className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
 
           {/* OVERVIEW DASHBOARD */}
           {activeTab === "overview" && (
-            <div className="space-y-8">
+            <div className="space-y-6 md:space-y-8">
 
-              {/* ── Mobile-first Family Overview card ── */}
-              <div className="md:hidden rounded-2xl border border-border bg-card shadow-xl overflow-hidden">
-                <div className="px-5 pt-5 pb-3">
-                  <h1 className="text-xl font-bold text-foreground text-center mb-4">Family Overview</h1>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mb-0.5">Linked Children</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Button onClick={handleOpenAddChild} size="sm" className="bg-primary hover:bg-primary/90 text-white font-bold h-8 px-4 rounded-lg text-xs shadow shadow-primary/30">
-                        Link Child
-                      </Button>
-                      <span className="text-3xl font-black text-foreground leading-none">{linkedChildren.length}</span>
+              {/* ── Family hero ── */}
+              <div className="on-ink relative overflow-hidden rounded-3xl bg-ink p-5 text-white shadow-lg sm:p-7">
+                <div className="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full bg-white/[0.07]" />
+                <div className="pointer-events-none absolute -bottom-24 right-16 h-48 w-48 rounded-full bg-gold/15" />
+                <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <div className="text-xs font-extrabold uppercase tracking-widest text-lilac/70">Family balance</div>
+                    <div className="mt-1 font-display text-4xl sm:text-5xl">{naira(familyBalance)}</div>
+                    <div className="mt-1 text-sm text-lilac/80">
+                      {linkedChildren.length === 0 ? "No children linked yet" : `Across ${linkedChildren.length} ${linkedChildren.length === 1 ? "child" : "children"}`}
                     </div>
                   </div>
-                  {/* Children avatar scroll strip */}
-                  {linkedChildren.length > 0 && (
-                    <div className="flex gap-3 overflow-x-auto pb-3 -mx-1 px-1 scrollbar-none">
-                      {linkedChildren.map(child => {
-                        const initials = child.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
-                        return (
-                          <button
-                            key={child.id}
-                            onClick={() => setActiveTab(`child_${child.id}`)}
-                            className="flex flex-col items-center gap-1.5 shrink-0 group"
-                          >
-                            <div className="w-16 h-16 rounded-full bg-primary/20 border-2 border-primary/30 group-hover:border-primary transition-colors overflow-hidden flex items-center justify-center shadow-md">
-                              {child.imageUrl ? (
-                                <img src={child.imageUrl} alt={child.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-xl font-black text-primary">{initials}</span>
-                              )}
-                            </div>
-                            <span className="text-[10px] font-semibold text-foreground/70 max-w-[64px] truncate text-center leading-tight">
-                              {child.name.split(' ')[0]}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <Button onClick={handleOpenAddChild} variant="highlight" className="h-11 self-start rounded-2xl px-5 md:self-auto" data-testid="btn-link-child-hero">
+                    <Plus /> Link a child
+                  </Button>
                 </div>
-              </div>
 
-              {/* ── Desktop heading (hidden on mobile) ── */}
-              <div className="hidden md:flex flex-row items-center justify-between">
-                <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-                  <LayoutDashboard className="text-primary" /> Family Overview
-                </h1>
-                <Button onClick={handleOpenAddChild} className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-lg shadow-lg shadow-primary/20">
-                  Link Child
-                </Button>
+                {linkedChildren.length > 0 && (
+                  <div className="relative -mx-1 mt-5 flex gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+                    {linkedChildren.map(child => {
+                      const initials = child.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+                      return (
+                        <button
+                          key={child.id}
+                          onClick={() => setActiveTab(`child_${child.id}`)}
+                          className="group flex min-w-[9.5rem] shrink-0 items-center gap-3 rounded-2xl bg-white/10 p-2.5 pr-4 text-left transition-colors hover:bg-white/15"
+                        >
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-lilac text-ink ring-2 ring-white/20">
+                            {child.imageUrl ? (
+                              <img src={child.imageUrl} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="font-display">{initials}</span>
+                            )}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-extrabold">{child.name.split(' ')[0]}</span>
+                            <span className="block font-display text-sm text-gold">{naira(child.walletBalance)}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {linkedChildren.length === 0 ? (
-                <div className="text-center py-20 bg-card rounded-xl border border-border border-dashed">
-                  <LinkIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-foreground mb-2">No Children Linked</h3>
+                <div className="text-center px-6 py-14 sm:py-20 bg-card rounded-3xl border-2 border-border border-dashed">
+                  <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-lilac text-ink-2"><LinkIcon className="h-7 w-7" /></span>
+                  <h3 className="font-display text-2xl text-foreground mb-2">No children linked</h3>
                   <p className="text-muted-foreground max-w-md mx-auto mb-6">Link your child's account using the Authorization Code and Student ID provided by their school.</p>
-                  <Button onClick={handleOpenAddChild} className="bg-primary hover:bg-primary/90 text-white">Link Account Now</Button>
+                  <Button onClick={handleOpenAddChild} className="h-11 rounded-2xl px-6">Link account now</Button>
                 </div>
               ) : (() => {
                 const allTx = transactions.filter(t => linkedChildren.some(c => c.id === t.studentId));
@@ -345,35 +395,25 @@ export function ParentPortal() {
 
                 return (
                   <>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                      <Card className="bg-card border-border shadow-xl">
-                        <CardContent className="p-6">
-                          <div className="text-muted-foreground text-sm mb-1 font-medium tracking-wide uppercase">Linked Children</div>
-                          <div className="text-4xl font-black text-foreground">{linkedChildren.length}</div>
-                        </CardContent>
-                      </Card>
-                      <Card className="bg-card border-border shadow-xl">
-                        <CardContent className="p-6">
-                          <div className="text-muted-foreground text-sm mb-1 font-medium tracking-wide uppercase">Combined Balance</div>
-                          <div className="text-4xl font-black text-primary">₦{totalBal.toFixed(2)}</div>
-                        </CardContent>
-                      </Card>
-                      <Card className="bg-card border-border shadow-xl">
-                        <CardContent className="p-6">
-                          <div className="text-muted-foreground text-sm mb-1 font-medium tracking-wide uppercase">Total Transactions</div>
-                          <div className="text-4xl font-black text-foreground">{allTx.length}</div>
-                        </CardContent>
-                      </Card>
-                      <Card className="bg-card border-border shadow-xl">
-                        <CardContent className="p-6">
-                          <div className="text-muted-foreground text-sm mb-1 font-medium tracking-wide uppercase">Spent This Month</div>
-                          <div className="text-4xl font-black text-amber-400">₦{spentThisMonth.toFixed(2)}</div>
-                        </CardContent>
-                      </Card>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
+                      {[
+                        { label: "Linked children", value: String(linkedChildren.length), icon: Users, tint: "bg-lilac text-ink-2", tone: "text-foreground" },
+                        { label: "Combined balance", value: naira(totalBal), icon: Wallet, tint: "bg-mint text-green-700", tone: "text-primary" },
+                        { label: "Transactions", value: String(allTx.length), icon: History, tint: "bg-sky text-blue-700", tone: "text-foreground" },
+                        { label: "Spent this month", value: naira(spentThisMonth), icon: ArrowUpRight, tint: "bg-peach text-amber-700", tone: "text-amber-400" },
+                      ].map(s => (
+                        <Card key={s.label} className="bg-card border-border shadow-sm">
+                          <CardContent className="p-4 md:p-6">
+                            <span className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${s.tint}`}><s.icon className="h-4 w-4" /></span>
+                            <div className="text-muted-foreground text-xs mb-1 font-extrabold tracking-wide uppercase">{s.label}</div>
+                            <div className={`text-2xl md:text-3xl font-display truncate ${s.tone}`}>{s.value}</div>
+                          </CardContent>
+                        </Card>
+                      ))}
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <Card className="bg-card border-border shadow-xl">
+                      <Card className="bg-card border-border shadow-sm">
                         <CardHeader>
                           <CardTitle className="text-foreground">Spending by Child</CardTitle>
                         </CardHeader>
@@ -384,12 +424,12 @@ export function ParentPortal() {
                               <XAxis dataKey="name" stroke={chartTheme.axis} fontSize={12} />
                               <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={v => `₦${v}`} />
                               <RechartsTooltip cursor={{ fill: chartTheme.cursor }} contentStyle={chartTheme.tooltip} />
-                              <Bar dataKey="spent" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                              <Bar dataKey="spent" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
                             </BarChart>
                           </ResponsiveContainer>
                         </CardContent>
                       </Card>
-                      <Card className="bg-card border-border shadow-xl">
+                      <Card className="bg-card border-border shadow-sm">
                         <CardHeader>
                           <CardTitle className="text-foreground">Combined Spending Trend</CardTitle>
                         </CardHeader>
@@ -400,14 +440,14 @@ export function ParentPortal() {
                               <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={12} />
                               <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={v => `₦${v}`} />
                               <RechartsTooltip contentStyle={chartTheme.tooltip} />
-                              <Line type="monotone" dataKey="spend" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981' }} />
+                              <Line type="monotone" dataKey="spend" stroke="hsl(var(--chart-1))" strokeWidth={3} dot={{ r: 4, fill: 'hsl(var(--chart-1))' }} />
                             </LineChart>
                           </ResponsiveContainer>
                         </CardContent>
                       </Card>
                     </div>
 
-                    <Card className="bg-card border-border shadow-xl">
+                    <Card className="bg-card border-border shadow-sm">
                       <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
                         <CardTitle className="text-foreground">Recent Transactions</CardTitle>
                         <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
@@ -417,7 +457,11 @@ export function ParentPortal() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <div className="max-h-[400px] overflow-auto border border-border rounded-lg bg-background">
+                        <MobileTxList
+                          showChild
+                          txs={allTx.filter(tx => txFilter === 'in' ? tx.amount < 0 : txFilter === 'out' ? tx.amount > 0 : true).reverse().slice(0, 30)}
+                        />
+                        <div className="hidden md:block max-h-[400px] overflow-auto border border-border rounded-xl bg-background">
                           <Table>
                             <TableHeader className="bg-card/80 sticky top-0">
                               <TableRow className="border-border hover:bg-transparent">
@@ -497,13 +541,13 @@ export function ParentPortal() {
             return (
               <div className="space-y-8">
                 {/* Header Card */}
-                <div className="bg-card p-8 rounded-2xl border border-border relative overflow-hidden shadow-xl flex flex-col md:flex-row gap-8 items-center md:items-start">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+                <div className="bg-card p-5 sm:p-8 rounded-3xl border border-border relative overflow-hidden shadow-sm flex flex-col md:flex-row gap-5 md:gap-8 items-center md:items-start">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-lilac rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
 
-                  <img src={child.imageUrl} alt={child.name} className="w-32 h-32 rounded-full bg-background border-4 border-border z-10" />
+                  <ChildAvatar child={child} className="w-24 h-24 sm:w-32 sm:h-32 shrink-0 rounded-full text-3xl border-4 border-card shadow-md ring-2 ring-lilac z-10" />
 
                   <div className="flex-1 text-center md:text-left z-10">
-                    <h2 className="text-3xl font-bold text-foreground mb-1">{child.name}</h2>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-1">{child.name}</h2>
                     <p className="text-muted-foreground mb-4">{child.className} • {tenants.find(t => t.id === child.tenantId)?.name}</p>
 
                     <div className="flex flex-wrap gap-2 justify-center md:justify-start">
@@ -528,23 +572,26 @@ export function ParentPortal() {
                     </div>
                   </div>
 
-                  <div className="bg-background p-6 rounded-xl border border-border text-center min-w-[220px] z-10 shadow-inner">
-                    <div className="text-sm text-muted-foreground mb-1 font-medium tracking-wide uppercase">Wallet Balance</div>
-                    <div className="text-5xl font-black text-primary">₦{child.walletBalance.toFixed(2)}</div>
+                  <div className="on-ink w-full md:w-auto bg-ink text-white p-5 sm:p-6 rounded-2xl text-center min-w-[220px] z-10 shadow-md">
+                    <div className="text-xs text-lilac/70 mb-1 font-extrabold tracking-widest uppercase">Wallet Balance</div>
+                    <div className="text-4xl sm:text-5xl font-display">{naira(child.walletBalance)}</div>
+                    <Button onClick={() => setShowTopupModal(child.id)} variant="highlight" size="sm" className="mt-3 h-9 rounded-xl px-4">
+                      <Plus /> Top up
+                    </Button>
                   </div>
                 </div>
 
                 {/* Alerts for Activation */}
                 {(child.cardLifecycleStatus === 'ready' || child.cardLifecycleStatus === 'delivered') && (
-                  <Alert className="bg-amber-900/20 border-amber-500/50">
+                  <Alert className="bg-peach border-amber-500/40 rounded-2xl">
                     <AlertTriangle className="h-5 w-5 text-amber-500" />
-                    <AlertTitle className="text-amber-400 text-lg font-bold ml-2">Action Required: Activate Card</AlertTitle>
-                    <AlertDescription className="text-amber-200/80 ml-2 mt-2">
+                    <AlertTitle className="text-amber-700 text-lg font-extrabold ml-2">Action Required: Activate Card</AlertTitle>
+                    <AlertDescription className="text-amber-800 dark:text-amber-300 ml-2 mt-2">
                       {child.cardLifecycleStatus === 'ready'
                         ? "Your child's card is ready for pickup. Please set a secure PIN and limits to activate it."
                         : "Card has been delivered. Please activate it below to enable purchases."}
                       <div className="mt-4">
-                        <Button onClick={() => setShowActivateModal(child.id)} className="bg-amber-600 hover:bg-amber-700 text-white font-bold">Complete Activation</Button>
+                        <Button onClick={() => setShowActivateModal(child.id)} variant="highlight" className="rounded-xl">Complete Activation</Button>
                       </div>
                     </AlertDescription>
                   </Alert>
@@ -554,25 +601,25 @@ export function ParentPortal() {
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                   <Card className="bg-card border-border hover:bg-muted/50 transition-all cursor-pointer shadow-md hover:shadow-lg" onClick={() => setShowTopupModal(child.id)}>
                     <CardContent className="p-5 flex flex-col items-center text-center gap-3">
-                      <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center text-primary shadow-inner"><Wallet className="w-6 h-6" /></div>
+                      <div className="w-14 h-14 rounded-2xl bg-mint flex items-center justify-center text-green-700"><Wallet className="w-6 h-6" /></div>
                       <div className="font-bold text-foreground text-sm">Top Up Wallet</div>
                     </CardContent>
                   </Card>
                   <Card className="bg-card border-border hover:bg-muted/50 transition-all cursor-pointer shadow-md hover:shadow-lg" onClick={() => { setPin1(""); setPin2(""); setShowPinModal(child.id); }}>
                     <CardContent className="p-5 flex flex-col items-center text-center gap-3">
-                      <div className="w-14 h-14 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 shadow-inner"><Lock className="w-6 h-6" /></div>
+                      <div className="w-14 h-14 rounded-2xl bg-sky flex items-center justify-center text-blue-700"><Lock className="w-6 h-6" /></div>
                       <div className="font-bold text-foreground text-sm">Change PIN</div>
                     </CardContent>
                   </Card>
                   <Card className="bg-card border-border hover:bg-muted/50 transition-all cursor-pointer shadow-md hover:shadow-lg" onClick={() => { setDailyLim(child.dailyLimit.toString()); setMonthlyLim(child.monthlyLimit.toString()); setShowLimitsModal(child.id); }}>
                     <CardContent className="p-5 flex flex-col items-center text-center gap-3">
-                      <div className="w-14 h-14 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 shadow-inner"><Settings className="w-6 h-6" /></div>
+                      <div className="w-14 h-14 rounded-2xl bg-lilac flex items-center justify-center text-purple-700"><Settings className="w-6 h-6" /></div>
                       <div className="font-bold text-foreground text-sm">Card Limits</div>
                     </CardContent>
                   </Card>
                   <Card className="bg-card border-border hover:bg-muted/50 transition-all cursor-pointer shadow-md hover:shadow-lg" onClick={() => handleToggleFreeze(child)}>
                     <CardContent className="p-5 flex flex-col items-center text-center gap-3">
-                      <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-inner ${child.cardStatus === 'Blocked' ? 'bg-primary/20 text-primary' : 'bg-red-500/20 text-red-400'}`}>
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${child.cardStatus === 'Blocked' ? 'bg-mint text-green-700' : 'bg-blush text-red-700'}`}>
                         {child.cardStatus === 'Blocked' ? <CreditCard className="w-6 h-6" /> : <ShieldAlert className="w-6 h-6" />}
                       </div>
                       <div className="font-bold text-foreground text-sm">{child.cardStatus === 'Blocked' ? 'Unfreeze Card' : 'Freeze Card'}</div>
@@ -581,24 +628,24 @@ export function ParentPortal() {
                 </div>
 
                 {/* Reporting */}
-                <Card className="bg-card border-border shadow-xl">
+                <Card className="bg-card border-border shadow-sm">
                   <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
                     <CardTitle className="text-foreground flex items-center gap-2"><History className="w-5 h-5 text-muted-foreground" /> Spending Insights</CardTitle>
-                    <div className="flex items-center gap-2 bg-background p-1.5 rounded-lg border border-border">
-                      <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-card border-border text-foreground h-9 w-auto text-sm" />
+                    <div className="flex w-full sm:w-auto items-center gap-2 bg-background p-1.5 rounded-xl border border-border">
+                      <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-card border-border text-foreground h-9 min-w-0 flex-1 sm:w-auto sm:flex-none text-sm" />
                       <span className="text-muted-foreground text-sm px-1">to</span>
-                      <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-card border-border text-foreground h-9 w-auto text-sm" />
+                      <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-card border-border text-foreground h-9 min-w-0 flex-1 sm:w-auto sm:flex-none text-sm" />
                     </div>
                   </CardHeader>
-                  <CardContent className="p-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-8">
                       <div className="bg-background p-4 rounded-xl border border-border">
                         <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-1">Money In</div>
-                        <div className="text-3xl font-black text-green-500">+₦{moneyInPeriod.toFixed(2)}</div>
+                        <div className="text-3xl font-display text-green-500">+₦{moneyInPeriod.toFixed(2)}</div>
                       </div>
                       <div className="bg-background p-4 rounded-xl border border-border">
                         <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-1">Money Out</div>
-                        <div className="text-3xl font-black text-red-500">-₦{moneyOutPeriod.toFixed(2)}</div>
+                        <div className="text-3xl font-display text-red-500">-₦{moneyOutPeriod.toFixed(2)}</div>
                       </div>
                       <div className="bg-background p-4 rounded-xl border border-border">
                         <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-1">Most Frequent Item</div>
@@ -616,7 +663,7 @@ export function ParentPortal() {
                               <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={10} />
                               <YAxis stroke={chartTheme.axis} fontSize={10} tickFormatter={v => `₦${v}`} />
                               <RechartsTooltip contentStyle={chartTheme.tooltip} />
-                              <Line type="monotone" dataKey="spend" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} />
+                              <Line type="monotone" dataKey="spend" stroke="hsl(var(--chart-2))" strokeWidth={3} dot={{ r: 4, fill: 'hsl(var(--chart-2))' }} />
                             </LineChart>
                           </ResponsiveContainer>
                         </div>
@@ -630,7 +677,7 @@ export function ParentPortal() {
                               <XAxis type="number" stroke={chartTheme.axis} fontSize={10} />
                               <YAxis dataKey="name" type="category" stroke={chartTheme.axis} fontSize={10} width={90} />
                               <RechartsTooltip cursor={{ fill: chartTheme.cursor }} contentStyle={chartTheme.tooltip} />
-                              <Bar dataKey="qty" fill="#10b981" radius={[0, 4, 4, 0]} />
+                              <Bar dataKey="qty" fill="hsl(var(--chart-1))" radius={[0, 4, 4, 0]} />
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
@@ -645,7 +692,8 @@ export function ParentPortal() {
                         <button onClick={() => setTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
                       </div>
                     </div>
-                    <div className="max-h-[300px] overflow-auto border border-border rounded-lg bg-background">
+                    <MobileTxList txs={periodTx.filter(tx => txFilter === 'in' ? tx.amount < 0 : txFilter === 'out' ? tx.amount > 0 : true)} />
+                    <div className="hidden md:block max-h-[300px] overflow-auto border border-border rounded-xl bg-background">
                       <Table>
                         <TableHeader className="bg-card/80 sticky top-0">
                           <TableRow className="border-border">
@@ -684,10 +732,71 @@ export function ParentPortal() {
             );
           })()}
 
+          {/* CHILDREN LIST */}
+          {activeTab === "children" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between gap-3">
+                <h1 className="text-3xl font-bold text-foreground hidden sm:flex items-center gap-3">
+                  <Users className="text-primary" /> My Children
+                </h1>
+                <Button onClick={handleOpenAddChild} className="hidden sm:inline-flex h-10 rounded-xl"><Plus /> Link a child</Button>
+              </div>
+              {linkedChildren.length === 0 ? (
+                <div className="text-center px-6 py-14 bg-card rounded-3xl border-2 border-border border-dashed">
+                  <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-lilac text-ink-2"><Users className="h-7 w-7" /></span>
+                  <h3 className="font-display text-2xl mb-2">No children yet</h3>
+                  <p className="text-muted-foreground max-w-sm mx-auto mb-6">Link your first child to start managing their school wallet.</p>
+                  <Button onClick={handleOpenAddChild} variant="highlight" className="h-11 rounded-2xl px-6"><Plus /> Link a child</Button>
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {linkedChildren.map(child => (
+                    <button
+                      key={child.id}
+                      onClick={() => setActiveTab(`child_${child.id}`)}
+                      className="group flex items-center gap-4 rounded-3xl border border-border bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                      data-testid={`child-card-${child.id}`}
+                    >
+                      <ChildAvatar child={child} className="h-14 w-14 shrink-0 rounded-2xl text-lg" />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-extrabold">{child.name}</div>
+                        <div className="truncate text-xs text-muted-foreground">{child.className} · {tenants.find(t => t.id === child.tenantId)?.name}</div>
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <span className="font-display text-lg text-primary">{naira(child.walletBalance)}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${child.cardStatus === 'Active' ? 'bg-mint text-green-700' : child.cardStatus === 'Blocked' ? 'bg-blush text-red-700' : 'bg-peach text-amber-700'}`}>
+                            {child.cardStatus}
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* LINK A CHILD */}
+          {activeTab === "link" && (
+            <LinkChildPage
+              authCode={authCode}
+              onAuthCodeChange={setAuthCode}
+              studentId={studentIdInput}
+              onStudentIdChange={setStudentIdInput}
+              error={regError}
+              success={regSuccess}
+              processing={regProcessing}
+              privacyAccepted={privacyAcceptedAt !== null}
+              onPrivacyAccept={() => { setPrivacyAcceptedAt(new Date().toISOString()); setRegError(""); }}
+              onSubmit={handleRegister}
+              onBack={() => setActiveTab(linkedChildren.length ? "children" : "overview")}
+            />
+          )}
+
           {/* NOTIFICATIONS */}
           {activeTab === "notifications" && (
             <div className="space-y-6">
-              <h1 className="text-3xl font-bold text-foreground flex items-center gap-3 mb-6">
+              <h1 className="text-3xl font-bold text-foreground hidden sm:flex items-center gap-3 mb-6">
                 <Bell className="text-primary" /> Notifications
               </h1>
 
@@ -713,7 +822,7 @@ export function ParentPortal() {
                           {!n.isRead && (
                             <div className="flex gap-3 mt-2">
                               {(n.type === 'card_ready' || n.type === 'card_delivered') && (
-                                <Button size="sm" onClick={() => { setActiveTab(`child_${n.studentId}`); markNotificationRead(n.id); }} className="bg-primary hover:bg-primary/90 text-white">View Child Account</Button>
+                                <Button size="sm" onClick={() => { setActiveTab(`child_${n.studentId}`); markNotificationRead(n.id); }} className="bg-primary hover:bg-primary-hover text-primary-foreground">View Child Account</Button>
                               )}
                               <Button size="sm" variant="ghost" onClick={() => markNotificationRead(n.id)} className="text-muted-foreground hover:text-foreground">Mark as Read</Button>
                             </div>
@@ -730,10 +839,10 @@ export function ParentPortal() {
           {/* SETTINGS */}
           {activeTab === "settings" && (
             <div className="space-y-6">
-              <h1 className="text-3xl font-bold text-foreground flex items-center gap-3 mb-6">
+              <h1 className="text-3xl font-bold text-foreground hidden sm:flex items-center gap-3 mb-6">
                 <Settings className="text-primary" /> Account Settings
               </h1>
-              <Card className="bg-card border-border shadow-xl max-w-2xl">
+              <Card className="bg-card border-border shadow-sm max-w-2xl">
                 <CardHeader>
                   <CardTitle className="text-foreground">Profile</CardTitle>
                   <CardDescription className="text-muted-foreground">Your name and email are managed by your school. You can update your contact number below.</CardDescription>
@@ -759,7 +868,7 @@ export function ParentPortal() {
                       />
                       <Button
                         onClick={() => { updateParentUser(parentSession.id, { phone: phoneInput }); setPhoneSaved(true); }}
-                        className="bg-primary hover:bg-primary/90 text-white shrink-0"
+                        className="bg-primary hover:bg-primary-hover text-primary-foreground shrink-0"
                         data-testid="btn-save-phone"
                       >
                         {phoneSaved ? "Saved ✓" : "Save"}
@@ -770,40 +879,43 @@ export function ParentPortal() {
                   <p className="text-xs text-muted-foreground pt-1">To update your name or email address, contact your school administrator.</p>
                 </CardContent>
               </Card>
+
+              <Card className="bg-card border-border shadow-sm max-w-2xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowPrivacyReview(true)}
+                  className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-accent/60"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-mint text-green-700"><FileText className="h-4 w-4" /></span>
+                  <span className="flex-1">
+                    <span className="block font-extrabold">Privacy & compliance</span>
+                    <span className="block text-xs text-muted-foreground">How LSPay handles your family's data</span>
+                  </span>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex w-full items-center gap-3 border-t border-border px-5 py-4 text-left transition-colors hover:bg-blush/60 lg:hidden"
+                  data-testid="btn-parent-logout-mobile"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blush text-red-700"><LogOut className="h-4 w-4" /></span>
+                  <span className="flex-1 font-extrabold text-red-700">Sign out</span>
+                </button>
+              </Card>
             </div>
           )}
         </div>
       </main>
 
       {/* MODALS */}
-      <Dialog open={showAddChild} onOpenChange={setShowAddChild}>
-        <DialogContent className="bg-card border-border text-foreground sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="text-2xl">Link Child Account</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleRegister} className="space-y-4 mt-4">
-            {regError && <Alert className="bg-red-900/30 border-red-500 text-red-400"><AlertTitle>{regError}</AlertTitle></Alert>}
-            {regSuccess && <Alert className="bg-primary/30 border-primary text-primary"><AlertTitle>{regSuccess}</AlertTitle></Alert>}
-            <div className="space-y-2">
-              <Label className="text-foreground">School Authorization Code</Label>
-              <Input value={authCode} onChange={e => setAuthCode(e.target.value.toUpperCase())} placeholder="SCH-XXX-2026" className="bg-background border-border text-foreground uppercase h-11" required />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-foreground">Student ID</Label>
-              <Input value={studentIdInput} onChange={e => setStudentIdInput(e.target.value.toUpperCase())} placeholder="STU-000" className="bg-background border-border text-foreground uppercase h-11" required />
-            </div>
-            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
-              <ShieldCheck className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-              <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-                A termly school enrollment fee of <strong>₦1,000.00</strong> is required to link this account. Payments are processed securely by <strong>Paystack</strong>.
-              </p>
-            </div>
-            <Button type="submit" disabled={regProcessing} className="w-full bg-primary hover:bg-primary/90 text-white mt-4 h-12 text-lg font-bold shadow-lg shadow-primary/20">
-              {regProcessing ? "Opening secure checkout…" : "Pay ₦1,000 & Connect Account"}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ParentBottomNav activeTab={activeTab} onNavigate={handleNavigate} unreadCount={unreadCount} />
+      <PrivacyComplianceDialog
+        open={showPrivacyReview}
+        onOpenChange={setShowPrivacyReview}
+        accepted={privacyAcceptedAt !== null}
+        onAccept={() => setPrivacyAcceptedAt(new Date().toISOString())}
+      />
 
       <Dialog open={showTopupModal !== null} onOpenChange={(o) => { if (!o) { setShowTopupModal(null); setTopupError(""); } }}>
         <DialogContent className="bg-card border-border text-foreground sm:max-w-[425px]">
@@ -830,7 +942,7 @@ export function ParentPortal() {
               <div className="flex items-start gap-2 px-3 py-2.5 mb-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
                 <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                 <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-                  -<strong>4% processing fee</strong> (₦{(Number(topupAmount) * 0.04).toFixed(2)}).<br />
+                  <strong>Enrollment charge (4%): ₦{(Number(topupAmount) * 0.04).toFixed(2)}</strong> — covers infrastructure, payment gateway and transaction fees.<br />
                   Your child's wallet will be credited with <strong>₦{(Number(topupAmount) * 0.96).toFixed(2)}</strong>.
                 </p>
               </div>
@@ -838,10 +950,10 @@ export function ParentPortal() {
             <div className="flex items-start gap-2 px-3 py-2.5 mb-5 rounded-lg bg-muted/50 border border-border">
               <ShieldCheck className="h-4 w-4 text-primary mt-0.5 shrink-0" />
               <p className="text-xs text-muted-foreground">
-                Payments are processed securely by <span className="font-semibold text-foreground">Paystack</span>. LSPay never sees or stores your card details.
+                Payments are processed securely by <span className="font-semibold text-foreground">Paystack</span>. LSPay never holds or stores your card or bank details — only who paid, what for, which child, the amount and the date and time.
               </p>
             </div>
-            <Button type="submit" disabled={topupProcessing} className="w-full bg-primary hover:bg-primary/90 text-white h-12 text-lg font-bold shadow-lg shadow-primary/20" data-testid="btn-process-payment">
+            <Button type="submit" disabled={topupProcessing} className="w-full bg-primary hover:bg-primary-hover text-primary-foreground h-12 text-lg font-bold shadow-lg shadow-primary/20" data-testid="btn-process-payment">
               {topupProcessing ? "Opening secure checkout…" : "Pay with Card"}
             </Button>
           </form>
@@ -919,7 +1031,7 @@ export function ParentPortal() {
               </div>
             </div>
 
-            <Button type="submit" disabled={pin1.length !== 4 || pin1 !== pin2 || !dailyLim || !monthlyLim} className="w-full bg-primary hover:bg-primary/90 text-white h-14 text-lg font-bold mt-4 shadow-lg shadow-primary/20">
+            <Button type="submit" disabled={pin1.length !== 4 || pin1 !== pin2 || !dailyLim || !monthlyLim} className="w-full bg-primary hover:bg-primary-hover text-primary-foreground h-14 text-lg font-bold mt-4 shadow-lg shadow-primary/20">
               Activate Card
             </Button>
           </form>

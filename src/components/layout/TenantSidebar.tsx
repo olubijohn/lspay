@@ -5,7 +5,6 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { ThemeToggle } from "@/theme";
 
 interface Props {
   activeTab: string;
@@ -81,7 +80,7 @@ export function TenantSidebar({ activeTab, setActiveTab, tenantName, logoUrl, on
 
   const inner = (
     <>
-      <div className="p-4 flex items-center space-x-3 border-b border-border">
+      <div className="h-16 px-4 flex items-center space-x-3 border-b border-border shrink-0">
         <div className="relative group shrink-0">
           {logoUrl && !imgError ? (
             <img
@@ -130,7 +129,7 @@ export function TenantSidebar({ activeTab, setActiveTab, tenantName, logoUrl, on
               key={item.id}
               onClick={() => handleNav(item.id)}
               data-testid={`nav-tenant-${item.id}`}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors text-sm font-medium ${
+              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-colors text-sm font-bold ${
                 isActive
                   ? "bg-muted text-primary"
                   : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
@@ -139,7 +138,7 @@ export function TenantSidebar({ activeTab, setActiveTab, tenantName, logoUrl, on
               <Icon className="h-4 w-4 shrink-0" />
               <span className="flex-1 text-left">{item.label}</span>
               {item.badge ? (
-                <Badge className="bg-red-500 hover:bg-red-600 text-white text-xs rounded-full px-1.5 min-w-[1.25rem] h-5 flex items-center justify-center">
+                <Badge className="bg-coral hover:bg-coral border-0 text-white text-[11px] font-extrabold rounded-full px-1.5 min-w-[1.25rem] h-5 flex items-center justify-center">
                   {item.badge}
                 </Badge>
               ) : null}
@@ -148,13 +147,15 @@ export function TenantSidebar({ activeTab, setActiveTab, tenantName, logoUrl, on
         })}
       </div>
 
-      <div className="p-4 border-t border-border space-y-3">
-        <div className="flex items-center justify-between px-2">
+      <div className="p-3 border-t border-border space-y-2">
+        <div className="flex items-center gap-3 px-2 py-2">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-lilac font-display text-sm text-ink">
+            {(user?.name ?? "U").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join("")}
+          </span>
           <div className="min-w-0">
-            <div className="text-foreground font-medium text-sm truncate">{user?.name}</div>
-            <div className="text-primary text-xs mt-0.5 uppercase tracking-wider font-bold">{user?.role?.replace(/_/g, " ")}</div>
+            <div className="text-foreground font-bold text-sm truncate">{user?.name}</div>
+            <div className="text-primary text-[11px] uppercase tracking-widest font-extrabold">{user?.role?.replace(/_/g, " ")}</div>
           </div>
-          <ThemeToggle />
         </div>
         <Button
           variant="ghost"

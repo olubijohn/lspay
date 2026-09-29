@@ -55,7 +55,7 @@ export function ParentLogin() {
     <div className="min-h-[80vh] flex flex-col items-center justify-center p-4">
       <div className="flex items-center space-x-2 mb-8">
         <Wallet className="h-8 w-8 text-primary" />
-        <div className="text-foreground font-bold text-2xl tracking-tight">LSPay</div>
+        <div className="text-foreground font-display text-3xl">LSPay</div>
       </div>
       
       <Card className="w-full max-w-md bg-card border-border">
@@ -63,14 +63,14 @@ export function ParentLogin() {
           <div className="mx-auto bg-primary/30 w-12 h-12 rounded-full flex items-center justify-center mb-4 border border-primary/30">
             <ShieldCheck className="text-primary w-6 h-6" />
           </div>
-          <CardTitle className="text-2xl text-foreground">Parent Portal</CardTitle>
+          <CardTitle className="text-2xl font-display text-foreground">Parent Portal</CardTitle>
           <CardDescription className="text-muted-foreground">Manage your children's school wallets</CardDescription>
         </CardHeader>
         <CardContent className="mt-6">
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-2 bg-background border border-border">
-              <TabsTrigger value="signin" className="data-[state=active]:bg-primary data-[state=active]:text-white">Sign In</TabsTrigger>
-              <TabsTrigger value="signup" className="data-[state=active]:bg-primary data-[state=active]:text-white">Create Account</TabsTrigger>
+              <TabsTrigger value="signin" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Sign In</TabsTrigger>
+              <TabsTrigger value="signup" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Create Account</TabsTrigger>
             </TabsList>
             
             <TabsContent value="signin" className="mt-4">
@@ -100,7 +100,7 @@ export function ParentLogin() {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white mt-2">Sign In</Button>
+                <Button type="submit" className="w-full bg-primary hover:bg-primary-hover text-primary-foreground mt-2">Sign In</Button>
                 
                 <div className="mt-4 p-3 bg-background rounded border border-border text-xs text-muted-foreground">
                   <span className="block font-medium mb-1">Demo Credentials:</span>
@@ -155,7 +155,7 @@ export function ParentLogin() {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white mt-2">Create Account</Button>
+                <Button type="submit" className="w-full bg-primary hover:bg-primary-hover text-primary-foreground mt-2">Create Account</Button>
               </form>
             </TabsContent>
           </Tabs>
