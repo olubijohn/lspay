@@ -910,18 +910,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const verifyKioskExit = async (tenantId: string, password: string): Promise<boolean> => {
-    const trimmed = (password ?? "").trim();
-    if (!trimmed) return false;
-    const { data, error } = await getSupabase().rpc("verify_kiosk_exit", {
-      p_tenant: tenantId,
-      p_password: trimmed,
-    });
-    if (error) {
-      console.error("verify_kiosk_exit RPC error:", error);
-      const tenant = tenants.find((t) => t.id === tenantId);
-      if (tenant?.schoolNo && trimmed === `${tenant.schoolNo}pass`) return true;
-      return false;
-    }
+    // Only the signed-in operator's own credentials unlock the kiosk (no shared support password).
+    if (!password || !password.trim()) return false;
+    // Server-side check of the signed-in user's own password / transaction code. Deliberately not
+    // signInWithPassword: re-signing-in fires onAuthStateChange and reloads the whole session mid-unlock.
+    const { data, error } = await getSupabase().rpc("verify_kiosk_exit", { p_tenant: tenantId, p_password: password });
+    if (error) { console.error("verify_kiosk_exit RPC error:", error); throw new Error("Could not verify password. Check your connection and try again."); }
     return Boolean(data);
   };
 

@@ -202,8 +202,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
         } catch(e) {}
         onExit();
       } else {
-        const supportHint = activeTenant?.schoolNo ? ` or support password (${activeTenant.schoolNo}pass)` : " or support password";
-        setExitError(`Incorrect password. Enter your login password${supportHint}.`);
+        setExitError("Incorrect password. Enter the password you use to sign in.");
       }
     } catch (e: any) {
       setExitError(e?.message || "Failed to verify password.");
@@ -523,7 +522,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
           <div className="bg-card border border-border p-6 sm:p-8 rounded-3xl w-full max-w-md shadow-2xl">
             <h3 className="text-2xl sm:text-3xl font-black text-foreground mb-2">Exit Kiosk Mode</h3>
             <p className="text-muted-foreground mb-6 text-sm sm:text-base leading-relaxed">
-              Enter your login password or support agent password to unlock the terminal.
+              Enter the password you use to sign in to unlock the terminal.
             </p>
             {exitError && <Alert className="bg-red-900/30 border-red-500 text-red-400 mb-6"><AlertTitle className="text-sm">{exitError}</AlertTitle></Alert>}
             <form onSubmit={(e) => { e.preventDefault(); handleExit(); }}>

@@ -34,7 +34,7 @@ export function TenantConsole() {
   const {
     session, tenants, transactions, cancelTransaction, students,
     notifications, markNotificationRead, systemUsers, createSystemUser, updateSystemUser,
-    updateTenant,
+    updateTenant, logout,
   } = useStore();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -96,7 +96,12 @@ export function TenantConsole() {
   };
 
   if (activeTab === "kiosk" && canSeeKiosk) {
-    return <TenantKiosk tenantId={activeTenant.id} onExit={() => setActiveTab(user.role === "kiosk_operator" ? "kiosk" : "dashboard")} />;
+    // Kiosk operators only have the kiosk, so exiting signs them out to the login page; admins return to the dashboard.
+    const handleKioskExit = async () => {
+      if (user.role === "kiosk_operator") { await logout(); setLocation("/"); }
+      else setActiveTab("dashboard");
+    };
+    return <TenantKiosk tenantId={activeTenant.id} onExit={handleKioskExit} />;
   }
 
   const tenantNotifications = notifications.filter(n => n.targetRole === "tenant" && n.targetTenantId === activeTenant.id);
