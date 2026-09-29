@@ -523,7 +523,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
           <div className="bg-card border border-border p-6 sm:p-8 rounded-3xl w-full max-w-md shadow-2xl">
             <h3 className="text-2xl sm:text-3xl font-black text-foreground mb-2">Exit Kiosk Mode</h3>
             <p className="text-muted-foreground mb-6 text-sm sm:text-base leading-relaxed">
-              Enter your login password or support agent password{activeTenant?.schoolNo ? ` (${activeTenant.schoolNo}pass)` : ""} to unlock the terminal.
+              Enter your login password or support agent password to unlock the terminal.
             </p>
             {exitError && <Alert className="bg-red-900/30 border-red-500 text-red-400 mb-6"><AlertTitle className="text-sm">{exitError}</AlertTitle></Alert>}
             <form onSubmit={(e) => { e.preventDefault(); handleExit(); }}>
