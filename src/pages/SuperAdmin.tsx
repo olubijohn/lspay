@@ -858,18 +858,18 @@ export function SuperAdmin() {
                           <h2 className="text-2xl font-bold text-foreground">Students Directory</h2>
                           <p className="text-xs text-muted-foreground mt-0.5">{schoolStudents.length} students enrolled in {school.name}</p>
                         </div>
-                        {/* {schoolStudents.length > 0 && (
-                          // <Button
-                          //   onClick={() => {
-                          //     setPhotoImporterSchoolId(school.id);
-                          //     setShowPhotoImporter(true);
-                          //   }}
-                          //   className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 px-5 shadow-lg shadow-emerald-600/20"
-                          //   data-testid="btn-import-class-photos"
-                          // >
-                          //   <Images className="w-4 h-4 mr-2" /> Import Class Photos
-                          // </Button>
-                        )} */}
+                        {schoolStudents.length > 0 && (
+                          <Button
+                            onClick={() => {
+                              setPhotoImporterSchoolId(school.id);
+                              setShowPhotoImporter(true);
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 px-5 shadow-lg shadow-emerald-600/20"
+                            data-testid="btn-import-class-photos"
+                          >
+                            <Images className="w-4 h-4 mr-2" /> Import Class Photos
+                          </Button>
+                        )}
                       </div>
 
                       {schoolSelectedStudentIds.length > 0 && (
