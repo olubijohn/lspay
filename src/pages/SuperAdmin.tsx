@@ -594,155 +594,155 @@ export function SuperAdmin() {
             const hour = new Date().getHours();
             const overviewGreeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
             return (
-            <div className="space-y-6 md:space-y-8">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-                <div className="space-y-1">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3">
-                    <LayoutDashboard className="text-primary" /> Global Overview
-                  </h1>
-                  <p className="text-sm text-muted-foreground">Platform activity across every school on LSPay.</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-card p-2 rounded-2xl border border-border shadow-sm">
-                  <Select value={filterSchool} onValueChange={setFilterSchool}>
-                    <SelectTrigger className="w-full sm:w-44 bg-background border-border text-foreground" data-testid="select-filter-school">
-                      <SelectValue placeholder="All Schools" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border text-foreground">
-                      <SelectItem value="all">All Schools</SelectItem>
-                      {tenants.map(t => <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="flex-1 min-w-[8rem] sm:flex-none sm:w-36 bg-background border-border text-foreground" data-testid="input-start-date" />
-                  <span className="text-muted-foreground text-sm font-extrabold">to</span>
-                  <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="flex-1 min-w-[8rem] sm:flex-none sm:w-36 bg-background border-border text-foreground" data-testid="input-end-date" />
-                </div>
-              </div>
-
-              {/* ── Platform hero ── */}
-              <div className="on-ink relative overflow-hidden rounded-3xl bg-ink p-5 text-white shadow-lg sm:p-7">
-                <div className="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full bg-white/[0.07]" />
-                <div className="pointer-events-none absolute -bottom-24 right-16 h-48 w-48 rounded-full bg-gold/15" />
-                <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-                  <div className="min-w-0">
-                    <div className="text-sm font-extrabold text-lilac/80">{overviewGreeting}</div>
-                    <div className="mt-3 text-xs font-extrabold tracking-widest text-lilac/70">Platform volume</div>
-                    <div className="mt-1 font-display text-4xl sm:text-5xl text-gold break-all">{naira(overviewVolume)}</div>
-                    <div className="mt-1 text-sm text-lilac/80">
-                      {naira(overviewTopups)} top-ups · {naira(overviewSales)} sales · {filteredTx.length} operation{filteredTx.length === 1 ? "" : "s"}
-                    </div>
-                    <div className="text-xs text-lilac/60">{overviewSchoolName} · {startDate} → {endDate}</div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button onClick={() => setActiveTab("transactions")} variant="highlight" className="h-11 rounded-2xl px-5">
-                      <Receipt /> View transactions
-                    </Button>
-                    <Button onClick={() => setActiveTab("schools")} variant="ghost" className="h-11 rounded-2xl px-4 bg-white/10 text-white hover:bg-white/15 hover:text-white">
-                      <Building2 /> Schools
-                    </Button>
-                    <Button onClick={() => setActiveTab("cards")} variant="ghost" className="h-11 rounded-2xl px-4 bg-white/10 text-white hover:bg-white/15 hover:text-white">
-                      <CreditCard /> Cards
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── KPI tiles ── */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-                {[
-                  { label: "Total Schools", value: tenants.length, color: "text-foreground", icon: Building2, tint: "bg-lilac text-purple-700" },
-                  { label: "Top-ups (money in)", value: naira(overviewTopups), color: "text-green-600", icon: Wallet, tint: "bg-mint text-green-700" },
-                  { label: "Sales (money out)", value: naira(overviewSales), color: "text-foreground", icon: Receipt, tint: "bg-peach text-amber-700" },
-                  { label: "Active Students", value: overviewActiveStudents, color: "text-blue-400", icon: Users, tint: "bg-sky text-blue-700" },
-                ].map(c => (
-                  <Card key={c.label} className="bg-card border-border shadow-sm">
-                    <CardContent className="p-4 md:p-6">
-                      <span className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${c.tint}`}><c.icon className="h-4 w-4" /></span>
-                      <div className="text-muted-foreground text-xs font-extrabold tracking-wide mb-1">{c.label}</div>
-                      <div className={`text-2xl md:text-3xl font-display truncate ${c.color}`}>{c.value}</div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              <Card className="bg-card border-border shadow-sm">
-                <CardHeader className="space-y-1">
-                  <CardTitle className="text-foreground">Money flow</CardTitle>
-                  <p className="text-sm text-muted-foreground">Daily top-ups and sales · {overviewSchoolName}</p>
-                </CardHeader>
-                <CardContent className="h-72">
-                  {dailyRevData.length === 0 ? (
-                    <div className="flex h-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border text-center px-6">
-                      <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-lilac text-ink-2"><Sparkles className="h-5 w-5" /></span>
-                      <p className="font-extrabold text-foreground">No activity in this range yet</p>
-                      <p className="text-sm text-muted-foreground mt-1">Try widening the dates or picking another school.</p>
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={dailyRevData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
-                        <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={nairaAxis} tickLine={false} axisLine={false} width={64} />
-                        <RechartsTooltip contentStyle={chartTheme.tooltip} formatter={(v: any, name: any) => [naira(Number(v)), name]} />
-                        <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-                        <Line type="monotone" name="Top-ups" dataKey="topups" stroke="hsl(var(--chart-1))" strokeWidth={3} dot={{ r: 3, fill: "hsl(var(--chart-1))" }} activeDot={{ r: 6 }} />
-                        <Line type="monotone" name="Sales" dataKey="sales" stroke="hsl(var(--chart-2))" strokeWidth={3} dot={{ r: 3, fill: "hsl(var(--chart-2))" }} activeDot={{ r: 6 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card border-border shadow-sm">
-                <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
+              <div className="space-y-6 md:space-y-8">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                   <div className="space-y-1">
-                    <CardTitle className="text-foreground flex items-center gap-2">
-                      Recent Transactions
-                      <Badge variant="outline" className="border-border text-muted-foreground font-extrabold">{filteredTx.length}</Badge>
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground">Every payment and top-up matching your filters</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3">
+                      <LayoutDashboard className="text-primary" /> Global Overview
+                    </h1>
+                    <p className="text-sm text-muted-foreground">Platform activity across every school on LSPay.</p>
                   </div>
-                  <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border w-full sm:w-auto">
-                    <button onClick={() => setOverviewTxFilter('all')} className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-extrabold rounded-lg transition-colors ${overviewTxFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
-                    <button onClick={() => setOverviewTxFilter('in')} className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-extrabold rounded-lg transition-colors ${overviewTxFilter === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
-                    <button onClick={() => setOverviewTxFilter('out')} className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-extrabold rounded-lg transition-colors ${overviewTxFilter === 'out' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Money Out</button>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-card p-2 rounded-2xl border border-border shadow-sm">
+                    <Select value={filterSchool} onValueChange={setFilterSchool}>
+                      <SelectTrigger className="w-full sm:w-44 bg-background border-border text-foreground" data-testid="select-filter-school">
+                        <SelectValue placeholder="All Schools" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border text-foreground">
+                        <SelectItem value="all">All Schools</SelectItem>
+                        {tenants.map(t => <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="flex-1 min-w-[8rem] sm:flex-none sm:w-36 bg-background border-border text-foreground" data-testid="input-start-date" />
+                    <span className="text-muted-foreground text-sm font-extrabold">to</span>
+                    <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="flex-1 min-w-[8rem] sm:flex-none sm:w-36 bg-background border-border text-foreground" data-testid="input-end-date" />
                   </div>
-                </CardHeader>
-                <CardContent>
-                  {filteredTx.length === 0 ? (
-                    <div className="text-center px-6 py-12 rounded-2xl border-2 border-dashed border-border">
-                      <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-lilac text-ink-2"><Receipt className="h-5 w-5" /></span>
-                      <p className="font-extrabold text-foreground">No transactions in this range.</p>
-                      <p className="text-sm text-muted-foreground mt-1">Adjust the school or date filters above to see more.</p>
+                </div>
+
+                {/* ── Platform hero ── */}
+                <div className="on-ink relative overflow-hidden rounded-3xl bg-ink p-5 text-white shadow-lg sm:p-7">
+                  <div className="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full bg-white/[0.07]" />
+                  <div className="pointer-events-none absolute -bottom-24 right-16 h-48 w-48 rounded-full bg-gold/15" />
+                  <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                    <div className="min-w-0">
+                      <div className="text-sm font-extrabold text-lilac/80">{overviewGreeting}</div>
+                      <div className="mt-3 text-xs font-extrabold tracking-widest text-lilac/70">Platform volume</div>
+                      <div className="mt-1 font-display text-4xl sm:text-5xl text-gold break-all">{naira(overviewVolume)}</div>
+                      <div className="mt-1 text-sm text-lilac/80">
+                        {naira(overviewTopups)} top-ups · {naira(overviewSales)} sales · {filteredTx.length} operation{filteredTx.length === 1 ? "" : "s"}
+                      </div>
+                      <div className="text-xs text-lilac/60">{overviewSchoolName} · {startDate} → {endDate}</div>
                     </div>
-                  ) : (
-                    <div className="max-h-96 overflow-auto rounded-2xl border border-border">
-                      <Table>
-                        <TableHeader className="bg-muted/60">
-                          <TableRow className="border-border">
-                            <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide whitespace-nowrap">Date</TableHead>
-                            <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide">School</TableHead>
-                            <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide">Student</TableHead>
-                            <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide">Items</TableHead>
-                            <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide text-right">Amount</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredTx.map(tx => (
-                            <TableRow key={tx.id} className="border-border/50 hover:bg-muted/40">
-                              <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{tx.date}</TableCell>
-                              <TableCell className="text-foreground">{tx.schoolName}</TableCell>
-                              <TableCell className="text-foreground font-extrabold">{tx.studentName}</TableCell>
-                              <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
-                              <TableCell className={`font-display text-base text-right whitespace-nowrap ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={() => setActiveTab("transactions")} variant="highlight" className="h-11 rounded-2xl px-5">
+                        <Receipt /> View transactions
+                      </Button>
+                      <Button onClick={() => setActiveTab("schools")} variant="ghost" className="h-11 rounded-2xl px-4 bg-white/10 text-white hover:bg-white/15 hover:text-white">
+                        <Building2 /> Schools
+                      </Button>
+                      <Button onClick={() => setActiveTab("cards")} variant="ghost" className="h-11 rounded-2xl px-4 bg-white/10 text-white hover:bg-white/15 hover:text-white">
+                        <CreditCard /> Cards
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── KPI tiles ── */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+                  {[
+                    { label: "Total Schools", value: tenants.length, color: "text-foreground", icon: Building2, tint: "bg-lilac text-purple-700" },
+                    { label: "Top-ups (money in)", value: naira(overviewTopups), color: "text-green-600", icon: Wallet, tint: "bg-mint text-green-700" },
+                    { label: "Sales (money out)", value: naira(overviewSales), color: "text-foreground", icon: Receipt, tint: "bg-peach text-amber-700" },
+                    { label: "Active Students", value: overviewActiveStudents, color: "text-blue-400", icon: Users, tint: "bg-sky text-blue-700" },
+                  ].map(c => (
+                    <Card key={c.label} className="bg-card border-border shadow-sm">
+                      <CardContent className="p-4 md:p-6">
+                        <span className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${c.tint}`}><c.icon className="h-4 w-4" /></span>
+                        <div className="text-muted-foreground text-xs font-extrabold tracking-wide mb-1">{c.label}</div>
+                        <div className={`text-2xl md:text-3xl font-display truncate ${c.color}`}>{c.value}</div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                <Card className="bg-card border-border shadow-sm">
+                  <CardHeader className="space-y-1">
+                    <CardTitle className="text-foreground">Money flow</CardTitle>
+                    <p className="text-sm text-muted-foreground">Daily top-ups and sales · {overviewSchoolName}</p>
+                  </CardHeader>
+                  <CardContent className="h-72">
+                    {dailyRevData.length === 0 ? (
+                      <div className="flex h-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border text-center px-6">
+                        <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-lilac text-ink-2"><Sparkles className="h-5 w-5" /></span>
+                        <p className="font-extrabold text-foreground">No activity in this range yet</p>
+                        <p className="text-sm text-muted-foreground mt-1">Try widening the dates or picking another school.</p>
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={dailyRevData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
+                          <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={12} tickLine={false} axisLine={false} />
+                          <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={nairaAxis} tickLine={false} axisLine={false} width={64} />
+                          <RechartsTooltip contentStyle={chartTheme.tooltip} formatter={(v: any, name: any) => [naira(Number(v)), name]} />
+                          <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+                          <Line type="monotone" name="Top-ups" dataKey="topups" stroke="hsl(var(--chart-1))" strokeWidth={3} dot={{ r: 3, fill: "hsl(var(--chart-1))" }} activeDot={{ r: 6 }} />
+                          <Line type="monotone" name="Sales" dataKey="sales" stroke="hsl(var(--chart-2))" strokeWidth={3} dot={{ r: 3, fill: "hsl(var(--chart-2))" }} activeDot={{ r: 6 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-card border-border shadow-sm">
+                  <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
+                    <div className="space-y-1">
+                      <CardTitle className="text-foreground flex items-center gap-2">
+                        Recent Transactions
+                        <Badge variant="outline" className="border-border text-muted-foreground font-extrabold">{filteredTx.length}</Badge>
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground">Every payment and top-up matching your filters</p>
+                    </div>
+                    <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border w-full sm:w-auto">
+                      <button onClick={() => setOverviewTxFilter('all')} className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-extrabold rounded-lg transition-colors ${overviewTxFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
+                      <button onClick={() => setOverviewTxFilter('in')} className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-extrabold rounded-lg transition-colors ${overviewTxFilter === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
+                      <button onClick={() => setOverviewTxFilter('out')} className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-extrabold rounded-lg transition-colors ${overviewTxFilter === 'out' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Money Out</button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {filteredTx.length === 0 ? (
+                      <div className="text-center px-6 py-12 rounded-2xl border-2 border-dashed border-border">
+                        <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-lilac text-ink-2"><Receipt className="h-5 w-5" /></span>
+                        <p className="font-extrabold text-foreground">No transactions in this range.</p>
+                        <p className="text-sm text-muted-foreground mt-1">Adjust the school or date filters above to see more.</p>
+                      </div>
+                    ) : (
+                      <div className="max-h-96 overflow-auto rounded-2xl border border-border">
+                        <Table>
+                          <TableHeader className="bg-muted/60">
+                            <TableRow className="border-border">
+                              <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide whitespace-nowrap">Date</TableHead>
+                              <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide">School</TableHead>
+                              <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide">Student</TableHead>
+                              <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide">Items</TableHead>
+                              <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide text-right">Amount</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredTx.map(tx => (
+                              <TableRow key={tx.id} className="border-border/50 hover:bg-muted/40">
+                                <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{tx.date}</TableCell>
+                                <TableCell className="text-foreground">{tx.schoolName}</TableCell>
+                                <TableCell className="text-foreground font-extrabold">{tx.studentName}</TableCell>
+                                <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
+                                <TableCell className={`font-display text-base text-right whitespace-nowrap ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             );
           })()}
 
@@ -1022,7 +1022,7 @@ export function SuperAdmin() {
                             ))}
                           </div>
                         )}
-                        {schoolStudents.length > 0 && (
+                        {/* {schoolStudents.length > 0 && (
                           <Button
                             onClick={() => {
                               setPhotoImporterSchoolId(school.id);
@@ -1033,7 +1033,7 @@ export function SuperAdmin() {
                           >
                             <Images className="w-4 h-4 mr-2" /> Import Class Photos
                           </Button>
-                        )}
+                        )} */}
                       </div>
 
                       {schoolSelectedStudentIds.length > 0 && (
