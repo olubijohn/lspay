@@ -96,10 +96,10 @@ export function TenantStockManagement({ tenantId }: { tenantId: string }) {
               <Table>
                 <TableHeader className="bg-card/80 sticky top-0">
                   <TableRow className="border-border hover:bg-transparent">
-                    <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs py-4 pl-6">Date</TableHead>
-                    <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Item</TableHead>
-                    <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Type</TableHead>
-                    <TableHead className="text-right text-muted-foreground font-bold uppercase tracking-wider text-xs pr-6">Qty</TableHead>
+                    <TableHead className="text-muted-foreground font-bold tracking-wider text-xs py-4 pl-6">Date</TableHead>
+                    <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Item</TableHead>
+                    <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Type</TableHead>
+                    <TableHead className="text-right text-muted-foreground font-bold tracking-wider text-xs pr-6">Qty</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -118,7 +118,7 @@ export function TenantStockManagement({ tenantId }: { tenantId: string }) {
                         )}
                       </TableCell>
                       <TableCell className={`text-right font-black text-xl pr-6 ${m.type === 'restock' ? 'text-primary' : 'text-amber-400'}`}>
-                        {m.type === 'restock' ? '+' : '-'}{m.quantity}
+                        {m.type === 'restock' ? '+' : '−'}{m.quantity}
                       </TableCell>
                     </TableRow>
                   ))}

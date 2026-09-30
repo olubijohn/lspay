@@ -1,3 +1,4 @@
+import { naira, nairaAxis } from "@/lib/money";
 import { useState, useMemo } from "react";
 import { useStore } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -255,7 +256,7 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
 
       <div className="bg-card p-5 rounded-xl border border-border shadow-xl flex flex-wrap items-end gap-5">
         <div className="space-y-2">
-          <Label className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Date Range</Label>
+          <Label className="text-muted-foreground font-bold tracking-wider text-xs">Date Range</Label>
           <div className="flex items-center gap-2">
             <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-background border-border text-foreground h-10 w-[140px]" />
             <span className="text-muted-foreground">to</span>
@@ -267,7 +268,7 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
         <div className="w-px h-10 bg-muted hidden md:block mx-2"></div>
         
         <div className="space-y-2 flex-1 min-w-[200px]">
-          <Label className="text-muted-foreground font-bold uppercase tracking-wider text-xs flex items-center gap-1"><Filter className="w-3 h-3"/> Filter by Student</Label>
+          <Label className="text-muted-foreground font-bold tracking-wider text-xs flex items-center gap-1"><Filter className="w-3 h-3"/> Filter by Student</Label>
           <Select value={selectedStudent} onValueChange={setSelectedStudent}>
             <SelectTrigger className="bg-background border-border text-foreground h-10">
               <SelectValue />
@@ -282,7 +283,7 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
         <div className="w-px h-10 bg-muted hidden md:block mx-2"></div>
 
         <div className="space-y-2 flex-1 min-w-[200px]">
-          <Label className="text-muted-foreground font-bold uppercase tracking-wider text-xs flex items-center gap-1"><Filter className="w-3 h-3"/> Filter by Item</Label>
+          <Label className="text-muted-foreground font-bold tracking-wider text-xs flex items-center gap-1"><Filter className="w-3 h-3"/> Filter by Item</Label>
           <Select value={selectedStockItem} onValueChange={setSelectedStockItem}>
             <SelectTrigger className="bg-background border-border text-foreground h-10">
               <SelectValue placeholder="All Items" />
@@ -298,44 +299,44 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Total Revenue</div>
-            <div className="text-2xl font-display text-primary">₦{stats.rev.toFixed(2)}</div>
+            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Total Revenue</div>
+            <div className="text-2xl font-display text-primary">{naira(stats.rev)}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Total COGS</div>
-            <div className="text-2xl font-display text-amber-400">₦{stats.cogs.toFixed(2)}</div>
+            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Total COGS</div>
+            <div className="text-2xl font-display text-amber-400">{naira(stats.cogs)}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Net Profit</div>
-            <div className="text-2xl font-display text-blue-400">₦{stats.profit.toFixed(2)}</div>
+            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Net Profit</div>
+            <div className="text-2xl font-display text-blue-400">{naira(stats.profit)}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Profit Margin</div>
+            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Profit Margin</div>
             <div className="text-2xl font-display text-foreground">{stats.margin.toFixed(1)}%</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Items Sold</div>
+            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Items Sold</div>
             <div className="text-2xl font-display text-violet-400">{stats.itemsSold}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Transactions</div>
+            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Transactions</div>
             <div className="text-2xl font-display text-foreground">{stats.txCount}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground mb-1 font-bold uppercase tracking-wider">Avg Order Val</div>
-            <div className="text-2xl font-display text-foreground">₦{stats.avgOrderVal.toFixed(2)}</div>
+            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Avg Order Val</div>
+            <div className="text-2xl font-display text-foreground">{naira(stats.avgOrderVal)}</div>
           </CardContent>
         </Card>
       </div>
@@ -350,12 +351,12 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
               <LineChart data={dailyRevData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
                 <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={12} tickMargin={10} />
-                <YAxis yAxisId="left" stroke={chartTheme.axis} fontSize={12} tickFormatter={(val) => `₦${val}`} />
+                <YAxis yAxisId="left" stroke={chartTheme.axis} fontSize={12} tickFormatter={nairaAxis} />
                 <YAxis yAxisId="right" orientation="right" stroke={chartTheme.axis} fontSize={12} tickFormatter={(val) => `${val}`} />
                 <RechartsTooltip 
                   contentStyle={chartTheme.tooltip} 
                   formatter={(value: any, name: string) => {
-                    if (name === "revenue") return [`₦${Number(value).toFixed(2)}`, 'Revenue'];
+                    if (name === "revenue") return [`${naira(Number(value))}`, 'Revenue'];
                     if (name === "quantity") return [`${value} units`, 'Quantity Sold'];
                     return [value, name];
                   }} 
@@ -383,7 +384,7 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
                     contentStyle={chartTheme.tooltip} 
                     cursor={{ fill: chartTheme.cursor }} 
                     formatter={(value: any, name: string) => {
-                      if (name === "spend") return [`₦${Number(value).toFixed(2)}`, 'Total Spend'];
+                      if (name === "spend") return [`${naira(Number(value))}`, 'Total Spend'];
                       if (name === "quantity") return [`${value} units`, 'Quantity Bought'];
                       return [value, name];
                     }}
@@ -404,7 +405,7 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
                   <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
                     {categoryData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                   </Pie>
-                  <RechartsTooltip contentStyle={chartTheme.tooltip} formatter={(value: number) => [`₦${value.toFixed(2)}`, 'Revenue']} />
+                  <RechartsTooltip contentStyle={chartTheme.tooltip} formatter={(value: number) => [`${naira(value)}`, 'Revenue']} />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>
@@ -456,12 +457,12 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
                   <Badge className="bg-muted text-foreground border-0 mb-4">{itemAnalysis.item.category}</Badge>
                   <div className="flex gap-6">
                     <div>
-                      <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Units Sold</div>
+                      <div className="text-xs text-muted-foreground font-bold tracking-wider">Units Sold</div>
                       <div className="text-2xl font-display text-foreground">{itemAnalysis.unitsSold}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Revenue</div>
-                      <div className="text-2xl font-display text-primary">₦{itemAnalysis.revenue.toFixed(2)}</div>
+                      <div className="text-xs text-muted-foreground font-bold tracking-wider">Revenue</div>
+                      <div className="text-2xl font-display text-primary">{naira(itemAnalysis.revenue)}</div>
                     </div>
                   </div>
                 </div>
@@ -496,14 +497,14 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
               <Table>
                 <TableHeader className="bg-card/80 sticky top-0">
                   <TableRow className="border-border">
-                    <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Student Name</TableHead>
-                    <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs text-right">
+                    <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Student Name</TableHead>
+                    <TableHead className="text-muted-foreground font-bold tracking-wider text-xs text-right">
                       {selectedStockItem === "all" ? "Transactions" : "Qty Purchased"}
                     </TableHead>
-                    <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs text-right">
+                    <TableHead className="text-muted-foreground font-bold tracking-wider text-xs text-right">
                       {selectedStockItem === "all" ? "Total Spend" : "Spend on Item"}
                     </TableHead>
-                    <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs text-right">Avg Transaction</TableHead>
+                    <TableHead className="text-muted-foreground font-bold tracking-wider text-xs text-right">Avg Transaction</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -513,8 +514,8 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
                       <TableCell className="text-right text-foreground font-mono">
                         {selectedStockItem === "all" ? s.txCount : s.itemQty}
                       </TableCell>
-                      <TableCell className="text-right text-primary font-bold">₦{s.spend.toFixed(2)}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">₦{s.avg.toFixed(2)}</TableCell>
+                      <TableCell className="text-right text-primary font-bold">{naira(s.spend)}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{naira(s.avg)}</TableCell>
                     </TableRow>
                   ))}
                   {studentData.length === 0 && (

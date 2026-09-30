@@ -1,3 +1,4 @@
+import { naira } from "@/lib/money";
 import { useState } from "react";
 import { useStore } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Trash2, Package, Image as ImageIcon, BarChart2, ArrowUpCircle, ShoppingCart, TrendingUp } from "lucide-react";
 import { InventoryItem } from "@/lib/types";
+import { CameraCaptureButton, asFileEvent } from "@/components/CameraCapture";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 import { useChartTheme } from "@/theme";
 
@@ -44,7 +46,7 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
           </div>
           <div>
             <div className="text-xl font-bold">{item.name}</div>
-            <div className="text-sm text-muted-foreground font-normal">{item.category} · ₦{item.sellingPrice.toFixed(2)} each</div>
+            <div className="text-sm text-muted-foreground font-normal">{item.category} · {naira(item.sellingPrice)} each</div>
           </div>
         </DialogTitle>
       </DialogHeader>
@@ -54,8 +56,8 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Total Sold", value: `${totalSold} units`, color: "text-foreground", icon: ShoppingCart },
-            { label: "Revenue", value: `₦${totalRevenue.toFixed(2)}`, color: "text-primary", icon: TrendingUp },
-            { label: "Gross Profit", value: `₦${grossProfit.toFixed(2)}`, color: "text-blue-400", icon: BarChart2 },
+            { label: "Revenue", value: `${naira(totalRevenue)}`, color: "text-primary", icon: TrendingUp },
+            { label: "Gross Profit", value: `${naira(grossProfit)}`, color: "text-blue-400", icon: BarChart2 },
             { label: "Restocked", value: `${totalRestocked} units`, color: "text-amber-400", icon: ArrowUpCircle },
           ].map(c => {
             const Icon = c.icon;
@@ -63,7 +65,7 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
               <div key={c.label} className="bg-background rounded-xl border border-border p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Icon className={`h-4 w-4 ${c.color}`} />
-                  <span className="text-muted-foreground text-xs uppercase tracking-wide">{c.label}</span>
+                  <span className="text-muted-foreground text-xs tracking-wide">{c.label}</span>
                 </div>
                 <div className={`text-xl font-display ${c.color}`}>{c.value}</div>
               </div>
@@ -74,7 +76,7 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
         {/* Sales trend chart */}
         {dailySalesData.length > 0 && (
           <div>
-            <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wide mb-3">Daily Sales</h3>
+            <h3 className="text-sm font-bold text-muted-foreground tracking-wide mb-3">Daily Sales</h3>
             <div className="h-40 bg-background rounded-xl border border-border p-3">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={dailySalesData}>
@@ -91,7 +93,7 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
 
         {/* Sales log */}
         <div>
-          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-bold text-muted-foreground tracking-wide mb-3 flex items-center gap-2">
             <ShoppingCart className="h-4 w-4" /> Sales Log
           </h3>
           <div className="rounded-xl border border-border overflow-hidden max-h-48 overflow-y-auto">
@@ -110,7 +112,7 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
                   <TableRow key={m.id} className="border-border/50">
                     <TableCell className="text-foreground text-sm">{m.date}</TableCell>
                     <TableCell className="text-foreground font-bold text-right">{m.quantity}</TableCell>
-                    <TableCell className="text-primary font-bold text-right">₦{(m.quantity * item.sellingPrice).toFixed(2)}</TableCell>
+                    <TableCell className="text-primary font-bold text-right">{naira((m.quantity * item.sellingPrice))}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -120,7 +122,7 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
 
         {/* Restock log */}
         <div>
-          <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-bold text-muted-foreground tracking-wide mb-3 flex items-center gap-2">
             <ArrowUpCircle className="h-4 w-4 text-amber-400" /> Restock Log
           </h3>
           <div className="rounded-xl border border-border overflow-hidden max-h-48 overflow-y-auto">
@@ -228,7 +230,10 @@ export function TenantInventory({ tenantId }: { tenantId: string }) {
                 <div className="flex-1 space-y-2">
                   <Label className="text-foreground">Item Image</Label>
                   <div className="flex flex-col gap-2">
-                    <Input type="file" accept="image/*" onChange={handleFileChange} className="bg-card border-border text-foreground text-sm" />
+                    <div className="flex gap-2">
+                      <Input type="file" accept="image/*" onChange={handleFileChange} className="bg-card border-border text-foreground text-sm flex-1" />
+                      <CameraCaptureButton size="icon" label="Take item photo" onCapture={f => handleFileChange(asFileEvent(f))} />
+                    </div>
                     <Input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="Or paste URL..." className="bg-card border-border text-foreground text-sm h-9" />
                   </div>
                 </div>
@@ -275,12 +280,12 @@ export function TenantInventory({ tenantId }: { tenantId: string }) {
               <TableHeader className="bg-background">
                 <TableRow className="border-border hover:bg-transparent">
                   <TableHead className="text-muted-foreground w-[80px] py-4">Image</TableHead>
-                  <TableHead className="text-muted-foreground text-xs font-bold uppercase tracking-wider">Item</TableHead>
-                  <TableHead className="text-muted-foreground text-xs font-bold uppercase tracking-wider">Category</TableHead>
-                  <TableHead className="text-right text-muted-foreground text-xs font-bold uppercase tracking-wider">Stock</TableHead>
-                  <TableHead className="text-right text-muted-foreground text-xs font-bold uppercase tracking-wider">Cost</TableHead>
-                  <TableHead className="text-right text-muted-foreground text-xs font-bold uppercase tracking-wider">Price</TableHead>
-                  <TableHead className="text-right text-muted-foreground text-xs font-bold uppercase tracking-wider pr-6">Actions</TableHead>
+                  <TableHead className="text-muted-foreground text-xs font-bold tracking-wider">Item</TableHead>
+                  <TableHead className="text-muted-foreground text-xs font-bold tracking-wider">Category</TableHead>
+                  <TableHead className="text-right text-muted-foreground text-xs font-bold tracking-wider">Stock</TableHead>
+                  <TableHead className="text-right text-muted-foreground text-xs font-bold tracking-wider">Cost</TableHead>
+                  <TableHead className="text-right text-muted-foreground text-xs font-bold tracking-wider">Price</TableHead>
+                  <TableHead className="text-right text-muted-foreground text-xs font-bold tracking-wider pr-6">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -310,8 +315,8 @@ export function TenantInventory({ tenantId }: { tenantId: string }) {
                         {item.stock}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right text-muted-foreground font-medium">₦{item.costPrice.toFixed(2)}</TableCell>
-                    <TableCell className="text-right text-primary font-bold text-lg">₦{item.sellingPrice.toFixed(2)}</TableCell>
+                    <TableCell className="text-right text-muted-foreground font-medium">{naira(item.costPrice)}</TableCell>
+                    <TableCell className="text-right text-primary font-bold text-lg">{naira(item.sellingPrice)}</TableCell>
                     <TableCell className="text-right pr-4" onClick={e => e.stopPropagation()}>
                       <div className="flex justify-end gap-2">
                         <Button variant="ghost" size="sm" onClick={() => openEdit(item)} className="text-foreground hover:text-foreground hover:bg-muted" data-testid={`btn-edit-item-${item.id}`}>Edit</Button>

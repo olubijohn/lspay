@@ -57,7 +57,7 @@ export function ParentSidebar({ activeTab, setActiveTab, onAddChild }: Props) {
         </div>
 
         <div>
-          <div className="px-4 mb-2 text-[11px] font-extrabold text-muted-foreground uppercase tracking-widest">Children</div>
+          <div className="px-4 mb-2 text-[11px] font-extrabold text-muted-foreground tracking-widest">Children</div>
           <div className="space-y-1">
             {linkedChildren.length === 0 ? (
               <div className="px-4 py-2 text-sm text-muted-foreground">No children linked yet.</div>
@@ -104,7 +104,7 @@ export function ParentSidebar({ activeTab, setActiveTab, onAddChild }: Props) {
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-lilac font-display text-sm text-ink">{initials}</span>
           <div className="min-w-0">
             <div className="text-foreground font-bold text-sm truncate">{parentSession.name}</div>
-            <div className="text-primary text-[11px] uppercase tracking-widest font-extrabold">Parent</div>
+            <div className="text-primary text-[11px] tracking-widest font-extrabold">Parent</div>
           </div>
         </div>
         <Button variant="ghost" onClick={handleLogout} className="w-full justify-start text-muted-foreground hover:text-red-400 hover:bg-red-950/30 h-9">

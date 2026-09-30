@@ -1,5 +1,7 @@
 node_modules
 dist
+# copied from node_modules by scripts/copy-mediapipe.mjs on dev/build
+public/mediapipe/wasm
 build
 .tsbuildinfo
 *.local

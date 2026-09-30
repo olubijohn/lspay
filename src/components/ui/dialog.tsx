@@ -30,11 +30,15 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, onInteractOutside, onPointerDownOutside, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      // A click or tap outside never closes a dialog (it used to discard work in progress).
+      // Close with the ✕, Cancel/Done buttons, or Escape.
+      onPointerDownOutside={(e) => { onPointerDownOutside?.(e); e.preventDefault(); }}
+      onInteractOutside={(e) => { onInteractOutside?.(e); e.preventDefault(); }}
       className={cn(
         // Phones: a bottom sheet that slides up. sm and up: the usual centred dialog.
         "fixed inset-x-0 bottom-0 z-50 grid w-full max-h-[92dvh] overflow-y-auto gap-4 rounded-t-3xl border bg-card p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom " +

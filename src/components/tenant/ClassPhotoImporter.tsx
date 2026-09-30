@@ -1,8 +1,9 @@
-import { useState, useRef, useMemo, ChangeEvent } from "react";
+import { useState, useRef, useMemo, useEffect, ChangeEvent } from "react";
 import { Student } from "@/lib/types";
 import { useStore } from "@/store";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { CameraCaptureButton } from "@/components/CameraCapture";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { matchPhotosToStudents, PhotoMatchItem } from "@/lib/nameMatcher";
 import { processStudentPhoto } from "@/lib/imageProcessor";
+import { loadPortraitEngine, makeStudioPortrait, portraitEngineError, type PortraitResult } from "@/lib/portraitStudio";
+import { Switch } from "@/components/ui/switch";
+import { Loader2, Wand2 } from "lucide-react";
+
+type PortraitEntry = { key: string; status: "working" | "done" | "error"; result?: PortraitResult };
+const PORTRAIT_SIZE = 512;
 import {
   UploadCloud,
   FolderOpen,
@@ -51,6 +58,16 @@ export function ClassPhotoImporter({
   // Framing & Headroom options
   const [headroomPercent, setHeadroomPercent] = useState<number>(14);
   const [backgroundColor, setBackgroundColor] = useState<string>("white");
+
+  // AI studio portrait: background → pure white + face-centred headshot (see lib/portraitStudio)
+  const [aiPortrait, setAiPortrait] = useState(true);
+  const [aiState, setAiState] = useState<"idle" | "loading" | "ready" | "failed">("idle");
+  const [portraits, setPortraits] = useState<Record<string, PortraitEntry>>({});
+  const portraitsRef = useRef(portraits);
+  portraitsRef.current = portraits;
+  const runRef = useRef(0);
+  const portraitKey = `${headroomPercent}|${backgroundColor}`;
+  const portraitOptions = { size: PORTRAIT_SIZE, headroomPercent, background: backgroundColor === "transparent" ? "transparent" as const : "white" as const };
 
   // Upload state
   const [isProcessing, setIsProcessing] = useState(false);
@@ -140,6 +157,70 @@ export function ClassPhotoImporter({
     );
   };
 
+  // Prepare studio portraits in the background as soon as photos are added, so staff can review them
+  // before uploading. Restarts (keeping finished results) when the photos or framing options change.
+  const itemIds = items.map((it) => it.id).join("|");
+  useEffect(() => {
+    if (!aiPortrait || items.length === 0) return;
+    const run = ++runRef.current;
+    (async () => {
+      if (aiState !== "ready") setAiState("loading");
+      try {
+        await loadPortraitEngine();
+      } catch (e) {
+        console.warn("Portrait engine failed to load", e);
+        if (runRef.current === run) setAiState("failed");
+        return;
+      }
+      if (runRef.current !== run) return;
+      setAiState("ready");
+      for (const item of items) {
+        if (runRef.current !== run) return;
+        const existing = portraitsRef.current[item.id];
+        if (existing && existing.key === portraitKey && existing.status !== "working") continue;
+        setPortraits((p) => ({ ...p, [item.id]: { key: portraitKey, status: "working" } }));
+        try {
+          const result = await makeStudioPortrait(item.file, portraitOptions);
+          if (runRef.current !== run) return;
+          setPortraits((p) => ({ ...p, [item.id]: { key: portraitKey, status: "done", result } }));
+        } catch (e) {
+          console.warn("Portrait failed for", item.file.name, e);
+          if (runRef.current !== run) return;
+          setPortraits((p) => ({ ...p, [item.id]: { key: portraitKey, status: "error" } }));
+        }
+        await new Promise((r) => setTimeout(r, 0)); // let the UI breathe between photos
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemIds, portraitKey, aiPortrait]);
+
+  const portraitFor = (id: string) => {
+    const e = portraits[id];
+    return e && e.key === portraitKey ? e : undefined;
+  };
+  const portraitsDone = items.filter((it) => portraitFor(it.id)?.status === "done").length;
+  const portraitsNoFace = items.filter((it) => { const e = portraitFor(it.id); return e?.status === "done" && !e.result?.faceFound; }).length;
+  const aiActive = aiPortrait && aiState !== "failed";
+
+  // Class vs photos: who in the class still has no photo, and which photos match no one in the class
+  const coverage = useMemo(() => {
+    const classStudents = selectedClass && selectedClass !== "all"
+      ? tenantStudents.filter((s) => s.className?.trim() === selectedClass)
+      : tenantStudents;
+    const photosPerStudent = new Map<string, number>();
+    for (const it of items) {
+      if (it.matchedStudent && !it.ignored) photosPerStudent.set(it.matchedStudent.id, (photosPerStudent.get(it.matchedStudent.id) ?? 0) + 1);
+    }
+    const inClass = new Set(classStudents.map((s) => s.id));
+    const withPhoto = classStudents.filter((s) => photosPerStudent.has(s.id));
+    const withoutPhoto = classStudents.filter((s) => !photosPerStudent.has(s.id)).sort((a, b) => a.name.localeCompare(b.name));
+    const orphanPhotos = items.filter((it) => !it.matchedStudent || it.ignored || !inClass.has(it.matchedStudent.id));
+    const duplicates = [...photosPerStudent.entries()].filter(([, n]) => n > 1).map(([id]) => tenantStudents.find((s) => s.id === id)?.name ?? id);
+    return { classStudents, withPhoto, withoutPhoto, orphanPhotos, duplicates };
+  }, [items, tenantStudents, selectedClass]);
+  const [coverageOpen, setCoverageOpen] = useState<"none" | "students" | "photos">("none");
+  const copyList = (lines: string[]) => { navigator.clipboard?.writeText(lines.join("\n")).catch(() => undefined); };
+
   // Count stats
   const totalCount = items.length;
   const matchedCount = items.filter((it) => it.matchedStudent && !it.ignored).length;
@@ -181,17 +262,29 @@ export function ClassPhotoImporter({
     try {
       for (let i = 0; i < total; i++) {
         const item = toUpload[i];
-        setStatusMessage(`Smart-framing (${i + 1}/${total}): ${item.matchedStudent!.name}`);
+        setStatusMessage(`${aiActive ? "Studio portrait" : "Smart-framing"} (${i + 1}/${total}): ${item.matchedStudent!.name}`);
 
-        // Process with smart headroom and compression
-        const processedDataUrl = await processStudentPhoto(item.file, {
-          targetWidth: 520,
-          targetHeight: 520,
-          headroomPercent,
-          backgroundColor,
-          quality: 0.86,
-          format: "image/jpeg",
-        });
+        // AI studio portrait (white background + headshot) when available; head-safe framing otherwise
+        let processedDataUrl: string | null = null;
+        if (aiActive) {
+          const cached = portraitFor(item.id);
+          if (cached?.status === "done" && cached.result) {
+            processedDataUrl = cached.result.dataUrl;
+          } else {
+            try { processedDataUrl = (await makeStudioPortrait(item.file, portraitOptions)).dataUrl; }
+            catch (e) { console.warn("Portrait failed; falling back to framing", e); }
+          }
+        }
+        if (!processedDataUrl) {
+          processedDataUrl = await processStudentPhoto(item.file, {
+            targetWidth: 520,
+            targetHeight: 520,
+            headroomPercent,
+            backgroundColor,
+            quality: 0.86,
+            format: "image/jpeg",
+          });
+        }
 
         updates.push({
           studentId: item.matchedStudent!.id,
@@ -217,6 +310,8 @@ export function ClassPhotoImporter({
   };
 
   const resetAll = () => {
+    runRef.current++;
+    setPortraits({});
     setItems([]);
     setUploadResult(null);
     setProgressPercent(0);
@@ -224,7 +319,15 @@ export function ClassPhotoImporter({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && !isProcessing && onClose()}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (open || isProcessing) return;
+        // don't lose a half-finished import to a stray ✕ / Escape
+        if (items.length > 0 && !uploadResult && !window.confirm("Close the importer? The photos you added and the prepared portraits will be discarded.")) return;
+        onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-[950px] w-full max-h-[92vh] flex flex-col bg-card border-border text-foreground p-0 overflow-hidden shadow-2xl">
         {/* Header */}
         <DialogHeader className="p-6 pb-4 border-b border-border bg-card">
@@ -312,6 +415,15 @@ export function ClassPhotoImporter({
                   >
                     <FolderOpen className="w-4 h-4 mr-2" /> Select Entire Class Folder
                   </Button>
+                  {/* stop clicks (including inside the camera dialog) from reaching the drop zone's file picker */}
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <CameraCaptureButton
+                      label="Take photo"
+                      facing="user"
+                      className="h-10 px-5 font-semibold"
+                      onCapture={(f) => handleFiles([f] as unknown as FileList)}
+                    />
+                  </span>
                 </div>
               </div>
 
@@ -390,17 +502,156 @@ export function ClassPhotoImporter({
                 </div>
               </div>
 
+              {/* Class vs photos coverage */}
+              <div className="rounded-2xl border border-border bg-card p-4" data-testid="coverage-panel">
+                <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="text-sm font-extrabold text-foreground">
+                    Class vs photos {selectedClass && selectedClass !== "all" ? <span className="font-bold text-muted-foreground">· {selectedClass}</span> : <span className="font-bold text-muted-foreground">· all classes</span>}
+                  </div>
+                  {coverage.duplicates.length > 0 && (
+                    <span className="text-xs font-bold text-amber-700" title={coverage.duplicates.join(", ")}>
+                      {coverage.duplicates.length} student{coverage.duplicates.length > 1 ? "s have" : " has"} more than one photo
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="rounded-xl bg-muted/60 p-3">
+                    <div className="text-[11px] font-extrabold text-muted-foreground">Students in class</div>
+                    <div className="font-display text-2xl text-foreground">{coverage.classStudents.length}</div>
+                  </div>
+                  <div className="rounded-xl bg-muted/60 p-3">
+                    <div className="text-[11px] font-extrabold text-muted-foreground">Photos uploaded</div>
+                    <div className="font-display text-2xl text-foreground">{totalCount}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCoverageOpen((v) => (v === "students" ? "none" : "students"))}
+                    className={`rounded-xl p-3 text-left transition-colors ${coverage.withoutPhoto.length ? "bg-peach hover:bg-peach/70" : "bg-mint"} ${coverageOpen === "students" ? "ring-2 ring-amber-500/50" : ""}`}
+                    data-testid="btn-students-without-photo"
+                  >
+                    <div className="text-[11px] font-extrabold text-muted-foreground">Students without photo</div>
+                    <div className={`font-display text-2xl ${coverage.withoutPhoto.length ? "text-amber-700" : "text-green-700"}`}>{coverage.withoutPhoto.length}</div>
+                    <div className="text-[10px] font-bold text-muted-foreground">{coverage.withPhoto.length} of {coverage.classStudents.length} covered{coverage.withoutPhoto.length ? " · tap to see" : ""}</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCoverageOpen((v) => (v === "photos" ? "none" : "photos"))}
+                    className={`rounded-xl p-3 text-left transition-colors ${coverage.orphanPhotos.length ? "bg-blush hover:bg-blush/70" : "bg-mint"} ${coverageOpen === "photos" ? "ring-2 ring-red-500/40" : ""}`}
+                    data-testid="btn-photos-without-student"
+                  >
+                    <div className="text-[11px] font-extrabold text-muted-foreground">Photos without student</div>
+                    <div className={`font-display text-2xl ${coverage.orphanPhotos.length ? "text-red-700" : "text-green-700"}`}>{coverage.orphanPhotos.length}</div>
+                    <div className="text-[10px] font-bold text-muted-foreground">{coverage.orphanPhotos.length ? "not matched to this class · tap to see" : "every photo matched"}</div>
+                  </button>
+                </div>
+
+                {coverageOpen === "students" && (
+                  <div className="mt-3 rounded-xl border border-border p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-xs font-extrabold">Students in {selectedClass !== "all" ? selectedClass : "the school"} with no photo in this upload</span>
+                      {coverage.withoutPhoto.length > 0 && (
+                        <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => copyList(coverage.withoutPhoto.map((s) => `${s.name} (${s.studentId})`))}>Copy list</Button>
+                      )}
+                    </div>
+                    {coverage.withoutPhoto.length === 0 ? (
+                      <p className="text-xs text-green-700 font-bold">Every student has a photo.</p>
+                    ) : (
+                      <ul className="grid max-h-48 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto text-xs sm:grid-cols-2">
+                        {coverage.withoutPhoto.map((s) => (
+                          <li key={s.id} className="flex items-center justify-between gap-2 border-b border-border/50 py-1">
+                            <span className="truncate font-semibold text-foreground">{s.name}</span>
+                            <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{s.studentId}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                {coverageOpen === "photos" && (
+                  <div className="mt-3 rounded-xl border border-border p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-xs font-extrabold">Photos that don't match a student in {selectedClass !== "all" ? selectedClass : "the school"}</span>
+                      {coverage.orphanPhotos.length > 0 && (
+                        <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => copyList(coverage.orphanPhotos.map((it) => it.file.name))}>Copy list</Button>
+                      )}
+                    </div>
+                    {coverage.orphanPhotos.length === 0 ? (
+                      <p className="text-xs text-green-700 font-bold">Every photo is matched to a student.</p>
+                    ) : (
+                      <>
+                        <ul className="grid max-h-48 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto text-xs sm:grid-cols-2">
+                          {coverage.orphanPhotos.map((it) => (
+                            <li key={it.id} className="flex items-center gap-2 border-b border-border/50 py-1">
+                              <img src={it.previewUrl} alt="" className="h-7 w-7 shrink-0 rounded-full bg-muted object-cover object-top" />
+                              <span className="min-w-0 flex-1 truncate font-semibold text-foreground" title={it.file.name}>{it.cleanedName || it.file.name}</span>
+                              {it.ignored && <span className="shrink-0 text-[10px] text-muted-foreground">skipped</span>}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="mt-2 text-[11px] text-muted-foreground">Use "Manual Assignment" in the list below to match these, or pick another class.</p>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* AI studio portrait: white background + headshot */}
+              <div className="rounded-2xl border border-border bg-card p-4" data-testid="ai-portrait-panel">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-lilac text-ink-2"><Wand2 className="h-5 w-5" /></span>
+                    <div>
+                      <div className="text-sm font-extrabold text-foreground">Studio portrait (AI)</div>
+                      <div className="text-xs text-muted-foreground">
+                        Removes the background to pure white and crops a head-and-shoulders shot for the ID card. Runs on this device — photos are never uploaded for processing.
+                      </div>
+                    </div>
+                  </div>
+                  <label className="flex shrink-0 items-center gap-2 text-xs font-bold">
+                    <Switch checked={aiPortrait} onCheckedChange={setAiPortrait} disabled={isProcessing} data-testid="toggle-ai-portrait" />
+                    {aiPortrait ? "On" : "Off"}
+                  </label>
+                </div>
+                {aiPortrait && (
+                  <div className="mt-3 text-xs font-semibold">
+                    {aiState === "loading" && (
+                      <span className="flex items-center gap-1.5 text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading the AI model (first time only, ~27 MB)…</span>
+                    )}
+                    {aiState === "failed" && (
+                      <div className="space-y-1.5 text-amber-700">
+                        <div>The AI model couldn't load, so photos will use head-safe framing without background removal.</div>
+                        {portraitEngineError() && <div className="break-words font-mono text-[10px] text-muted-foreground">Details: {portraitEngineError()}</div>}
+                        <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => { setAiState("idle"); setAiPortrait(false); setTimeout(() => setAiPortrait(true), 0); }}>
+                          <RefreshCw className="h-3.5 w-3.5" /> Try again
+                        </Button>
+                      </div>
+                    )}
+                    {aiState === "ready" && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2 text-muted-foreground">
+                          <span className="flex items-center gap-1.5">
+                            {portraitsDone < totalCount ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />}
+                            {portraitsDone < totalCount ? `Preparing portraits ${portraitsDone}/${totalCount}…` : `All ${totalCount} portraits ready — check them below before uploading.`}
+                          </span>
+                          {portraitsNoFace > 0 && <span className="text-amber-700">{portraitsNoFace} without a clear face — review</span>}
+                        </div>
+                        <Progress value={totalCount ? (portraitsDone / totalCount) * 100 : 0} className="h-1.5" />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Headroom / Anti-Head-Cutting Framing Controls */}
               <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-white border-2 border-primary flex items-center justify-center overflow-hidden shrink-0 shadow-sm p-0.5">
-                    {items[0] && (
-                      <img
-                        src={items[0].previewUrl}
-                        alt="Sample"
-                        className="w-full h-full object-contain object-top"
-                      />
-                    )}
+                    {items[0] && (() => {
+                      const pe = aiActive ? portraitFor(items[0].id) : undefined;
+                      const url = pe?.status === "done" && pe.result ? pe.result.dataUrl : items[0].previewUrl;
+                      return <img src={url} alt="Sample" className={pe?.status === "done" ? "w-full h-full object-cover rounded-full" : "w-full h-full object-contain object-top"} />;
+                    })()}
                   </div>
                   <div>
                     <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
@@ -537,13 +788,27 @@ export function ClassPhotoImporter({
                         >
                           {/* Image preview in circle badge format */}
                           <td className="py-2.5 px-3">
-                            <div className="w-12 h-12 rounded-full border-2 border-border bg-white flex items-center justify-center overflow-hidden p-0.5 shadow-sm shrink-0">
-                              <img
-                                src={item.previewUrl}
-                                alt={item.cleanedName}
-                                className="w-full h-full object-contain object-top"
-                              />
-                            </div>
+                            {(() => {
+                              const pe = aiActive ? portraitFor(item.id) : undefined;
+                              const done = pe?.status === "done" && pe.result;
+                              return (
+                                <div className="flex flex-col items-center gap-1">
+                                  <div className={`relative w-16 h-16 rounded-full border-2 bg-white flex items-center justify-center overflow-hidden shadow-sm shrink-0 ${done && !pe!.result!.faceFound ? "border-amber-500" : "border-border"}`}>
+                                    <img
+                                      src={done ? pe!.result!.dataUrl : item.previewUrl}
+                                      alt={item.cleanedName}
+                                      className={done ? "w-full h-full object-cover" : "w-full h-full object-contain object-top p-0.5"}
+                                      data-testid={done ? `portrait-${item.id}` : undefined}
+                                    />
+                                    {aiActive && pe?.status === "working" && (
+                                      <span className="absolute inset-0 flex items-center justify-center bg-white/60"><Loader2 className="h-4 w-4 animate-spin text-ink-2" /></span>
+                                    )}
+                                  </div>
+                                  {done && !pe!.result!.faceFound && <span className="text-[9px] font-bold text-amber-700">No face found</span>}
+                                  {aiActive && pe?.status === "error" && <span className="text-[9px] font-bold text-amber-700">Framing only</span>}
+                                </div>
+                              );
+                            })()}
                           </td>
 
                           {/* Detected Name */}
@@ -711,13 +976,16 @@ export function ClassPhotoImporter({
         {items.length > 0 && !uploadResult && (
           <div className="p-4 border-t border-border bg-card flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="text-xs text-muted-foreground">
-              Ready to sync <strong className="text-foreground">{matchedCount}</strong> student photos with anti-head-cut
-              framing.
+              Ready to sync <strong className="text-foreground">{matchedCount}</strong> student photos
+              {aiActive ? " as white-background studio portraits." : " with anti-head-cut framing."}
             </div>
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <Button
                 variant="ghost"
-                onClick={onClose}
+                onClick={() => {
+                  if (items.length > 0 && !window.confirm("Cancel the import? The photos you added and the prepared portraits will be discarded.")) return;
+                  onClose();
+                }}
                 disabled={isProcessing}
                 className="text-muted-foreground hover:text-foreground"
               >

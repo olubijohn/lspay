@@ -1,3 +1,4 @@
+import { naira } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { useStore } from "@/store";
 import { Card, CardContent } from "@/components/ui/card";
@@ -131,7 +132,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
       targetTenantId: student.tenantId,
       targetParentEmail: student.parentEmail,
       type: "limit_exceeded",
-      message: `${student.name} attempted a ₦${cartTotal.toFixed(2)} purchase at ${activeTenant?.name ?? "the canteen"}, which would exceed their ${kind} spending limit of ₦${limit.toFixed(2)} (₦${alreadySpent.toFixed(2)} already spent ${kind === "daily" ? "today" : "this month"}). The purchase was declined.`,
+      message: `${student.name} attempted a ${naira(cartTotal)} purchase at ${activeTenant?.name ?? "the canteen"}, which would exceed their ${kind} spending limit of ${naira(limit)} (${naira(alreadySpent)} already spent ${kind === "daily" ? "today" : "this month"}). The purchase was declined.`,
       studentId: student.id,
       studentName: student.name,
       isRead: false,
@@ -149,7 +150,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
       return;
     }
     if (posStudent.walletBalance < cartTotal) {
-      setPinError(`Insufficient funds. Balance: ₦${posStudent.walletBalance.toFixed(2)}`);
+      setPinError(`Insufficient funds. Balance: ${naira(posStudent.walletBalance)}`);
       setEnteredPin("");
       return;
     }
@@ -162,13 +163,13 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
 
     if (spentToday + cartTotal > posStudent.dailyLimit) {
       notifyLimitBreach(posStudent, "daily", posStudent.dailyLimit, spentToday);
-      setPinError(`Daily limit of ₦${posStudent.dailyLimit.toFixed(2)} would be exceeded (₦${spentToday.toFixed(2)} already spent today). The parent has been notified.`);
+      setPinError(`Daily limit of ${naira(posStudent.dailyLimit)} would be exceeded (${naira(spentToday)} already spent today). The parent has been notified.`);
       setEnteredPin("");
       return;
     }
     if (spentMonth + cartTotal > posStudent.monthlyLimit) {
       notifyLimitBreach(posStudent, "monthly", posStudent.monthlyLimit, spentMonth);
-      setPinError(`Monthly limit of ₦${posStudent.monthlyLimit.toFixed(2)} would be exceeded (₦${spentMonth.toFixed(2)} already spent this month). The parent has been notified.`);
+      setPinError(`Monthly limit of ${naira(posStudent.monthlyLimit)} would be exceeded (${naira(spentMonth)} already spent this month). The parent has been notified.`);
       setEnteredPin("");
       return;
     }
@@ -284,8 +285,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
                 <Card
                   key={item.id}
                   onClick={() => addToCart(item)}
-                  className={`group relative select-none flex flex-col overflow-hidden rounded-3xl border-2 p-2 transition-all duration-150 ${available
-                    ? `cursor-pointer bg-card shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[.97] ${inCart > 0 ? 'border-gold' : 'border-transparent hover:border-primary/30'}`
+                  className={`group relative select-none flex flex-col overflow-hidden rounded-3xl border-2 p-2 transition-all duration-150 ${available ? `cursor-pointer bg-card shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[.97] ${inCart > 0 ? 'border-gold' : 'border-transparent hover:border-primary/30'}`
                     : 'cursor-not-allowed bg-card/60 border-transparent opacity-70'}`}
                 >
                   <div className={`relative aspect-[4/3] rounded-2xl overflow-hidden shrink-0 ${item.imageUrl ? 'bg-white' : 'bg-lilac dark:bg-purple-900/40'}`}>
@@ -309,17 +309,17 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
                     )}
                     {item.stock <= 0 && (
                       <div className="absolute inset-0 bg-background/70 flex items-center justify-center backdrop-blur-[2px]">
-                        <span className="bg-blush text-red-700 font-extrabold text-xs sm:text-sm px-3 py-1.5 rounded-full shadow-sm">OUT OF STOCK</span>
+                        <span className="bg-blush text-red-700 font-extrabold text-xs sm:text-sm px-3 py-1.5 rounded-full shadow-sm">Out of stock</span>
                       </div>
                     )}
                   </div>
                   <CardContent className="px-2 pt-3 pb-2 flex flex-col justify-between flex-1 gap-2">
                     <div>
-                      <Badge variant="outline" className="bg-muted border-transparent text-muted-foreground mb-1.5 text-[10px] uppercase tracking-wider rounded-full">{item.category}</Badge>
+                      <Badge variant="outline" className="bg-muted border-transparent text-muted-foreground mb-1.5 text-[10px] tracking-wider rounded-full">{item.category}</Badge>
                       <h3 className="font-extrabold text-foreground leading-tight line-clamp-2 text-base sm:text-lg">{item.name}</h3>
                     </div>
                     <div className="flex justify-between items-end gap-2">
-                      <span className="text-primary dark:text-gold font-display text-xl sm:text-2xl leading-none">₦{item.sellingPrice.toFixed(2)}</span>
+                      <span className="text-primary dark:text-gold font-display text-xl sm:text-2xl leading-none">{naira(item.sellingPrice)}</span>
                       <span className="text-xs sm:text-sm font-bold text-muted-foreground whitespace-nowrap">{item.stock} left</span>
                     </div>
                   </CardContent>
@@ -376,8 +376,8 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-extrabold text-foreground text-base sm:text-lg leading-tight truncate">{c.item.name}</div>
-                        <div className="text-muted-foreground text-sm">₦{c.item.sellingPrice.toFixed(2)} each</div>
-                        <div className="text-primary dark:text-gold font-display text-lg leading-tight">₦{(c.item.sellingPrice * c.qty).toFixed(2)}</div>
+                        <div className="text-muted-foreground text-sm">{naira(c.item.sellingPrice)} each</div>
+                        <div className="text-primary dark:text-gold font-display text-lg leading-tight">{naira((c.item.sellingPrice * c.qty))}</div>
                       </div>
                       <div className="flex items-center gap-1 bg-muted rounded-2xl p-1 shrink-0">
                         <Button variant="ghost" size="icon" className="h-12 w-12 rounded-xl bg-card text-foreground shadow-sm hover:bg-accent active:scale-90 transition-transform [&_svg]:size-5" onClick={() => updateCartQty(c.item.id, -1)}><Minus /></Button>
@@ -392,10 +392,10 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
               <div className="p-4 sm:p-6 border-t border-border bg-card shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 <div className="flex justify-between items-end gap-3 mb-4">
                   <div>
-                    <div className="text-muted-foreground text-sm font-extrabold uppercase tracking-wider">Total Due</div>
+                    <div className="text-muted-foreground text-sm font-extrabold tracking-wider">Total Due</div>
                     <div className="text-muted-foreground text-sm">{cartCount} {cartCount === 1 ? "item" : "items"}</div>
                   </div>
-                  <span className="text-4xl sm:text-5xl font-display text-foreground tabular-nums leading-none truncate">₦{cartTotal.toFixed(2)}</span>
+                  <span className="text-4xl sm:text-5xl font-display text-foreground tabular-nums leading-none truncate">{naira(cartTotal)}</span>
                 </div>
                 <Button
                   variant="highlight"
@@ -419,7 +419,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
               <div className="flex-1 flex flex-col items-center justify-center py-4">
                 <div className="flex items-center gap-2 bg-card border border-border rounded-full px-4 py-1.5 mb-4 shadow-sm">
                   <span className="text-sm text-muted-foreground font-bold">Total</span>
-                  <span className="font-display text-lg text-foreground tabular-nums">₦{cartTotal.toFixed(2)}</span>
+                  <span className="font-display text-lg text-foreground tabular-nums">{naira(cartTotal)}</span>
                 </div>
                 <h2 className="text-3xl sm:text-4xl text-foreground text-center mb-2">Scan Student Card</h2>
                 <p className="bg-sky dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-4 py-2.5 rounded-2xl text-sm sm:text-base font-bold text-center mb-8 max-w-md">
@@ -468,7 +468,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
                   </QrScanner>
                 </div>
 
-                <div className="w-full max-w-sm flex items-center gap-3 mb-3 text-muted-foreground text-xs font-extrabold uppercase tracking-wider">
+                <div className="w-full max-w-sm flex items-center gap-3 mb-3 text-muted-foreground text-xs font-extrabold tracking-wider">
                   <span className="h-px flex-1 bg-border" /> or type it in <span className="h-px flex-1 bg-border" />
                 </div>
 
@@ -505,16 +505,16 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
                     <span className="inline-block bg-lilac dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded-full px-4 py-1 text-base font-extrabold mb-6">{posStudent.className}</span>
                     <div className="grid grid-cols-2 gap-3 mb-6">
                       <div className={`rounded-2xl p-4 ${posStudent.walletBalance >= cartTotal ? "bg-mint dark:bg-green-900/40" : "bg-blush dark:bg-red-900/40"}`}>
-                        <div className={`text-xs uppercase tracking-wider font-extrabold mb-1 ${posStudent.walletBalance >= cartTotal ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}>Wallet Balance</div>
-                        <div className={`text-xl sm:text-2xl font-display tabular-nums break-all ${posStudent.walletBalance >= cartTotal ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}>₦{posStudent.walletBalance.toFixed(2)}</div>
+                        <div className={`text-xs tracking-wider font-extrabold mb-1 ${posStudent.walletBalance >= cartTotal ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}>Wallet Balance</div>
+                        <div className={`text-xl sm:text-2xl font-display tabular-nums break-all ${posStudent.walletBalance >= cartTotal ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}>{naira(posStudent.walletBalance)}</div>
                       </div>
                       <div className="bg-muted rounded-2xl p-4">
-                        <div className="text-xs text-muted-foreground uppercase tracking-wider font-extrabold mb-1">Total Due</div>
-                        <div className="text-xl sm:text-2xl font-display text-foreground tabular-nums break-all">₦{cartTotal.toFixed(2)}</div>
+                        <div className="text-xs text-muted-foreground tracking-wider font-extrabold mb-1">Total Due</div>
+                        <div className="text-xl sm:text-2xl font-display text-foreground tabular-nums break-all">{naira(cartTotal)}</div>
                       </div>
                     </div>
                     <Button variant="highlight" onClick={() => setCheckoutStage("pin")} disabled={posStudent.walletBalance < cartTotal} className="w-full h-16 text-xl rounded-2xl shadow-md active:scale-[.98] transition-transform disabled:opacity-60" data-testid="btn-pay">
-                      {posStudent.walletBalance < cartTotal ? "Insufficient Balance" : `Pay ₦${cartTotal.toFixed(2)}`}
+                      {posStudent.walletBalance < cartTotal ? "Insufficient Balance" : `Pay ${naira(cartTotal)}`}
                     </Button>
                   </div>
                 </div>
@@ -532,7 +532,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
                 </div>
                 <h2 className="text-3xl text-foreground text-center mb-1 shrink-0">Enter PIN</h2>
                 <p className="text-muted-foreground text-center font-semibold mb-6 sm:mb-8">
-                  {posStudent?.name ? `${posStudent.name.split(' ')[0]}, ` : ""}pay <span className="font-display text-foreground">₦{cartTotal.toFixed(2)}</span>
+                  {posStudent?.name ? `${posStudent.name.split(' ')[0]}, ` : ""}pay <span className="font-display text-foreground">{naira(cartTotal)}</span>
                 </p>
 
                 <div className="flex justify-center gap-5 sm:gap-6 mb-6 sm:mb-8">
@@ -593,7 +593,7 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
                 </div>
               </div>
               <h2 className="relative text-4xl sm:text-5xl text-foreground mb-3 tracking-tight">Payment Successful!</h2>
-              <div className="relative font-display text-3xl sm:text-4xl text-green-700 dark:text-green-300 tabular-nums mb-3">₦{cartTotal.toFixed(2)}</div>
+              <div className="relative font-display text-3xl sm:text-4xl text-green-700 dark:text-green-300 tabular-nums mb-3">{naira(cartTotal)}</div>
               <p className="relative text-xl sm:text-2xl text-muted-foreground font-semibold mb-10 sm:mb-12 max-w-sm">Enjoy your meal, {posStudent?.name.split(' ')[0]}!</p>
               <Button variant="highlight" onClick={resetPos} className="relative w-full max-w-xs h-20 text-2xl rounded-2xl shadow-md transition-transform active:scale-[.98]">
                 Next Order
@@ -623,8 +623,8 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
                   <ShoppingCart className="h-5 w-5" />
                                   </span>
                 <span className="flex flex-col min-w-0">
-                  <span className="text-[11px] text-lilac/70 uppercase tracking-wider font-extrabold whitespace-nowrap">{cartCount} items · View</span>
-                  <span className="text-xl font-display leading-tight tabular-nums truncate">₦{cartTotal.toFixed(2)}</span>
+                  <span className="text-[11px] text-lilac/70 tracking-wider font-extrabold whitespace-nowrap">{cartCount} items · View</span>
+                  <span className="text-xl font-display leading-tight tabular-nums truncate">{naira(cartTotal)}</span>
                 </span>
               </button>
               <Button

@@ -1,5 +1,8 @@
+import { naira } from "@/lib/money";
 import { useState, useMemo } from "react";
 import { useStore } from "@/store";
+import { LspayParentAccessPanel, LspayParentBadge } from "@/components/LspayParentAccess";
+import { CameraCaptureButton, asFileEvent } from "@/components/CameraCapture";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +17,7 @@ import { GraduationCap, ArrowLeft, Banknote, Trash2, AlertTriangle, Search, Filt
 import { cardLifecycleLabel, Student } from "@/lib/types";
 
 export function TenantStudents({ tenantId }: { tenantId: string }) {
-  const { students, parentUsers, createStudent, updateStudent, deleteStudent, deleteStudents, markCardDelivered, transactions } = useStore();
+  const { students, parentUsers, createStudent, updateStudent, deleteStudent, deleteStudents, markCardDelivered, transactions, tenants } = useStore();
   const tenantStudents = students.filter(s => s.tenantId === tenantId);
 
   const [isOpen, setIsOpen] = useState(false);
@@ -113,9 +116,8 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
   // Helper to determine parent portal status
   const getParentStatus = (s: any): "linked" | "unlinked" | "no_info" => {
     const email = s.parentEmail?.trim().toLowerCase();
-    const isLinked = parentUsers.some(
-      p => (p.linkedStudentIds && p.linkedStudentIds.includes(s.id)) || (email && p.email?.trim().toLowerCase() === email)
-    );
+    // LSPay parent accounts; siblings with the same guardian email are linked automatically by the database.
+    const isLinked = parentUsers.some(p => p.linkedStudentIds && p.linkedStudentIds.includes(s.id));
     if (isLinked) return "linked";
     if (email || s.parentName?.trim()) return "unlinked";
     return "no_info";
@@ -285,17 +287,17 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
               </div>
 
               <div className="bg-background p-6 rounded-xl border border-border text-center mb-6 shadow-inner">
-                <div className="text-sm text-muted-foreground mb-1 font-medium tracking-wide uppercase">Wallet Balance</div>
-                <div className="text-4xl font-display text-primary">₦{s.walletBalance.toFixed(2)}</div>
+                <div className="text-sm text-muted-foreground mb-1 font-medium tracking-wide ">Wallet Balance</div>
+                <div className="text-4xl font-display text-primary">{naira(s.walletBalance)}</div>
               </div>
 
               <div className="space-y-4 text-left border-t border-border pt-6">
                 <div>
-                  <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Limits</div>
-                  <div className="text-foreground text-sm">Daily: ₦{s.dailyLimit.toFixed(2)} | Monthly: ₦{s.monthlyLimit.toFixed(2)}</div>
+                  <div className="text-xs text-muted-foreground tracking-wider font-bold mb-1">Limits</div>
+                  <div className="text-foreground text-sm">Daily: {naira(s.dailyLimit)} | Monthly: {naira(s.monthlyLimit)}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Parent / Guardian</div>
+                  <div className="text-xs text-muted-foreground tracking-wider font-bold mb-1">Parent / Guardian</div>
                   <div className="text-foreground text-sm font-medium">{s.parentName}</div>
                   <div className="text-muted-foreground text-xs mt-0.5">{s.parentEmail}</div>
                   {(() => {
@@ -306,9 +308,10 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                   })()}
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Home Address</div>
+                  <div className="text-xs text-muted-foreground tracking-wider font-bold mb-1">Home Address</div>
                   <div className="text-foreground text-sm">{s.homeAddress}</div>
                 </div>
+                <LspayParentAccessPanel student={s} />
               </div>
             </CardContent>
           </Card>
@@ -319,7 +322,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
               <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
                 <button onClick={() => setTxFilter('all')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
                 <button onClick={() => setTxFilter('in')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
-                <button onClick={() => setTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
+                <button onClick={() => setTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'out' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Money Out</button>
               </div>
             </CardHeader>
             <CardContent>
@@ -337,7 +340,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                       <TableRow key={tx.id} className="border-border/50">
                         <TableCell className="text-foreground text-sm">{tx.date}</TableCell>
                         <TableCell className="text-foreground">{tx.itemsString}</TableCell>
-                        <TableCell className={`font-bold text-right pr-4 ${tx.amount < 0 ? 'text-green-500' : 'text-red-500'}`}>{tx.amount < 0 ? '+' : '-'}₦{Math.abs(tx.amount).toFixed(2)}</TableCell>
+                        <TableCell className={`font-bold text-right pr-4 ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
                       </TableRow>
                     ))}
                     {sTx.length === 0 && (
@@ -393,7 +396,10 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                   <div className="flex-1 space-y-2">
                     <Label className="text-foreground">Profile Image</Label>
                     <div className="flex gap-2">
-                      <Input type="file" accept="image/*" onChange={handleFileChange} className="bg-card border-border text-foreground" />
+                      <div className="flex gap-2">
+                        <Input type="file" accept="image/*" onChange={handleFileChange} className="bg-card border-border text-foreground flex-1" />
+                        <CameraCaptureButton size="icon" label="Take student photo" facing="user" onCapture={f => handleFileChange(asFileEvent(f))} />
+                      </div>
                       <Input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="Or paste URL..." className="bg-card border-border text-foreground" />
                     </div>
                   </div>
@@ -565,8 +571,8 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border text-foreground">
                   <SelectItem value="all">All Parent Statuses</SelectItem>
-                  <SelectItem value="linked">✓ Parent Portal Linked</SelectItem>
-                  <SelectItem value="unlinked">Pending Portal Sign-up</SelectItem>
+                  <SelectItem value="linked">✓ LSPay parent connected</SelectItem>
+                  <SelectItem value="unlinked">LSPay not connected</SelectItem>
                   <SelectItem value="no_info">No Guardian Info</SelectItem>
                 </SelectContent>
               </Select>
@@ -618,11 +624,11 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                   />
                 </TableHead>
                 <TableHead className="text-muted-foreground w-[50px] py-4">Photo</TableHead>
-                <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Name / ID</TableHead>
-                <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Class</TableHead>
-                <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Parent Details</TableHead>
-                <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Statuses</TableHead>
-                <TableHead className="text-right text-muted-foreground font-bold uppercase tracking-wider text-xs pr-6">Actions</TableHead>
+                <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Name / ID</TableHead>
+                <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Class</TableHead>
+                <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Parent Details</TableHead>
+                <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Statuses</TableHead>
+                <TableHead className="text-right text-muted-foreground font-bold tracking-wider text-xs pr-6">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -658,12 +664,10 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                       <div className="text-foreground font-medium">{s.parentName || "—"}</div>
                       <div className="text-xs text-muted-foreground mt-0.5">{s.parentEmail || "No email"}</div>
                       {pStatus === "linked" ? (
-                        <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30 bg-emerald-500/10 mt-1">
-                          ✓ Parent Linked
-                        </Badge>
+                        <LspayParentBadge student={s} className="mt-1" />
                       ) : pStatus === "unlinked" ? (
-                        <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-500/30 bg-amber-500/10 mt-1">
-                          Pending Portal Sign-up
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground border-border bg-muted mt-1">
+                          LSPay not connected
                         </Badge>
                       ) : (
                         <span className="text-[10px] text-muted-foreground/60 italic block mt-0.5">No parent info</span>

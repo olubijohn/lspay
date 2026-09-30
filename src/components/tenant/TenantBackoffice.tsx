@@ -1,3 +1,4 @@
+import { naira } from "@/lib/money";
 import { useState } from "react";
 import { useStore } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -121,7 +122,7 @@ export function TenantBackoffice({ tenantId }: { tenantId: string }) {
                       <TableCell className="text-right">
                         <span className={item.stock < 10 ? "text-amber-500 font-bold" : "text-foreground font-bold"}>{item.stock}</span>
                       </TableCell>
-                      <TableCell className="text-right text-primary font-medium">₦{item.sellingPrice.toFixed(2)}</TableCell>
+                      <TableCell className="text-right text-primary font-medium">{naira(item.sellingPrice)}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" onClick={() => deleteInventory(item.id)} className="text-red-400 hover:bg-red-900/30 hover:text-red-300">
                           <Trash2 className="h-4 w-4" />
@@ -169,7 +170,7 @@ export function TenantBackoffice({ tenantId }: { tenantId: string }) {
             </form>
 
             <div>
-              <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">Recent Stock Movements</h3>
+              <h3 className="text-sm font-bold text-muted-foreground mb-3 tracking-wider">Recent Stock Movements</h3>
               <div className="max-h-[350px] overflow-auto border border-border rounded-md">
                 <Table>
                   <TableHeader className="bg-background sticky top-0 z-10 shadow-sm">
@@ -196,7 +197,7 @@ export function TenantBackoffice({ tenantId }: { tenantId: string }) {
                           )}
                         </TableCell>
                         <TableCell className={`text-right font-bold ${m.type === 'restock' ? 'text-primary' : 'text-amber-400'}`}>
-                          {m.type === 'restock' ? '+' : '-'}{m.quantity}
+                          {m.type === 'restock' ? '+' : '−'}{m.quantity}
                         </TableCell>
                       </TableRow>
                     ))}

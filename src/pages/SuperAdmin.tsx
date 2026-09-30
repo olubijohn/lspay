@@ -1,3 +1,4 @@
+import { naira, nairaAxis } from "@/lib/money";
 import { useState, useMemo, useRef } from "react";
 import { useStore } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,10 +15,14 @@ import { CheckCircle2, Shield, ShieldAlert, Building2, Users, Bell, CreditCard, 
 import { SystemUser, AppNotification, CardLifecycleStatus, cardLifecycleLabel } from "@/lib/types";
 import { SuperAdminSidebar } from "@/components/layout/SuperAdminSidebar";
 import { CardPrintStudio } from "@/components/CardPrintStudio";
+import { LspayParentAccessPanel, LspayParentBadge } from "@/components/LspayParentAccess";
+import { CameraCaptureButton, asFileEvent } from "@/components/CameraCapture";
+import { TransactionFilters } from "@/components/TransactionFilters";
+import { collectItemOptions, matchesItem, matchesStudent } from "@/lib/txFilters";
 import { AppTopBar } from "@/components/layout/AppTopBar";
 import { NotificationCenter } from "@/components/layout/NotificationCenter";
 import { Wallet } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from "recharts";
 import { useChartTheme } from "@/theme";
 import { useNfcScanner } from "@/lib/useNfcScanner";
 import { QrScanner } from "@/components/QrScanner";
@@ -173,6 +178,8 @@ export function SuperAdmin() {
   const [txEndDate, setTxEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [overviewTxFilter, setOverviewTxFilter] = useState<"all" | "in" | "out">("all");
   const [txFilterType, setTxFilterType] = useState<"all" | "in" | "out">("all");
+  const [txStudentQuery, setTxStudentQuery] = useState("");
+  const [txItem, setTxItem] = useState("all");
   const [expandedSchoolDay, setExpandedSchoolDay] = useState<string | null>(null);
 
   const showSuccess = (msg: string) => {
@@ -446,18 +453,30 @@ export function SuperAdmin() {
     return true;
   });
 
+  // Money flow per day. In this data model top-ups (money into wallets) are negative amounts and kiosk sales are
+  // positive, so they are summed separately instead of netted (netting made "volume" go negative).
   const dailyRevData = Object.entries(
-    filteredTx.reduce((acc, t) => { acc[t.date] = (acc[t.date] || 0) + t.amount; return acc; }, {} as Record<string, number>)
-  ).map(([date, revenue]) => ({ date, revenue })).sort((a, b) => a.date.localeCompare(b.date));
+    filteredTx.reduce((acc, t) => {
+      const d = (acc[t.date] ??= { topups: 0, sales: 0 });
+      if (t.amount < 0) d.topups += -t.amount; else d.sales += t.amount;
+      return acc;
+    }, {} as Record<string, { topups: number; sales: number }>)
+  ).map(([date, v]) => ({ date, ...v })).sort((a, b) => a.date.localeCompare(b.date));
 
   // Transactions tab — roll-up by school × date
-  const txFiltered = useMemo(() => transactions.filter(t => {
+  const txBase = useMemo(() => transactions.filter(t => {
     if (txFilterSchool !== "all" && t.tenantId !== txFilterSchool) return false;
     if (t.date < txStartDate || t.date > txEndDate) return false;
     if (txFilterType === 'in' && t.amount >= 0) return false;
     if (txFilterType === 'out' && t.amount <= 0) return false;
     return true;
   }), [transactions, txFilterSchool, txStartDate, txEndDate, txFilterType]);
+  const txItemOptions = useMemo(() => collectItemOptions(txBase), [txBase]);
+  const txFiltered = useMemo(() => {
+    const regNo = new Map(students.map(s => [s.id, s.studentId]));
+    return txBase.filter(t => matchesStudent(t, txStudentQuery, regNo.get(t.studentId)) && matchesItem(t, txItem));
+  }, [txBase, txStudentQuery, txItem, students]);
+  const txNarrowed = txStudentQuery.trim() !== "" || txItem !== "all";
 
   // Group by date, then school
   const txRollup = useMemo(() => {
@@ -466,7 +485,7 @@ export function SuperAdmin() {
       if (!map[t.date]) map[t.date] = {};
       const key = t.tenantId.toString();
       if (!map[t.date][key]) map[t.date][key] = { schoolName: t.schoolName, tenantId: t.tenantId, total: 0, count: 0, txs: [] };
-      map[t.date][key].total += t.amount;
+      map[t.date][key].total += Math.abs(t.amount); // gross volume (top-ups are stored as negative amounts)
       map[t.date][key].count += 1;
       map[t.date][key].txs.push(t);
     });
@@ -538,7 +557,9 @@ export function SuperAdmin() {
 
           {/* ─── OVERVIEW ─────────────────────────────────────────── */}
           {activeTab === "overview" && (() => {
-            const overviewVolume = filteredTx.reduce((s, t) => s + t.amount, 0);
+            const overviewTopups = filteredTx.reduce((s, t) => s + (t.amount < 0 ? -t.amount : 0), 0);
+            const overviewSales = filteredTx.reduce((s, t) => s + (t.amount > 0 ? t.amount : 0), 0);
+            const overviewVolume = overviewTopups + overviewSales; // gross: all money moved
             const overviewActiveStudents = students.filter(s => s.cardStatus === "Active" && (filterSchool === "all" || s.tenantId === filterSchool)).length;
             const overviewSchoolName = filterSchool === "all" ? "All schools" : (tenants.find(t => t.id.toString() === filterSchool)?.name ?? "Selected school");
             const hour = new Date().getHours();
@@ -575,11 +596,12 @@ export function SuperAdmin() {
                 <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
                   <div className="min-w-0">
                     <div className="text-sm font-extrabold text-lilac/80">{overviewGreeting}</div>
-                    <div className="mt-3 text-xs font-extrabold uppercase tracking-widest text-lilac/70">Platform volume</div>
-                    <div className="mt-1 font-display text-4xl sm:text-5xl text-gold break-all">₦{overviewVolume.toFixed(2)}</div>
+                    <div className="mt-3 text-xs font-extrabold tracking-widest text-lilac/70">Platform volume</div>
+                    <div className="mt-1 font-display text-4xl sm:text-5xl text-gold break-all">{naira(overviewVolume)}</div>
                     <div className="mt-1 text-sm text-lilac/80">
-                      {overviewSchoolName} · {startDate} → {endDate} · {filteredTx.length} operation{filteredTx.length === 1 ? "" : "s"}
+                      {naira(overviewTopups)} top-ups · {naira(overviewSales)} sales · {filteredTx.length} operation{filteredTx.length === 1 ? "" : "s"}
                     </div>
+                    <div className="text-xs text-lilac/60">{overviewSchoolName} · {startDate} → {endDate}</div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button onClick={() => setActiveTab("transactions")} variant="highlight" className="h-11 rounded-2xl px-5">
@@ -599,14 +621,14 @@ export function SuperAdmin() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
                 {[
                   { label: "Total Schools", value: tenants.length, color: "text-foreground", icon: Building2, tint: "bg-lilac text-purple-700" },
-                  { label: "Transaction Volume", value: `₦${overviewVolume.toFixed(2)}`, color: "text-primary", icon: Wallet, tint: "bg-mint text-green-700" },
-                  { label: "Total Operations", value: filteredTx.length, color: "text-foreground", icon: Receipt, tint: "bg-peach text-amber-700" },
+                  { label: "Top-ups (money in)", value: naira(overviewTopups), color: "text-green-600", icon: Wallet, tint: "bg-mint text-green-700" },
+                  { label: "Sales (money out)", value: naira(overviewSales), color: "text-foreground", icon: Receipt, tint: "bg-peach text-amber-700" },
                   { label: "Active Students", value: overviewActiveStudents, color: "text-blue-400", icon: Users, tint: "bg-sky text-blue-700" },
                 ].map(c => (
                   <Card key={c.label} className="bg-card border-border shadow-sm">
                     <CardContent className="p-4 md:p-6">
                       <span className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${c.tint}`}><c.icon className="h-4 w-4" /></span>
-                      <div className="text-muted-foreground text-xs font-extrabold tracking-wide uppercase mb-1">{c.label}</div>
+                      <div className="text-muted-foreground text-xs font-extrabold tracking-wide mb-1">{c.label}</div>
                       <div className={`text-2xl md:text-3xl font-display truncate ${c.color}`}>{c.value}</div>
                     </CardContent>
                   </Card>
@@ -615,8 +637,8 @@ export function SuperAdmin() {
 
               <Card className="bg-card border-border shadow-sm">
                 <CardHeader className="space-y-1">
-                  <CardTitle className="text-foreground">Revenue Trend</CardTitle>
-                  <p className="text-sm text-muted-foreground">Daily net transaction value · {overviewSchoolName}</p>
+                  <CardTitle className="text-foreground">Money flow</CardTitle>
+                  <p className="text-sm text-muted-foreground">Daily top-ups and sales · {overviewSchoolName}</p>
                 </CardHeader>
                 <CardContent className="h-72">
                   {dailyRevData.length === 0 ? (
@@ -630,9 +652,11 @@ export function SuperAdmin() {
                       <LineChart data={dailyRevData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
                         <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={v => `₦${v}`} tickLine={false} axisLine={false} width={64} />
-                        <RechartsTooltip contentStyle={chartTheme.tooltip} />
-                        <Line type="monotone" dataKey="revenue" stroke="hsl(var(--chart-1))" strokeWidth={3} dot={{ r: 3, fill: "hsl(var(--chart-1))" }} activeDot={{ r: 6 }} />
+                        <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={nairaAxis} tickLine={false} axisLine={false} width={64} />
+                        <RechartsTooltip contentStyle={chartTheme.tooltip} formatter={(v: any, name: any) => [naira(Number(v)), name]} />
+                        <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+                        <Line type="monotone" name="Top-ups" dataKey="topups" stroke="hsl(var(--chart-1))" strokeWidth={3} dot={{ r: 3, fill: "hsl(var(--chart-1))" }} activeDot={{ r: 6 }} />
+                        <Line type="monotone" name="Sales" dataKey="sales" stroke="hsl(var(--chart-2))" strokeWidth={3} dot={{ r: 3, fill: "hsl(var(--chart-2))" }} activeDot={{ r: 6 }} />
                       </LineChart>
                     </ResponsiveContainer>
                   )}
@@ -651,7 +675,7 @@ export function SuperAdmin() {
                   <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border w-full sm:w-auto">
                     <button onClick={() => setOverviewTxFilter('all')} className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-extrabold rounded-lg transition-colors ${overviewTxFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
                     <button onClick={() => setOverviewTxFilter('in')} className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-extrabold rounded-lg transition-colors ${overviewTxFilter === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
-                    <button onClick={() => setOverviewTxFilter('out')} className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-extrabold rounded-lg transition-colors ${overviewTxFilter === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
+                    <button onClick={() => setOverviewTxFilter('out')} className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-extrabold rounded-lg transition-colors ${overviewTxFilter === 'out' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Money Out</button>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -666,11 +690,11 @@ export function SuperAdmin() {
                       <Table>
                         <TableHeader className="bg-muted/60">
                           <TableRow className="border-border">
-                            <TableHead className="text-muted-foreground text-xs font-extrabold uppercase tracking-wide whitespace-nowrap">Date</TableHead>
-                            <TableHead className="text-muted-foreground text-xs font-extrabold uppercase tracking-wide">School</TableHead>
-                            <TableHead className="text-muted-foreground text-xs font-extrabold uppercase tracking-wide">Student</TableHead>
-                            <TableHead className="text-muted-foreground text-xs font-extrabold uppercase tracking-wide">Items</TableHead>
-                            <TableHead className="text-muted-foreground text-xs font-extrabold uppercase tracking-wide text-right">Amount</TableHead>
+                            <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide whitespace-nowrap">Date</TableHead>
+                            <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide">School</TableHead>
+                            <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide">Student</TableHead>
+                            <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide">Items</TableHead>
+                            <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide text-right">Amount</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -680,7 +704,7 @@ export function SuperAdmin() {
                               <TableCell className="text-foreground">{tx.schoolName}</TableCell>
                               <TableCell className="text-foreground font-extrabold">{tx.studentName}</TableCell>
                               <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
-                              <TableCell className={`font-display text-base text-right whitespace-nowrap ${tx.amount < 0 ? 'text-green-500' : 'text-red-500'}`}>{tx.amount < 0 ? '+' : '-'}₦{Math.abs(tx.amount).toFixed(2)}</TableCell>
+                              <TableCell className={`font-display text-base text-right whitespace-nowrap ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -704,7 +728,7 @@ export function SuperAdmin() {
                   <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border mr-2">
                     <button onClick={() => setTxFilterType('all')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilterType === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
                     <button onClick={() => setTxFilterType('in')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilterType === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
-                    <button onClick={() => setTxFilterType('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilterType === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
+                    <button onClick={() => setTxFilterType('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilterType === 'out' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Money Out</button>
                   </div>
                   <Select value={txFilterSchool} onValueChange={setTxFilterSchool}>
                     <SelectTrigger className="w-full sm:w-44 bg-background border-border text-foreground" data-testid="select-tx-school">
@@ -721,25 +745,35 @@ export function SuperAdmin() {
                 </div>
               </div>
 
+              <TransactionFilters
+                studentQuery={txStudentQuery}
+                onStudentQueryChange={setTxStudentQuery}
+                item={txItem}
+                onItemChange={setTxItem}
+                itemOptions={txItemOptions}
+                resultLabel={txNarrowed ? `${txFiltered.length} of ${txBase.length} transactions` : undefined}
+              />
+
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-6">
                 <Card className="col-span-2 sm:col-span-1 bg-card border-border shadow-sm">
                   <CardContent className="p-4 md:p-6">
                     <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-mint text-green-700"><Wallet className="h-4 w-4" /></span>
-                    <div className="text-muted-foreground text-xs font-extrabold uppercase tracking-wide mb-1">Total Volume</div>
-                    <div className="text-2xl md:text-3xl font-display text-primary truncate">₦{txFiltered.reduce((s, t) => s + t.amount, 0).toFixed(2)}</div>
+                    <div className="text-muted-foreground text-xs font-extrabold tracking-wide mb-1">Total Volume</div>
+                    <div className="text-2xl md:text-3xl font-display text-primary truncate">{naira(txFiltered.reduce((s, t) => s + Math.abs(t.amount), 0))}</div>
+                    <div className="text-[11px] text-muted-foreground">top-ups + sales</div>
                   </CardContent>
                 </Card>
                 <Card className="bg-card border-border shadow-sm">
                   <CardContent className="p-4 md:p-6">
                     <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-peach text-amber-700"><Receipt className="h-4 w-4" /></span>
-                    <div className="text-muted-foreground text-xs font-extrabold uppercase tracking-wide mb-1">Total Transactions</div>
+                    <div className="text-muted-foreground text-xs font-extrabold tracking-wide mb-1">Total Transactions</div>
                     <div className="text-2xl md:text-3xl font-display text-foreground">{txFiltered.length}</div>
                   </CardContent>
                 </Card>
                 <Card className="bg-card border-border shadow-sm">
                   <CardContent className="p-4 md:p-6">
                     <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-sky text-blue-700"><Building2 className="h-4 w-4" /></span>
-                    <div className="text-muted-foreground text-xs font-extrabold uppercase tracking-wide mb-1">Schools Active</div>
+                    <div className="text-muted-foreground text-xs font-extrabold tracking-wide mb-1">Schools Active</div>
                     <div className="text-2xl md:text-3xl font-display text-blue-400">{new Set(txFiltered.map(t => t.tenantId)).size}</div>
                   </CardContent>
                 </Card>
@@ -760,12 +794,13 @@ export function SuperAdmin() {
                         <span className="text-foreground font-bold text-lg">{date}</span>
                         <Badge variant="outline" className="text-muted-foreground border-border ml-2">{Object.values(schoolMap).reduce((s, v) => s + v.count, 0)} transactions</Badge>
                       </div>
-                      <span className="text-primary font-display text-xl">₦{dayTotal.toFixed(2)}</span>
+                      <span className="text-primary font-display text-xl">{naira(dayTotal)}</span>
                     </div>
                     <div className="divide-y divide-border">
                       {Object.entries(schoolMap).map(([tenantKey, data]) => {
                         const rowKey = `${date}-${tenantKey}`;
-                        const isExpanded = expandedSchoolDay === rowKey;
+                        // With a student or item filter on, open every group so the matching rows are visible.
+                        const isExpanded = txNarrowed || expandedSchoolDay === rowKey;
                         return (
                           <div key={tenantKey}>
                             <button
@@ -778,7 +813,7 @@ export function SuperAdmin() {
                                 <span className="text-foreground font-medium">{data.schoolName}</span>
                                 <Badge className="bg-muted text-muted-foreground border-0">{data.count} txs</Badge>
                               </div>
-                              <span className="text-primary font-bold">₦{data.total.toFixed(2)}</span>
+                              <span className="text-primary font-bold">{naira(data.total)}</span>
                             </button>
                             {isExpanded && (
                               <div className="bg-background border-t border-border">
@@ -795,7 +830,7 @@ export function SuperAdmin() {
                                       <TableRow key={tx.id} className="border-border/40">
                                         <TableCell className="text-foreground pl-14 font-medium">{tx.studentName}</TableCell>
                                         <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
-                                        <TableCell className={`font-bold text-right pr-6 ${tx.amount < 0 ? 'text-green-500' : 'text-red-500'}`}>{tx.amount < 0 ? '+' : '-'}₦{Math.abs(tx.amount).toFixed(2)}</TableCell>
+                                        <TableCell className={`font-bold text-right pr-6 ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
                                       </TableRow>
                                     ))}
                                   </TableBody>
@@ -879,27 +914,27 @@ export function SuperAdmin() {
                         <CardContent className="space-y-4">
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">School Name</span>
+                              <span className="text-xs text-muted-foreground font-bold tracking-wider">School Name</span>
                               <p className="text-foreground font-semibold">{school.name}</p>
                             </div>
                             <div>
-                              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">3-Letter Code</span>
+                              <span className="text-xs text-muted-foreground font-bold tracking-wider">3-Letter Code</span>
                               <p className="text-foreground font-semibold">{school.code}</p>
                             </div>
                             <div>
-                              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Enrollment Key</span>
+                              <span className="text-xs text-muted-foreground font-bold tracking-wider">Enrollment Key</span>
                               <p className="text-primary font-display text-lg tracking-wide">{school.enrollmentKey}</p>
                             </div>
                             <div>
-                              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Contact Person</span>
+                              <span className="text-xs text-muted-foreground font-bold tracking-wider">Contact Person</span>
                               <p className="text-foreground">{school.contactName} ({school.contactEmail})</p>
                             </div>
                             <div className="col-span-2">
-                              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">School Address</span>
+                              <span className="text-xs text-muted-foreground font-bold tracking-wider">School Address</span>
                               <p className="text-foreground">{school.address || "No address configured"}</p>
                             </div>
                             <div className="col-span-2">
-                              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Paystack Public Key</span>
+                              <span className="text-xs text-muted-foreground font-bold tracking-wider">Paystack Public Key</span>
                               <p className="text-muted-foreground font-mono text-sm truncate bg-background p-2 rounded border border-border">{school.paystackPublicKey || "LSA platform account"}</p>
                             </div>
                           </div>
@@ -1035,7 +1070,7 @@ export function SuperAdmin() {
                                         {s.cardStatus}
                                       </Badge>
                                     </TableCell>
-                                    <TableCell className="text-foreground font-bold text-right">₦{s.walletBalance.toFixed(2)}</TableCell>
+                                    <TableCell className="text-foreground font-bold text-right">{naira(s.walletBalance)}</TableCell>
                                     <TableCell className="text-right pr-6">
                                       <Button
                                         variant="ghost"
@@ -1227,7 +1262,7 @@ export function SuperAdmin() {
                     />
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mt-1">
                       <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">School</span>
+                        <span className="text-[10px] font-bold text-muted-foreground tracking-wider mb-1">School</span>
                         <Select value={cardFilterSchool} onValueChange={setCardFilterSchool}>
                           <SelectTrigger className="w-full bg-background border-border text-foreground h-9" data-testid="select-card-school">
                             <SelectValue placeholder="All Schools" />
@@ -1239,7 +1274,7 @@ export function SuperAdmin() {
                         </Select>
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Status</span>
+                        <span className="text-[10px] font-bold text-muted-foreground tracking-wider mb-1">Status</span>
                         <Select value={cardFilterStatus} onValueChange={setCardFilterStatus}>
                           <SelectTrigger className="w-full bg-background border-border text-foreground h-9" data-testid="select-card-status">
                             <SelectValue placeholder="All Statuses" />
@@ -1250,11 +1285,11 @@ export function SuperAdmin() {
                         </Select>
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Activated From</span>
+                        <span className="text-[10px] font-bold text-muted-foreground tracking-wider mb-1">Activated From</span>
                         <Input type="date" value={cardActivatedStart} onChange={e => setCardActivatedStart(e.target.value)} className="w-full bg-background border-border text-foreground h-9" data-testid="input-card-activated-start" />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Activated To</span>
+                        <span className="text-[10px] font-bold text-muted-foreground tracking-wider mb-1">Activated To</span>
                         <Input type="date" value={cardActivatedEnd} onChange={e => setCardActivatedEnd(e.target.value)} className="w-full bg-background border-border text-foreground h-9" data-testid="input-card-activated-end" />
                       </div>
                     </div>
@@ -1328,9 +1363,12 @@ export function SuperAdmin() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge className={cardStatusBadgeClass(s.cardLifecycleStatus)}>
-                                {cardLifecycleLabel(s.cardLifecycleStatus)}
-                              </Badge>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <Badge className={cardStatusBadgeClass(s.cardLifecycleStatus)}>
+                                  {cardLifecycleLabel(s.cardLifecycleStatus)}
+                                </Badge>
+                                <LspayParentBadge student={s} />
+                              </div>
                             </TableCell>
                             <TableCell className="text-muted-foreground text-sm font-mono">
                               {s.activatedAt ? s.activatedAt.split('T')[0] : "—"}
@@ -1367,6 +1405,8 @@ export function SuperAdmin() {
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
+                          {/* LSPay parent portal access — no card needed */}
+                          <LspayParentAccessPanel student={student} />
                           {!hasCard ? (
                             <>
                               <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500">
@@ -1506,6 +1546,7 @@ export function SuperAdmin() {
                                   </Button>
                                 </div>
                               )}
+
 
                               <div className="space-y-3 pt-5 border-t border-border">
                                 <div>
@@ -1787,7 +1828,7 @@ export function SuperAdmin() {
               </div>
               <div className="space-y-2">
                 <Label className="text-foreground">3-Letter Code</Label>
-                <Input value={newSchoolCode} onChange={e => setNewSchoolCode(e.target.value.toUpperCase())} maxLength={3} placeholder="OAK" className="bg-background border-border text-foreground uppercase" data-testid="input-school-code" required />
+                <Input value={newSchoolCode} onChange={e => setNewSchoolCode(e.target.value.toUpperCase())} maxLength={3} placeholder="OAK" className="bg-background border-border text-foreground " data-testid="input-school-code" required />
               </div>
             </div>
             <div className="space-y-2">
@@ -1816,6 +1857,7 @@ export function SuperAdmin() {
                   onChange={e => handleLogoUpload(e, false)}
                   className="bg-background border-border text-foreground file:bg-muted file:text-foreground file:border-0 file:rounded-md cursor-pointer file:cursor-pointer flex-1"
                 />
+                <CameraCaptureButton size="icon" label="Take logo photo" onCapture={f => handleLogoUpload(asFileEvent(f), false)} />
                 {newSchoolLogoUrl && (
                   <div className="w-10 h-10 rounded border border-border bg-white flex items-center justify-center overflow-hidden shrink-0">
                     <img src={newSchoolLogoUrl} alt="Preview" className="w-full h-full object-cover" />
@@ -1846,7 +1888,7 @@ export function SuperAdmin() {
               </div>
               <div className="space-y-2">
                 <Label className="text-foreground">3-Letter Code</Label>
-                <Input value={editSchoolCode} onChange={e => setEditSchoolCode(e.target.value.toUpperCase())} maxLength={3} className="bg-background border-border text-foreground uppercase" data-testid="edit-school-code" required />
+                <Input value={editSchoolCode} onChange={e => setEditSchoolCode(e.target.value.toUpperCase())} maxLength={3} className="bg-background border-border text-foreground " data-testid="edit-school-code" required />
               </div>
             </div>
             <div className="space-y-2">
@@ -1875,6 +1917,7 @@ export function SuperAdmin() {
                   onChange={e => handleLogoUpload(e, true)}
                   className="bg-background border-border text-foreground file:bg-muted file:text-foreground file:border-0 file:rounded-md cursor-pointer file:cursor-pointer flex-1"
                 />
+                <CameraCaptureButton size="icon" label="Take logo photo" onCapture={f => handleLogoUpload(asFileEvent(f), true)} />
                 {editSchoolLogoUrl && (
                   <div className="w-10 h-10 rounded border border-border bg-white flex items-center justify-center overflow-hidden shrink-0">
                     <img src={editSchoolLogoUrl} alt="Preview" className="w-full h-full object-cover" />

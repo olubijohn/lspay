@@ -56,8 +56,7 @@ export function SuperAdminSidebar({ activeTab, setActiveTab, mobileOpen, onMobil
               key={item.id}
               onClick={() => handleNav(item.id)}
               data-testid={`nav-${item.id}`}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors text-sm font-bold ${
-                isActive
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors text-sm font-bold ${ isActive
                   ? "bg-muted text-primary"
                   : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               }`}
@@ -81,7 +80,7 @@ export function SuperAdminSidebar({ activeTab, setActiveTab, mobileOpen, onMobil
           </span>
           <div className="min-w-0">
             <div className="text-foreground font-bold text-sm truncate">{session.user?.name}</div>
-            <div className="text-primary text-[11px] uppercase tracking-widest font-extrabold">Super Admin</div>
+            <div className="text-primary text-[11px] tracking-widest font-extrabold">Super Admin</div>
           </div>
         </div>
         <Button

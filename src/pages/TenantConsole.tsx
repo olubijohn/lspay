@@ -1,3 +1,4 @@
+import { naira } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { useStore } from "@/store";
 import { useLocation } from "wouter";
@@ -13,6 +14,8 @@ import {
   Users, Plus, Monitor, Store,
 } from "lucide-react";
 import { AppTopBar } from "@/components/layout/AppTopBar";
+import { TransactionFilters } from "@/components/TransactionFilters";
+import { collectItemOptions, matchesItem, matchesStudent } from "@/lib/txFilters";
 import { NotificationCenter } from "@/components/layout/NotificationCenter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +54,8 @@ export function TenantConsole() {
   });
   const [txEndDate, setTxEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [txFilter, setTxFilter] = useState<"all" | "in" | "out">("all");
+  const [txStudentQuery, setTxStudentQuery] = useState("");
+  const [txItem, setTxItem] = useState("all");
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [cancelSuccessMsg, setCancelSuccessMsg] = useState("");
 
@@ -106,13 +111,17 @@ export function TenantConsole() {
 
   const tenantNotifications = notifications.filter(n => n.targetRole === "tenant" && n.targetTenantId === activeTenant.id);
 
-  const tenantTxs = transactions.filter(t => {
+  const tenantTxsBase = transactions.filter(t => {
     if (t.tenantId !== activeTenant.id) return false;
     if (t.date < txStartDate || t.date > txEndDate) return false;
     if (txFilter === 'in' && t.amount >= 0) return false;
     if (txFilter === 'out' && t.amount <= 0) return false;
     return true;
   });
+  const txItemOptions = collectItemOptions(tenantTxsBase);
+  const regNoById = new Map(students.map(s => [s.id, s.studentId]));
+  const tenantTxs = tenantTxsBase.filter(t => matchesStudent(t, txStudentQuery, regNoById.get(t.studentId)) && matchesItem(t, txItem));
+  const txNarrowed = txStudentQuery.trim() !== "" || txItem !== "all";
   const txTotal = tenantTxs.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
 
   const tenantSystemUsers = systemUsers.filter(u => u.tenantId === activeTenant.id);
@@ -122,7 +131,7 @@ export function TenantConsole() {
     const tx = transactions.find(t => t.id === cancelId);
     cancelTransaction(cancelId);
     setCancelId(null);
-    setCancelSuccessMsg(`Transaction refunded — ₦${tx?.amount.toFixed(2) ?? ""} returned to ${tx?.studentName}'s wallet.`);
+    setCancelSuccessMsg(`Transaction refunded — ${tx ? naira(tx.amount) : ""} returned to ${tx?.studentName}'s wallet.`);
     setTimeout(() => setCancelSuccessMsg(""), 5000);
   };
 
@@ -261,22 +270,30 @@ export function TenantConsole() {
                   <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border mr-2">
                     <button onClick={() => setTxFilter('all')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
                     <button onClick={() => setTxFilter('in')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
-                    <button onClick={() => setTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
+                    <button onClick={() => setTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'out' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Money Out</button>
                   </div>
                   <Input type="date" value={txStartDate} onChange={e => setTxStartDate(e.target.value)} className="flex-1 min-w-[8rem] sm:flex-none sm:w-36 bg-background border-border text-foreground" />
                   <span className="text-muted-foreground text-sm">to</span>
                   <Input type="date" value={txEndDate} onChange={e => setTxEndDate(e.target.value)} className="flex-1 min-w-[8rem] sm:flex-none sm:w-36 bg-background border-border text-foreground" />
                 </div>
               </div>
+              <TransactionFilters
+                studentQuery={txStudentQuery}
+                onStudentQueryChange={setTxStudentQuery}
+                item={txItem}
+                onItemChange={setTxItem}
+                itemOptions={txItemOptions}
+                resultLabel={txNarrowed ? `${tenantTxs.length} of ${tenantTxsBase.length} transactions` : undefined}
+              />
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                  { label: "Period Revenue", value: `₦${txTotal.toFixed(2)}`, color: "text-primary" },
+                  { label: "Period Revenue", value: `${naira(txTotal)}`, color: "text-primary" },
                   { label: "Transactions", value: tenantTxs.length, color: "text-foreground" },
                   { label: "Unique Students", value: new Set(tenantTxs.map(t => t.studentId)).size, color: "text-blue-400" },
                 ].map(c => (
                   <Card key={c.label} className="bg-card border-border">
                     <CardContent className="p-6">
-                      <div className="text-muted-foreground text-xs uppercase tracking-wide mb-2">{c.label}</div>
+                      <div className="text-muted-foreground text-xs tracking-wide mb-2">{c.label}</div>
                       <div className={`text-3xl font-display ${c.color}`}>{c.value}</div>
                     </CardContent>
                   </Card>
@@ -299,7 +316,7 @@ export function TenantConsole() {
                         <TableRow>
                           <TableCell colSpan={5} className="text-center py-16 text-muted-foreground">
                             <Receipt className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                            No transactions in this date range.
+                            {txNarrowed ? "No transactions match this student or item." : "No transactions in this date range."}
                           </TableCell>
                         </TableRow>
                       ) : tenantTxs.map(tx => {
@@ -317,7 +334,7 @@ export function TenantConsole() {
                               </div>
                             </TableCell>
                             <TableCell className="text-muted-foreground text-sm max-w-xs truncate">{tx.itemsString}</TableCell>
-                            <TableCell className={`font-bold text-right ${tx.amount < 0 ? 'text-green-500' : 'text-red-500'}`}>{tx.amount < 0 ? '+' : '-'}₦{Math.abs(tx.amount).toFixed(2)}</TableCell>
+                            <TableCell className={`font-bold text-right ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
                             <TableCell className="text-right px-6">
                               <Button variant="ghost" size="sm" onClick={() => setCancelId(tx.id)} className="text-red-500 hover:text-red-400 hover:bg-red-950/30 h-8 px-3">
                                 <XCircle className="h-3.5 w-3.5 mr-1" /> Cancel
@@ -468,7 +485,7 @@ export function TenantConsole() {
             if (!tx) return null;
             return (
               <div className="space-y-4 py-2">
-                <p className="text-foreground text-sm">Refund <span className="font-bold text-primary">₦{tx.amount.toFixed(2)}</span> to <span className="font-bold text-foreground">{tx.studentName}</span>'s wallet?</p>
+                <p className="text-foreground text-sm">Refund <span className="font-bold text-primary">{naira(tx.amount)}</span> to <span className="font-bold text-foreground">{tx.studentName}</span>'s wallet?</p>
                 <div className="bg-background rounded-lg p-3 text-sm text-muted-foreground space-y-1">
                   <div className="flex justify-between"><span>Items</span><span className="text-foreground">{tx.itemsString}</span></div>
                   <div className="flex justify-between"><span>Date</span><span className="text-foreground">{tx.date}</span></div>

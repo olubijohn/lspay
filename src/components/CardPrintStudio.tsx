@@ -77,14 +77,15 @@ const BUBBLE_STOPS: Record<BubbleColor, [string, string, string]> = {
   purple: ["#D6A6FF", "#9B4DE8", "#6C27B3"],
 };
 
-// Ring around the photo: [angle°, radius, gap from photo edge, colour]
-const RING: [number, number, number, BubbleColor][] = [
-  [150, 15, 4, "blue"], [128, 4, 6, "green"], [112, 6, 3, "red"], [97, 3, 8, "purple"], [85, 5, 4, "blue"],
-  [68, 12, 3, "yellow"], [50, 5, 6, "purple"], [35, 9, 3, "blue"], [20, 4, 10, "red"], [8, 7, 4, "green"],
-  [-8, 11, 3, "red"], [-25, 5, 7, "blue"], [-38, 8, 3, "green"], [-52, 4, 8, "yellow"], [-62, 9, 4, "blue"],
-  [-78, 4, 6, "red"], [-92, 10, 3, "purple"], [-108, 4, 8, "yellow"], [-122, 6, 4, "red"], [-140, 16, 4, "blue"],
-  [-160, 4, 8, "purple"], [-175, 13, 3, "green"], [168, 5, 9, "red"],
-  [140, 3, 22, "yellow"], [60, 3, 26, "blue"], [-45, 3, 24, "purple"], [-150, 3, 28, "yellow"], [100, 3, 20, "green"],
+// Ring around the photo: [angle°, radius, colour]. Every bubble is tucked under the photo so that 30% of its
+// diameter sits behind the photo frame (the photo is drawn on top of the bubbles).
+const TUCK = 0.3;
+const RING: [number, number, BubbleColor][] = [
+  [150, 15, "blue"], [131, 4, "green"], [116, 6, "red"], [101, 3, "purple"], [88, 5, "blue"],
+  [70, 12, "yellow"], [52, 5, "purple"], [37, 9, "blue"], [22, 4, "red"], [9, 7, "green"],
+  [-8, 11, "red"], [-25, 5, "blue"], [-39, 8, "green"], [-53, 4, "yellow"], [-65, 9, "blue"],
+  [-81, 4, "red"], [-95, 10, "purple"], [-111, 4, "yellow"], [-124, 6, "red"], [-142, 16, "blue"],
+  [-162, 4, "purple"], [-178, 13, "green"], [166, 5, "red"],
 ];
 // Loose bubbles near the bottom corners: [x, y, radius, colour]
 const CORNERS: [number, number, number, BubbleColor][] = [
@@ -94,8 +95,9 @@ const CORNERS: [number, number, number, BubbleColor][] = [
 
 function Bubbles({ uid }: { uid: string }) {
   const colors = Object.keys(BUBBLE_STOPS) as BubbleColor[];
-  const ring = RING.map(([deg, r, gap, c]) => {
-    const d = PHOTO_R + r + gap;
+  const ring = RING.map(([deg, r, c]) => {
+    // centre sits so that 2r·TUCK of the bubble overlaps the photo's outer edge
+    const d = PHOTO_R + r - 2 * r * TUCK;
     const a = (deg * Math.PI) / 180;
     return [PHOTO_CX + d * Math.cos(a), PHOTO_CY - d * Math.sin(a), r, c] as const;
   });
@@ -304,21 +306,15 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
 
     // Pre-scale assets to compact Base64 so the HTML file is 100% self-contained offline
     let logoBase64 = "/logo-new.png";
-    let patternBase64 = "/african-pattern.jpg";
     try {
-      const [lB64, pB64] = await Promise.all([
-        getScaledDataUrl("/logo-new.png", 120, 120, "image/png"),
-        getScaledDataUrl("/african-pattern.jpg", 408, 648, "image/jpeg", 0.88),
-      ]);
+      const lB64 = await getScaledDataUrl("/logo-new.png", 120, 120, "image/png");
       if (lB64) logoBase64 = lB64;
-      if (pB64) patternBase64 = pB64;
     } catch (e) {
       console.warn("Could not pre-encode assets to base64", e);
     }
 
     // Replace img src occurrences so the file works offline
     htmlContent = htmlContent.replace(/src=["'][^"']*logo-new\.png["']/g, `src="${logoBase64}"`);
-    htmlContent = htmlContent.replace(/src=["'][^"']*african-pattern\.jpg["']/g, `src="${patternBase64}"`);
 
     const isLandscape = printLayout === "grid_a4";
     const pageOrientation = isLandscape ? "landscape" : "portrait";
@@ -608,7 +604,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
     );
   };
 
-  // BACK — QR code, school name, address, phone numbers, umusa.cloud / VERIFIED footer over the pattern.
+  // BACK — plain white: QR code, school name, address, phone numbers, umusa.cloud footer.
   const renderBackCard = (stud: Student) => {
     const studTenant = tenantFor(stud);
     const studSchoolName = titleCase(studTenant?.name || schoolName);
@@ -617,11 +613,6 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
 
     return (
       <div className="id-card" style={cardShell({ border: "1px solid #d1d5db" })}>
-        {/* Pattern background, softened */}
-        <img src="/african-pattern.jpg" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-        <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.82)" }} />
-        <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: "210px", background: "linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.9) 60%, rgba(255,255,255,0) 100%)" }} />
-
         {/* QR code */}
         <div
           style={{
@@ -649,7 +640,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
           <span style={{ fontFamily: SANS, fontWeight: 800, fontSize: "14px", lineHeight: 1.2, color: "#111111", maxWidth: "180px", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
             {studSchoolName}
           </span>
-          <span style={{ fontFamily: SANS, fontSize: "8px", lineHeight: 1.35, color: "#333333", maxWidth: "170px" }}>{studSchoolAddress}</span>
+          <span style={{ fontFamily: SANS, fontWeight: 700, fontSize: "8px", lineHeight: 1.35, color: "#111111", maxWidth: "170px" }}>{studSchoolAddress}</span>
           {studSchoolPhone ? (
             <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: "8px", lineHeight: 1.35, color: "#111111", maxWidth: "180px" }}>{studSchoolPhone}</span>
           ) : null}
@@ -661,9 +652,8 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
             <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#FFFFFF", border: "1px solid #E5E7EB", boxShadow: "0 1px 3px rgba(0,0,0,0.10)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
               <img src="/logo-new.png" alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} />
             </div>
-            <span style={{ fontFamily: MONO, fontSize: "8.5px", color: "#222222" }}>umusa.cloud</span>
+            <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: "8.5px", color: "#111111" }}>umusa.cloud</span>
           </div>
-          <span style={{ fontFamily: MONO, fontSize: "7.5px", color: "#9CA3AF", letterSpacing: "0.08em" }}>VERIFIED</span>
         </div>
       </div>
     );

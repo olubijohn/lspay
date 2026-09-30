@@ -1,3 +1,4 @@
+import { naira, nairaAxis } from "@/lib/money";
 import { useState, useMemo, useEffect } from "react";
 import { useStore } from "@/store";
 import { useLocation } from "wouter";
@@ -16,6 +17,7 @@ import { NotificationCenter } from "@/components/layout/NotificationCenter";
 import { ParentBottomNav } from "@/components/parent/ParentBottomNav";
 import { LinkChildPage } from "@/components/parent/LinkChildPage";
 import { PrivacyComplianceDialog } from "@/components/parent/PrivacyComplianceDialog";
+import { ForceChangePassword } from "@/components/parent/ForceChangePassword";
 import { PRIVACY_POLICY_VERSION } from "@/lib/privacyPolicy";
 import { Student, Transaction, cardLifecycleLabel } from "@/lib/types";
 import { launchPaystack, isPaystackConfigured } from "@/lib/paystack";
@@ -23,7 +25,6 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as
 import { useChartTheme } from "@/theme";
 import { ParentSidebar } from "@/components/layout/ParentSidebar";
 
-const naira = (n: number) => `₦${n.toFixed(2)}`;
 
 /** Child photo, or their initials when the school hasn't uploaded one. */
 function ChildAvatar({ child, className }: { child: Student; className: string }) {
@@ -46,7 +47,7 @@ function MobileTxList({ txs, showChild }: { txs: Transaction[]; showChild?: bool
         const isIn = tx.amount < 0;
         return (
           <li key={tx.id} className="flex items-center gap-3 py-3">
-            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isIn ? "bg-mint text-green-700" : "bg-blush text-red-700"}`}>
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isIn ? "bg-mint text-green-700" : "bg-muted text-muted-foreground"}`}>
               {isIn ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
             </span>
             <div className="min-w-0 flex-1">
@@ -55,8 +56,8 @@ function MobileTxList({ txs, showChild }: { txs: Transaction[]; showChild?: bool
                 {showChild ? `${tx.studentName} · ` : ""}{tx.date}
               </div>
             </div>
-            <div className={`shrink-0 font-display text-base ${isIn ? "text-green-600" : "text-red-600"}`}>
-              {isIn ? "+" : "-"}{naira(Math.abs(tx.amount))}
+            <div className={`shrink-0 font-display text-base ${isIn ? "text-green-600" : "text-foreground"}`}>
+              {isIn ? "+" : "−"}{naira(Math.abs(tx.amount))}
             </div>
           </li>
         );
@@ -120,6 +121,8 @@ export function ParentPortal() {
   }, [parentSession, setLocation]);
 
   if (!parentSession) return null;
+  // Connected by the school with a temporary password: they must choose their own before anything else.
+  if (parentSession.mustChangePassword) return <ForceChangePassword />;
 
   const linkedChildren = students.filter(s => parentSession.linkedStudentIds.includes(s.id));
   const parentNotifications = notifications.filter(n => n.targetRole === 'parent' && n.targetParentEmail === parentSession.email);
@@ -295,7 +298,7 @@ export function ParentPortal() {
       {topupSuccess && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[10002] flex items-center gap-3 px-5 py-3 rounded-xl bg-green-600 text-white shadow-2xl animate-in fade-in slide-in-from-top-4" data-testid="topup-success">
           <CheckCircle2 className="h-5 w-5 shrink-0" />
-          <span className="text-sm font-semibold">₦{topupSuccess.amount.toFixed(2)} added to {topupSuccess.name}'s wallet</span>
+          <span className="text-sm font-semibold">{naira(topupSuccess.amount)} added to {topupSuccess.name}'s wallet</span>
         </div>
       )}
       <ParentSidebar activeTab={activeTab} setActiveTab={setActiveTab} onAddChild={handleOpenAddChild} />
@@ -325,7 +328,7 @@ export function ParentPortal() {
                 <div className="pointer-events-none absolute -bottom-24 right-16 h-48 w-48 rounded-full bg-gold/15" />
                 <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
                   <div>
-                    <div className="text-xs font-extrabold uppercase tracking-widest text-lilac/70">Family balance</div>
+                    <div className="text-xs font-extrabold tracking-widest text-lilac/70">Family balance</div>
                     <div className="mt-1 font-display text-4xl sm:text-5xl">{naira(familyBalance)}</div>
                     <div className="mt-1 text-sm text-lilac/80">
                       {linkedChildren.length === 0 ? "No children linked yet" : `Across ${linkedChildren.length} ${linkedChildren.length === 1 ? "child" : "children"}`}
@@ -405,7 +408,7 @@ export function ParentPortal() {
                         <Card key={s.label} className="bg-card border-border shadow-sm">
                           <CardContent className="p-4 md:p-6">
                             <span className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${s.tint}`}><s.icon className="h-4 w-4" /></span>
-                            <div className="text-muted-foreground text-xs mb-1 font-extrabold tracking-wide uppercase">{s.label}</div>
+                            <div className="text-muted-foreground text-xs mb-1 font-extrabold tracking-wide ">{s.label}</div>
                             <div className={`text-2xl md:text-3xl font-display truncate ${s.tone}`}>{s.value}</div>
                           </CardContent>
                         </Card>
@@ -422,7 +425,7 @@ export function ParentPortal() {
                             <BarChart data={childSpendData}>
                               <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
                               <XAxis dataKey="name" stroke={chartTheme.axis} fontSize={12} />
-                              <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={v => `₦${v}`} />
+                              <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={nairaAxis} />
                               <RechartsTooltip cursor={{ fill: chartTheme.cursor }} contentStyle={chartTheme.tooltip} />
                               <Bar dataKey="spent" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
                             </BarChart>
@@ -438,7 +441,7 @@ export function ParentPortal() {
                             <LineChart data={dailyData}>
                               <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
                               <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={12} />
-                              <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={v => `₦${v}`} />
+                              <YAxis stroke={chartTheme.axis} fontSize={12} tickFormatter={nairaAxis} />
                               <RechartsTooltip contentStyle={chartTheme.tooltip} />
                               <Line type="monotone" dataKey="spend" stroke="hsl(var(--chart-1))" strokeWidth={3} dot={{ r: 4, fill: 'hsl(var(--chart-1))' }} />
                             </LineChart>
@@ -453,7 +456,7 @@ export function ParentPortal() {
                         <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
                           <button onClick={() => setTxFilter('all')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
                           <button onClick={() => setTxFilter('in')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
-                          <button onClick={() => setTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
+                          <button onClick={() => setTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'out' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Money Out</button>
                         </div>
                       </CardHeader>
                       <CardContent>
@@ -465,11 +468,11 @@ export function ParentPortal() {
                           <Table>
                             <TableHeader className="bg-card/80 sticky top-0">
                               <TableRow className="border-border hover:bg-transparent">
-                                <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Date</TableHead>
-                                <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Child</TableHead>
-                                <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs">School</TableHead>
-                                <TableHead className="text-muted-foreground font-bold uppercase tracking-wider text-xs">Items</TableHead>
-                                <TableHead className="text-right text-muted-foreground font-bold uppercase tracking-wider text-xs pr-4">Amount</TableHead>
+                                <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Date</TableHead>
+                                <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Child</TableHead>
+                                <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">School</TableHead>
+                                <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Items</TableHead>
+                                <TableHead className="text-right text-muted-foreground font-bold tracking-wider text-xs pr-4">Amount</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -483,7 +486,7 @@ export function ParentPortal() {
                                   <TableCell className="text-foreground font-medium">{tx.studentName}</TableCell>
                                   <TableCell className="text-muted-foreground text-sm">{tx.schoolName}</TableCell>
                                   <TableCell className="text-foreground text-sm">{tx.itemsString}</TableCell>
-                                  <TableCell className={`font-bold text-right pr-4 ${tx.amount < 0 ? 'text-green-500' : 'text-red-500'}`}>{tx.amount < 0 ? '+' : '-'}₦{Math.abs(tx.amount).toFixed(2)}</TableCell>
+                                  <TableCell className={`font-bold text-right pr-4 ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
                                 </TableRow>
                               ))}
                               {allTx.filter(tx => {
@@ -573,7 +576,7 @@ export function ParentPortal() {
                   </div>
 
                   <div className="on-ink w-full md:w-auto bg-ink text-white p-5 sm:p-6 rounded-2xl text-center min-w-[220px] z-10 shadow-md">
-                    <div className="text-xs text-lilac/70 mb-1 font-extrabold tracking-widest uppercase">Wallet Balance</div>
+                    <div className="text-xs text-lilac/70 mb-1 font-extrabold tracking-widest ">Wallet Balance</div>
                     <div className="text-4xl sm:text-5xl font-display">{naira(child.walletBalance)}</div>
                     <Button onClick={() => setShowTopupModal(child.id)} variant="highlight" size="sm" className="mt-3 h-9 rounded-xl px-4">
                       <Plus /> Top up
@@ -640,28 +643,28 @@ export function ParentPortal() {
                   <CardContent className="p-4 sm:p-6">
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-8">
                       <div className="bg-background p-4 rounded-xl border border-border">
-                        <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-1">Money In</div>
-                        <div className="text-3xl font-display text-green-500">+₦{moneyInPeriod.toFixed(2)}</div>
+                        <div className="text-muted-foreground text-xs font-bold tracking-wider mb-1">Money In</div>
+                        <div className="text-3xl font-display text-green-500">+{naira(moneyInPeriod)}</div>
                       </div>
                       <div className="bg-background p-4 rounded-xl border border-border">
-                        <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-1">Money Out</div>
-                        <div className="text-3xl font-display text-red-500">-₦{moneyOutPeriod.toFixed(2)}</div>
+                        <div className="text-muted-foreground text-xs font-bold tracking-wider mb-1">Money Out</div>
+                        <div className="text-3xl font-display text-foreground">−{naira(moneyOutPeriod)}</div>
                       </div>
                       <div className="bg-background p-4 rounded-xl border border-border">
-                        <div className="text-muted-foreground text-xs font-bold uppercase tracking-wider mb-1">Most Frequent Item</div>
+                        <div className="text-muted-foreground text-xs font-bold tracking-wider mb-1">Most Frequent Item</div>
                         <div className="text-xl font-bold text-foreground mt-1 line-clamp-1">{topItems[0]?.name || "-"}</div>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                       <div className="space-y-4">
-                        <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Daily Spending Trend</h4>
+                        <h4 className="text-sm font-bold text-muted-foreground tracking-wider">Daily Spending Trend</h4>
                         <div className="h-[250px]">
                           <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={childDailyData}>
                               <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
                               <XAxis dataKey="date" stroke={chartTheme.axis} fontSize={10} />
-                              <YAxis stroke={chartTheme.axis} fontSize={10} tickFormatter={v => `₦${v}`} />
+                              <YAxis stroke={chartTheme.axis} fontSize={10} tickFormatter={nairaAxis} />
                               <RechartsTooltip contentStyle={chartTheme.tooltip} />
                               <Line type="monotone" dataKey="spend" stroke="hsl(var(--chart-2))" strokeWidth={3} dot={{ r: 4, fill: 'hsl(var(--chart-2))' }} />
                             </LineChart>
@@ -669,7 +672,7 @@ export function ParentPortal() {
                         </div>
                       </div>
                       <div className="space-y-4">
-                        <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Top Items</h4>
+                        <h4 className="text-sm font-bold text-muted-foreground tracking-wider">Top Items</h4>
                         <div className="h-[250px]">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={topItems} layout="vertical" margin={{ left: 40 }}>
@@ -685,11 +688,11 @@ export function ParentPortal() {
                     </div>
 
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                      <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-0">Transaction Log</h4>
+                      <h4 className="text-sm font-bold text-muted-foreground tracking-wider mb-0">Transaction Log</h4>
                       <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
                         <button onClick={() => setTxFilter('all')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'all' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>All</button>
                         <button onClick={() => setTxFilter('in')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'in' ? 'bg-background text-green-500 shadow-sm' : 'text-muted-foreground hover:text-green-500'}`}>Money In</button>
-                        <button onClick={() => setTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'out' ? 'bg-background text-red-500 shadow-sm' : 'text-muted-foreground hover:text-red-500'}`}>Money Out</button>
+                        <button onClick={() => setTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'out' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Money Out</button>
                       </div>
                     </div>
                     <MobileTxList txs={periodTx.filter(tx => txFilter === 'in' ? tx.amount < 0 : txFilter === 'out' ? tx.amount > 0 : true)} />
@@ -697,9 +700,9 @@ export function ParentPortal() {
                       <Table>
                         <TableHeader className="bg-card/80 sticky top-0">
                           <TableRow className="border-border">
-                            <TableHead className="text-muted-foreground font-bold text-xs uppercase tracking-wider">Date</TableHead>
-                            <TableHead className="text-muted-foreground font-bold text-xs uppercase tracking-wider">Items</TableHead>
-                            <TableHead className="text-right text-muted-foreground font-bold text-xs uppercase tracking-wider pr-4">Amount</TableHead>
+                            <TableHead className="text-muted-foreground font-bold text-xs tracking-wider">Date</TableHead>
+                            <TableHead className="text-muted-foreground font-bold text-xs tracking-wider">Items</TableHead>
+                            <TableHead className="text-right text-muted-foreground font-bold text-xs tracking-wider pr-4">Amount</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -711,7 +714,7 @@ export function ParentPortal() {
                             <TableRow key={tx.id} className="border-border/50 hover:bg-muted/50">
                               <TableCell className="text-foreground text-sm whitespace-nowrap">{tx.date}</TableCell>
                               <TableCell className="text-foreground text-sm">{tx.itemsString}</TableCell>
-                              <TableCell className={`text-right font-bold pr-4 ${tx.amount < 0 ? 'text-green-500' : 'text-red-500'}`}>{tx.amount < 0 ? '+' : '-'}₦{Math.abs(tx.amount).toFixed(2)}</TableCell>
+                              <TableCell className={`text-right font-bold pr-4 ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
                             </TableRow>
                           ))}
                           {periodTx.filter(tx => {
@@ -849,15 +852,15 @@ export function ParentPortal() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-muted-foreground text-xs font-bold uppercase tracking-wide">Full Name <span className="text-muted-foreground normal-case font-normal">(read-only)</span></Label>
+                    <Label className="text-muted-foreground text-xs font-bold tracking-wide">Full Name <span className="text-muted-foreground normal-case font-normal">(read-only)</span></Label>
                     <Input disabled value={parentSession.name} className="bg-background border-border text-muted-foreground cursor-not-allowed" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-muted-foreground text-xs font-bold uppercase tracking-wide">Email Address <span className="text-muted-foreground normal-case font-normal">(read-only)</span></Label>
+                    <Label className="text-muted-foreground text-xs font-bold tracking-wide">Email Address <span className="text-muted-foreground normal-case font-normal">(read-only)</span></Label>
                     <Input disabled value={parentSession.email} className="bg-background border-border text-muted-foreground cursor-not-allowed" />
                   </div>
                   <div className="space-y-2 pt-2 border-t border-border">
-                    <Label className="text-foreground text-xs font-bold uppercase tracking-wide">Contact Phone Number</Label>
+                    <Label className="text-foreground text-xs font-bold tracking-wide">Contact Phone Number</Label>
                     <div className="flex gap-3">
                       <Input
                         value={phoneInput}
@@ -925,7 +928,7 @@ export function ParentPortal() {
           <form onSubmit={handleTopup} className="mt-4">
             <div className="grid grid-cols-3 gap-3 mb-6">
               {[10, 20, 50].map(amt => (
-                <Button key={amt} type="button" variant="outline" onClick={() => setTopupAmount(amt.toString())} className="bg-background border-border text-foreground h-14 text-xl font-bold hover:bg-muted hover:border-primary">₦{amt}</Button>
+                <Button key={amt} type="button" variant="outline" onClick={() => setTopupAmount(amt.toString())} className="bg-background border-border text-foreground h-14 text-xl font-bold hover:bg-muted hover:border-primary">{naira(amt, { decimals: 0 })}</Button>
               ))}
             </div>
             <div className="space-y-2 mb-4">
@@ -942,8 +945,8 @@ export function ParentPortal() {
               <div className="flex items-start gap-2 px-3 py-2.5 mb-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
                 <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                 <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-                  <strong>Enrollment charge (4%): ₦{(Number(topupAmount) * 0.04).toFixed(2)}</strong> — covers infrastructure, payment gateway and transaction fees.<br />
-                  Your child's wallet will be credited with <strong>₦{(Number(topupAmount) * 0.96).toFixed(2)}</strong>.
+                  <strong>Enrollment charge (4%): {naira((Number(topupAmount) * 0.04))}</strong> — covers infrastructure, payment gateway and transaction fees.<br />
+                  Your child's wallet will be credited with <strong>{naira((Number(topupAmount) * 0.96))}</strong>.
                 </p>
               </div>
             )}

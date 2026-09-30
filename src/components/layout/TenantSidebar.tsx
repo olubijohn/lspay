@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from "react";
-import { LayoutDashboard, GraduationCap, Package, TrendingUp, BarChart3, Monitor, Bell, LogOut, Store, Receipt, Users, Camera } from "lucide-react";
+import { LayoutDashboard, GraduationCap, Package, TrendingUp, BarChart3, Monitor, Bell, LogOut, Store, Receipt, Users, Camera, ImageUp } from "lucide-react";
+import { CameraCaptureDialog } from "@/components/CameraCapture";
 import { useStore } from "@/store";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ export function TenantSidebar({ activeTab, setActiveTab, tenantName, logoUrl, on
   const [, setLocation] = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imgError, setImgError] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   useEffect(() => {
     setImgError(false);
@@ -107,11 +109,22 @@ export function TenantSidebar({ activeTab, setActiveTab, tenantName, logoUrl, on
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                title="Change school logo"
-                className="absolute -bottom-1 -right-1 p-1 bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                title="Upload school logo"
+                aria-label="Upload school logo"
+                className="absolute -bottom-1 -right-1 p-1 bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border rounded-full shadow opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity cursor-pointer"
+              >
+                <ImageUp className="w-3 h-3 text-primary" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCameraOpen(true)}
+                title="Take a photo of the school logo"
+                aria-label="Take a photo of the school logo"
+                className="absolute -bottom-1 -left-1 p-1 bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border rounded-full shadow opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity cursor-pointer"
               >
                 <Camera className="w-3 h-3 text-primary" />
               </button>
+              <CameraCaptureDialog open={cameraOpen} onOpenChange={setCameraOpen} title="Take a photo of the school logo" onCapture={f => onUploadLogo(f)} />
             </>
           )}
         </div>
@@ -129,8 +142,7 @@ export function TenantSidebar({ activeTab, setActiveTab, tenantName, logoUrl, on
               key={item.id}
               onClick={() => handleNav(item.id)}
               data-testid={`nav-tenant-${item.id}`}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-colors text-sm font-bold ${
-                isActive
+              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-colors text-sm font-bold ${ isActive
                   ? "bg-muted text-primary"
                   : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               }`}
@@ -154,7 +166,7 @@ export function TenantSidebar({ activeTab, setActiveTab, tenantName, logoUrl, on
           </span>
           <div className="min-w-0">
             <div className="text-foreground font-bold text-sm truncate">{user?.name}</div>
-            <div className="text-primary text-[11px] uppercase tracking-widest font-extrabold">{user?.role?.replace(/_/g, " ")}</div>
+            <div className="text-primary text-[11px] tracking-widest font-extrabold">{user?.role?.replace(/_/g, " ")}</div>
           </div>
         </div>
         <Button

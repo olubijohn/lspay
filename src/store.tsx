@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from "react";
 import {
   AppState, Tenant, Student, InventoryItem, Transaction, SystemUser, ParentUser, StockMovement,
-  AuthSession, AppNotification, CardStatus, CardLifecycleStatus, TenantUserRole,
+  AuthSession, AppNotification, CardStatus, CardLifecycleStatus, TenantUserRole, LspayParentCredentials,
 } from "./lib/types";
 import { getSupabase, isSupabaseConfigured } from "./lib/supabaseClient";
 
@@ -93,6 +93,29 @@ function mapNotificationRow(r: any): AppNotification {
   };
 }
 
+// LSPay parent accounts (0087) are separate from LSA's parent-portal portal_accounts.
+const LSPAY_PARENT_SELECT = "*, lspay_parent_account_students(student_id)";
+
+function mapLspayParentRow(r: any): ParentUser {
+  return {
+    id: r.id, name: r.full_name, email: r.email ?? "", passwordHash: "", phone: r.phone ?? "",
+    linkedStudentIds: (r.lspay_parent_account_students ?? []).map((x: any) => x.student_id),
+    mustChangePassword: !!r.must_change_password, tenantId: r.tenant_id, createdByName: r.created_by_name ?? undefined,
+  };
+}
+
+/** One signed-in guardian may have an LSPay account at more than one school: merge them into one session. */
+function mergeParentAccounts(rows: any[]): ParentUser | null {
+  if (!rows.length) return null;
+  const all = rows.map(mapLspayParentRow);
+  const first = all[0];
+  return {
+    ...first,
+    linkedStudentIds: [...new Set(all.flatMap((a) => a.linkedStudentIds))],
+    mustChangePassword: all.some((a) => a.mustChangePassword),
+  };
+}
+
 // levels!students_level_id_fkey disambiguates from students.next_level_id, which also points at levels
 // (added later for LSA's roster-import "next class" field) - PostgREST can't guess which one we mean.
 const STUDENT_SELECT = "*, lspay_student_wallets(*), levels!students_level_id_fkey(name)";
@@ -131,7 +154,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let smq = supabase.from("lspay_stock_movements").select("*");
     let nq = supabase.from("lspay_notifications").select("*").order("created_at", { ascending: false });
     let puq = supabase.from("profiles").select("*");
-    let paq = supabase.from("portal_accounts").select("*, portal_account_students(student_id)");
+    let paq = supabase.from("lspay_parent_accounts").select(LSPAY_PARENT_SELECT);
 
     if (tenantId) {
       sq = sq.eq("tenant_id", tenantId); tq = tq.eq("id", tenantId); iq = iq.eq("tenant_id", tenantId);
@@ -179,10 +202,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
     setSystemUsers([...adminUsers, ...staffUsers]);
 
-    setParentUsers((paData ?? []).map((p: any) => ({
-      id: p.id, name: p.full_name, email: p.email ?? "", passwordHash: "", phone: p.phone ?? "",
-      linkedStudentIds: (p.portal_account_students ?? []).map((x: any) => x.student_id),
-    })));
+    setParentUsers((paData ?? []).map(mapLspayParentRow));
   }, []);
 
   const loadForParent = useCallback(async (accountId: string, linkedStudentIds: string[], myToken: number) => {
@@ -255,17 +275,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const { data: account } = await supabase.from("portal_accounts").select("*, portal_account_students(student_id)").eq("user_id", uid).maybeSingle();
+      const { data: accounts } = await supabase.from("lspay_parent_accounts").select(LSPAY_PARENT_SELECT).eq("user_id", uid);
       if (loadToken.current !== myToken) return;
-      if (account) {
+      const pu = mergeParentAccounts(accounts ?? []);
+      if (pu) {
         const refusal = await lspayRefusal();
         if (loadToken.current !== myToken) return;
         if (refusal) { setAccessError(refusal); await supabase.auth.signOut(); return; }
-        const linked = (account.portal_account_students ?? []).map((x: any) => x.student_id);
-        const pu: ParentUser = { id: account.id, name: account.full_name, email: account.email ?? "", passwordHash: "", phone: account.phone ?? "", linkedStudentIds: linked };
         setSession({ user: null, portal: null });
         setParentSession(pu);
-        await loadForParent(account.id, linked, myToken);
+        await loadForParent(pu.id, pu.linkedStudentIds, myToken);
         return;
       }
 
@@ -346,46 +365,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return user;
   };
 
+  // Parents sign in with the login the school created for them ("Connect to LSPay parent portal").
   const loginParent = async (identifier: string, password: string) => {
     const supabase = getSupabase();
     const email = await resolveIdentifierToEmail(identifier);
-    let { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-    // If sign in fails because email wasn't confirmed yet, auto-sync and retry
-    if (error && (error.message?.toLowerCase().includes("confirm") || error.status === 400)) {
-      await supabase.rpc("lspay_ensure_parent_portal_account", { p_email: email });
-      const retry = await supabase.auth.signInWithPassword({ email, password });
-      if (!retry.error && retry.data.user) {
-        data = retry.data;
-        error = null;
-      }
-    }
-
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error || !data.user) {
       if (error?.message) setAccessError(error.message);
       return null;
     }
 
-    // Ensure portal account exists & is linked to students with this email
-    let { data: account } = await supabase
-      .from("portal_accounts")
-      .select("*, portal_account_students(student_id)")
-      .eq("user_id", data.user.id)
-      .maybeSingle();
-
-    if (!account) {
-      await supabase.rpc("lspay_ensure_parent_portal_account", { p_email: data.user.email || email });
-      const refreshed = await supabase
-        .from("portal_accounts")
-        .select("*, portal_account_students(student_id)")
-        .eq("user_id", data.user.id)
-        .maybeSingle();
-      account = refreshed.data;
-    }
-
-    if (!account) {
+    const { data: accounts } = await supabase.from("lspay_parent_accounts").select(LSPAY_PARENT_SELECT).eq("user_id", data.user.id);
+    const pu = mergeParentAccounts(accounts ?? []);
+    if (!pu) {
       await supabase.auth.signOut();
-      setAccessError("No portal account found for this email. Contact your school administrator.");
+      setAccessError("This account is not connected to the LSPay parent portal yet. Please ask your child's school to connect you.");
       return null;
     }
 
@@ -393,37 +387,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (refusal) { setAccessError(refusal); await supabase.auth.signOut(); return null; }
     setAccessError("");
 
-    const linked = (account.portal_account_students ?? []).map((x: any) => x.student_id);
-    const pu: ParentUser = { id: account.id, name: account.full_name, email: account.email ?? "", passwordHash: "", phone: account.phone ?? "", linkedStudentIds: linked };
     setSession({ user: null, portal: null }); setParentSession(pu);
-    await loadForParent(account.id, linked, ++loadToken.current);
+    await loadForParent(pu.id, pu.linkedStudentIds, ++loadToken.current);
     return pu;
+  };
+
+  // First sign-in after the school connected them: the parent replaces the temporary password.
+  const changeParentPassword = async (newPassword: string) => {
+    const supabase = getSupabase();
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return { success: false, message: error.message };
+    const { error: clearErr } = await supabase.rpc("lspay_clear_must_change_password");
+    if (clearErr) return { success: false, message: clearErr.message };
+    setParentSession((prev) => (prev ? { ...prev, mustChangePassword: false } : prev));
+    return { success: true };
   };
 
   const logout = async () => { await getSupabase().auth.signOut(); ++loadToken.current; setSession({ user: null, portal: null }); clearAll(); };
   const logoutParent = async () => { await getSupabase().auth.signOut(); ++loadToken.current; setParentSession(null); clearAll(); };
 
-  const registerParent = async (name: string, email: string, password: string) => {
-    const supabase = getSupabase();
-    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } });
-    if (error || !data.user) return null;
-
-    // Immediately sync portal account and linked children
-    await supabase.rpc("lspay_ensure_parent_portal_account", { p_email: email });
-    const { data: account } = await supabase.from("portal_accounts").select("*, portal_account_students(student_id)").eq("user_id", data.user.id).maybeSingle();
-    const linked = (account?.portal_account_students ?? []).map((x: any) => x.student_id);
-
-    const pu: ParentUser = { id: account?.id || data.user.id, name, email, passwordHash: "", phone: "", linkedStudentIds: linked };
-    setSession({ user: null, portal: null }); setParentSession(pu);
-    if (data.session) await loadForParent(pu.id, linked, ++loadToken.current);
-    return pu;
-  };
-
   // ------------------------------ staff / platform users ------------------------------
   const updateParentUser = (id: string, data: Partial<Pick<ParentUser, "phone">>) => {
     setParentUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...data } : u)));
     setParentSession((prev) => (prev && prev.id === id ? { ...prev, ...data } : prev));
-    if (data.phone !== undefined) getSupabase().from("portal_accounts").update({ phone: data.phone }).eq("id", id).then();
+    if (data.phone !== undefined) getSupabase().from("lspay_parent_accounts").update({ phone: data.phone }).eq("id", id).then();
   };
 
   const createSystemUser = async (user: Omit<SystemUser, "id">): Promise<SystemUser | null> => {
@@ -548,11 +535,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       sUpdates.avatar_path = updates.imageUrl && !updates.imageUrl.includes("dicebear") ? updates.imageUrl : null;
     }
     if (Object.keys(sUpdates).length) {
-      getSupabase().from("students").update(sUpdates).eq("id", studentId).then(() => {
-        if (updates.parentEmail) {
-          getSupabase().rpc("lspay_ensure_parent_portal_account", { p_email: updates.parentEmail }).then();
-        }
-      });
+      // LSPay parent links follow the guardian email automatically (students_lspay_guardian_links trigger).
+      getSupabase().from("students").update(sUpdates).eq("id", studentId).then();
     }
 
     const wUpdates: any = {};
@@ -775,6 +759,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return error instanceof Error ? error : new Error(String(error?.message ?? error));
   };
 
+  // Staff: the lspay-parent-access edge function creates/links the guardian's LSPay parent login (like LSA's
+  // create-portal-access) and links every sibling with the same guardian email. Re-read the accounts afterwards.
+  const connectLspayParent = async (studentId: string, action: "connect" | "reset" = "connect") => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.functions.invoke("lspay-parent-access", { body: { studentId, action } });
+    if (error) return { success: false, message: (await functionError(error)).message };
+    const tenantId = students.find((s) => s.id === studentId)?.tenantId;
+    let q = supabase.from("lspay_parent_accounts").select(LSPAY_PARENT_SELECT);
+    if (session.portal === "tenant" && tenantId) q = q.eq("tenant_id", tenantId);
+    const { data: rows } = await q;
+    if (rows) {
+      const fresh = rows.map(mapLspayParentRow);
+      setParentUsers((prev) => session.portal === "tenant" ? fresh : [...prev.filter((p) => p.tenantId !== tenantId), ...fresh.filter((p) => p.tenantId === tenantId)]);
+    }
+    return { success: true, credentials: data as LspayParentCredentials };
+  };
+
   const topupWallet = async (studentId: string, paystackReference: string) => {
     const { data, error } = await getSupabase().functions.invoke("lspay-wallet-topup", { body: { studentId, reference: paystackReference } });
     if (error) throw await functionError(error);
@@ -832,12 +833,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!data?.success) return { success: false, message: data?.message };
 
     const supabase = getSupabase();
-    const { data: account } = await supabase.from("portal_accounts").select("*, portal_account_students(student_id)").eq("user_id", (await supabase.auth.getUser()).data.user?.id).maybeSingle();
-    if (account) {
-      const linked = (account.portal_account_students ?? []).map((x: any) => x.student_id);
-      const pu: ParentUser = { id: account.id, name: account.full_name, email: account.email ?? "", passwordHash: "", phone: account.phone ?? "", linkedStudentIds: linked };
+    const { data: accounts } = await supabase.from("lspay_parent_accounts").select(LSPAY_PARENT_SELECT).eq("user_id", (await supabase.auth.getUser()).data.user?.id);
+    const pu = mergeParentAccounts(accounts ?? []);
+    if (pu) {
       setParentSession(pu);
-      await loadForParent(account.id, linked, ++loadToken.current);
+      await loadForParent(pu.id, pu.linkedStudentIds, ++loadToken.current);
     }
     return { success: true };
   };
@@ -932,10 +932,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       value={{
         tenants, students, inventory, transactions, systemUsers, parentUsers, stockMovements, notifications,
         session, parentSession,
-        login, loginParent, logout, logoutParent, registerParent, updateParentUser, createSystemUser, updateSystemUser,
+        login, loginParent, logout, logoutParent, changeParentPassword, updateParentUser, createSystemUser, updateSystemUser,
         addTenant, updateTenant, assignCard, replaceCard, removeCard, createStudent, updateStudent, bulkUpdateStudentAvatars, deleteStudent, deleteStudents, addInventory, updateInventory, deleteInventory, addTransaction, cancelTransaction, deductBalanceAndStock,
         addStockMovement, addParentChild, addNotification, markNotificationRead, markCardReady, markCardDelivered, activateCard,
-        verifyStaffCode, verifyKioskExit, verifyWalletPin, topupWallet, lastAccessError,
+        verifyStaffCode, verifyKioskExit, verifyWalletPin, topupWallet, connectLspayParent, lastAccessError,
       }}
     >
       {children}

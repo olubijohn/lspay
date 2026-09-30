@@ -106,7 +106,7 @@ export function LinkChildPage(props: Props) {
                     onChange={e => onAuthCodeChange(e.target.value.toUpperCase())}
                     placeholder="SCH-XXX-2026"
                     autoCapitalize="characters"
-                    className="h-12 pl-10 font-display text-base uppercase tracking-wide"
+                    className="h-12 pl-10 font-display text-base tracking-wide"
                     required
                   />
                 </div>
@@ -121,7 +121,7 @@ export function LinkChildPage(props: Props) {
                     onChange={e => onStudentIdChange(e.target.value.toUpperCase())}
                     placeholder="STU-000"
                     autoCapitalize="characters"
-                    className="h-12 pl-10 font-display text-base uppercase tracking-wide"
+                    className="h-12 pl-10 font-display text-base tracking-wide"
                     required
                   />
                 </div>

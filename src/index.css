@@ -4,6 +4,27 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Fredoka and Nunito have no ₦ glyph, so browsers borrowed one from a random fallback font and it collided with
+   the +/− sign. This face covers ONLY U+20A6 (₦) with the device's system font, which all include it. */
+@font-face {
+  font-family: "Naira Sign";
+  src: local("Segoe UI"), local("SegoeUI"), local("Roboto"), local("Helvetica Neue"), local("HelveticaNeue"), local("Arial"), local("Noto Sans");
+  font-weight: 400 500;
+  unicode-range: U+20A6;
+}
+@font-face {
+  font-family: "Naira Sign";
+  src: local("Segoe UI Semibold"), local("SegoeUI-Semibold"), local("Roboto Medium"), local("Roboto-Medium"), local("Helvetica Neue Medium"), local("HelveticaNeue-Medium"), local("Arial"), local("Noto Sans Medium");
+  font-weight: 600 700;
+  unicode-range: U+20A6;
+}
+@font-face {
+  font-family: "Naira Sign";
+  src: local("Segoe UI Bold"), local("SegoeUI-Bold"), local("Roboto Bold"), local("Roboto-Bold"), local("Helvetica Neue Bold"), local("HelveticaNeue-Bold"), local("Arial Bold"), local("Arial-BoldMT"), local("Noto Sans Bold");
+  font-weight: 800 900;
+  unicode-range: U+20A6;
+}
+
 /*
  * LSPay theme
  *
@@ -276,8 +297,8 @@
   --sidebar-accent-foreground: 0 0% 100%;
   --sidebar-ring: 39 87% 59%;
 
-  --app-font-display: 'Fredoka', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --app-font-sans: 'Nunito', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --app-font-display: 'Naira Sign', 'Fredoka', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --app-font-sans: 'Naira Sign', 'Nunito', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --app-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --radius: .875rem;
   --tracking-normal: 0em;

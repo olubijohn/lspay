@@ -1,3 +1,4 @@
+import { naira } from "@/lib/money";
 import { useState } from "react";
 import { useStore } from "@/store";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,7 +36,7 @@ export function TenantDashboard({ tenantId }: { tenantId: string }) {
   const kpis = [
     { label: "Total Students", value: String(tenantStudents.length), sub: "Enrolled at your school", icon: Users, tint: "bg-sky text-blue-700", tone: "text-foreground" },
     { label: "Active Cards", value: String(activeCards), sub: `${activePct}% of students`, icon: CreditCard, tint: "bg-lilac text-purple-700", tone: "text-foreground" },
-    { label: "Revenue Today", value: `₦${todayRev.toFixed(2)}`, sub: `${todayTx.length} transaction${todayTx.length === 1 ? "" : "s"} today`, icon: Banknote, tint: "bg-peach text-amber-700", tone: "text-amber-400" },
+    { label: "Revenue Today", value: `${naira(todayRev)}`, sub: `${todayTx.length} transaction${todayTx.length === 1 ? "" : "s"} today`, icon: Banknote, tint: "bg-peach text-amber-700", tone: "text-amber-400" },
     { label: "Items Sold Today", value: String(itemsSold), sub: `${todaySales.length} sale record${todaySales.length === 1 ? "" : "s"}`, icon: Package, tint: "bg-mint text-green-700", tone: "text-foreground" },
   ];
 
@@ -63,19 +64,19 @@ export function TenantDashboard({ tenantId }: { tenantId: string }) {
             <div className="text-sm font-extrabold text-lilac/80 truncate">
               {greeting()}{tenantName ? `, ${tenantName}` : ""}
             </div>
-            <div className="mt-3 text-xs font-extrabold uppercase tracking-widest text-lilac/70">Revenue today</div>
-            <div className="mt-1 font-display text-4xl sm:text-5xl text-gold break-all">₦{todayRev.toFixed(2)}</div>
+            <div className="mt-3 text-xs font-extrabold tracking-widest text-lilac/70">Revenue today</div>
+            <div className="mt-1 font-display text-4xl sm:text-5xl text-gold break-all">{naira(todayRev)}</div>
             <div className="mt-1 text-sm text-lilac/80">
               {new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 md:w-auto">
             <div className="rounded-2xl bg-white/10 px-4 py-3">
-              <div className="text-[11px] font-extrabold uppercase tracking-wide text-lilac/70">Transactions</div>
+              <div className="text-[11px] font-extrabold tracking-wide text-lilac/70">Transactions</div>
               <div className="font-display text-2xl">{todayTx.length}</div>
             </div>
             <div className="rounded-2xl bg-white/10 px-4 py-3">
-              <div className="text-[11px] font-extrabold uppercase tracking-wide text-lilac/70">Items sold</div>
+              <div className="text-[11px] font-extrabold tracking-wide text-lilac/70">Items sold</div>
               <div className="font-display text-2xl">{itemsSold}</div>
             </div>
           </div>
@@ -88,7 +89,7 @@ export function TenantDashboard({ tenantId }: { tenantId: string }) {
           <Card key={k.label} className="bg-card border-border shadow-sm">
             <CardContent className="p-4 md:p-6">
               <span className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${k.tint}`}><k.icon className="h-4 w-4" /></span>
-              <div className="text-muted-foreground text-xs mb-1 font-extrabold tracking-wide uppercase">{k.label}</div>
+              <div className="text-muted-foreground text-xs mb-1 font-extrabold tracking-wide ">{k.label}</div>
               <div className={`text-2xl md:text-3xl font-display truncate ${k.tone}`}>{k.value}</div>
               <div className="mt-1 text-xs text-muted-foreground truncate">{k.sub}</div>
             </CardContent>
@@ -107,7 +108,7 @@ export function TenantDashboard({ tenantId }: { tenantId: string }) {
             <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border w-full sm:w-auto">
               {filterBtn('all', 'All', 'text-foreground', 'hover:text-foreground')}
               {filterBtn('in', 'Money In', 'text-green-500', 'hover:text-green-500')}
-              {filterBtn('out', 'Money Out', 'text-red-500', 'hover:text-red-500')}
+              {filterBtn('out', 'Money Out', 'text-foreground', 'hover:text-foreground')}
             </div>
           </CardHeader>
           <CardContent>
@@ -123,7 +124,7 @@ export function TenantDashboard({ tenantId }: { tenantId: string }) {
                   const isIn = tx.amount < 0;
                   return (
                     <li key={tx.id} className="flex items-center gap-3 px-3 py-3 sm:px-4 bg-background hover:bg-muted/40 transition-colors">
-                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${isIn ? 'bg-mint text-green-700' : 'bg-blush text-red-700'}`}>
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${isIn ? 'bg-mint text-green-700' : 'bg-muted text-muted-foreground'}`}>
                         {isIn ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
                       </span>
                       <div className="min-w-0 flex-1">
@@ -133,8 +134,8 @@ export function TenantDashboard({ tenantId }: { tenantId: string }) {
                           {tx.itemsString && <span> · {tx.itemsString}</span>}
                         </div>
                       </div>
-                      <div className={`shrink-0 font-display text-base sm:text-lg ${isIn ? 'text-green-500' : 'text-red-500'}`}>
-                        {isIn ? '+' : '-'}₦{Math.abs(tx.amount).toFixed(2)}
+                      <div className={`shrink-0 font-display text-base sm:text-lg ${isIn ? 'text-green-600' : 'text-foreground'}`}>
+                        {isIn ? '+' : '−'}{naira(Math.abs(tx.amount))}
                       </div>
                     </li>
                   );

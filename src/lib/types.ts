@@ -120,6 +120,25 @@ export interface ParentUser {
   passwordHash: string;
   phone?: string;
   linkedStudentIds: string[];
+  /** LSPay parent account created by the school with a temporary password that hasn't been changed yet. */
+  mustChangePassword?: boolean;
+  tenantId?: string;
+  /** Who connected the parent (staff name), for staff views. */
+  createdByName?: string;
+}
+
+/** What the school sees after connecting a guardian to the LSPay parent portal (like LSA's "Portal access is ready"). */
+export interface LspayParentCredentials {
+  email: string;
+  username: string;
+  /** Temporary password — shown once; null when the guardian keeps an existing password. */
+  password: string | null;
+  isNew: boolean;
+  alreadyActive: boolean;
+  linkedExisting: boolean;
+  emailed: boolean;
+  children: string[];
+  mustChange: boolean;
 }
 
 export interface StockMovement {
@@ -153,7 +172,8 @@ export interface AppState {
   logout: () => Promise<void>;
   logoutParent: () => Promise<void>;
 
-  registerParent: (name: string, email: string, password: string) => Promise<ParentUser | null>;
+  /** Parent chooses their own password (first sign-in after the school connected them). */
+  changeParentPassword: (newPassword: string) => Promise<{ success: boolean; message?: string }>;
   updateParentUser: (id: string, data: Partial<Pick<ParentUser, "phone">>) => void;
   createSystemUser: (user: Omit<SystemUser, "id">) => Promise<SystemUser | null>;
   updateSystemUser: (id: string, data: Partial<SystemUser>) => void;
@@ -190,4 +210,6 @@ export interface AppState {
   verifyKioskExit: (tenantId: string, password: string) => Promise<boolean>;
   verifyWalletPin: (studentId: string, pin: string) => Promise<boolean>;
   topupWallet: (studentId: string, paystackReference: string) => Promise<void>;
+  /** Staff: connect a student's guardian to the LSPay parent portal (temporary password), or reset that password. */
+  connectLspayParent: (studentId: string, action?: "connect" | "reset") => Promise<{ success: boolean; message?: string; credentials?: LspayParentCredentials }>;
 }

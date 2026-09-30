@@ -10,14 +10,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ThemeToggle } from "@/theme";
 
 export function UnifiedLogin() {
-  const { systemUsers, parentUsers, login, loginParent, registerParent, lastAccessError } = useStore();
+  const { login, loginParent, lastAccessError } = useStore();
   const [, setLocation] = useLocation();
 
-  const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [regName, setRegName] = useState("");
-  const [regConfirm, setRegConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
@@ -45,18 +42,6 @@ export function UnifiedLogin() {
     setError(lastAccessError() || "Invalid school number, username, email or password.");
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (!regName || !email || !password || !regConfirm) { setError("Fill in all fields."); return; }
-    if (password.length < 6) { setError("Password too short."); return; }
-    if (password !== regConfirm) { setError("Passwords don't match."); return; }
-
-    const trimmed = email.trim().toLowerCase();
-    const newParent = await registerParent(regName, trimmed, password);
-    if (!newParent) { setError("Could not create that account. The email may already be in use."); return; }
-    setLocation("/parent");
-  };
 
   return (
     <div className="min-h-screen w-full flex bg-paper">
@@ -139,10 +124,10 @@ export function UnifiedLogin() {
 
             <div className="mb-8 xl:mb-10 text-center w-full">
               <h2 className="text-[1.75rem] xl:text-[2rem] text-ink mb-2 xl:mb-3">
-                {isRegistering ? "Create an account" : "Welcome back"}
+                Welcome back
               </h2>
               <p className="text-slate-500 text-sm xl:text-base">
-                {isRegistering ? "Sign up for an LSPay account to start tracking." : "Sign in to your LSPay account to continue managing payments."}
+                Sign in to your LSPay account to continue managing payments.
               </p>
             </div>
 
@@ -154,7 +139,6 @@ export function UnifiedLogin() {
             )}
 
             <div className="w-full text-left">
-              {!isRegistering ? (
                 <form onSubmit={handleSignIn} className="space-y-5">
                   <div className="space-y-1.5 xl:space-y-2">
                     <Label className="text-xs xl:text-sm text-slate-500">Email, username or school number</Label>
@@ -210,79 +194,11 @@ export function UnifiedLogin() {
                     <LogIn className="w-4 h-4 xl:w-5 xl:h-5" /> Sign in to dashboard
                   </Button>
                 </form>
-              ) : (
-                <form onSubmit={handleRegister} className="space-y-4">
-                  <div className="space-y-1.5 xl:space-y-2">
-                    <Label className="text-xs xl:text-sm text-slate-500">Full Name</Label>
-                    <Input
-                      value={regName}
-                      onChange={e => setRegName(e.target.value)}
-                      placeholder="John Doe"
-                      className="h-11 xl:h-12 bg-white border-line text-ink focus-visible:ring-ink-2 text-sm xl:text-base"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1.5 xl:space-y-2">
-                    <Label className="text-xs xl:text-sm text-slate-500">Email address</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 xl:h-5 xl:w-5 text-slate-400" />
-                      <Input
-                        type="email"
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
-                        placeholder="you@example.com"
-                        className="h-11 xl:h-12 pl-10 xl:pl-11 bg-white border-line text-ink focus-visible:ring-ink-2 text-sm xl:text-base"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5 xl:space-y-2">
-                    <Label className="text-xs xl:text-sm text-slate-500">Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 xl:h-5 xl:w-5 text-slate-400" />
-                      <Input
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        placeholder="Min 6 chars"
-                        className="h-11 xl:h-12 pl-10 xl:pl-11 pr-10 xl:pr-11 bg-white border-line text-ink focus-visible:ring-ink-2 text-sm xl:text-base"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(v => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4 xl:h-5 xl:w-5" /> : <Eye className="h-4 w-4 xl:h-5 xl:w-5" />}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5 xl:space-y-2">
-                    <Label className="text-xs xl:text-sm text-slate-500">Confirm Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 xl:h-5 xl:w-5 text-slate-400" />
-                      <Input
-                        type="password"
-                        value={regConfirm}
-                        onChange={e => setRegConfirm(e.target.value)}
-                        placeholder="Repeat password"
-                        className="h-11 xl:h-12 pl-10 xl:pl-11 bg-white border-line text-ink focus-visible:ring-ink-2 text-sm xl:text-base"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <Button type="submit" className="w-full h-11 xl:h-12 bg-ink hover:bg-ink-2 text-white rounded-xl mt-2 flex items-center justify-center gap-2 xl:text-base">
-                    <LogIn className="w-4 h-4 xl:w-5 xl:h-5" /> Create Parent Account
-                  </Button>
-                </form>
-              )}
 
               <div className="text-center mt-6 xl:mt-8">
                 <p className="text-xs xl:text-sm text-slate-500">
-                  {isRegistering ? "Already have an account? " : "Need a parent account? "}
-                  <button type="button" onClick={() => { setIsRegistering(!isRegistering); setError(""); }} className="font-extrabold text-ink-2 hover:underline">
-                    {isRegistering ? "Sign in instead" : "Create one free"}
-                  </button>
+                  <span className="font-extrabold text-ink-2">Parents:</span> your child's school gives you your LSPay login.
+                  First time? Sign in with the temporary password you received and you'll choose your own.
                 </p>
               </div>
 
