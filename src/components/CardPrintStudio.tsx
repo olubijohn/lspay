@@ -652,7 +652,8 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
             <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#FFFFFF", border: "1px solid #E5E7EB", boxShadow: "0 1px 3px rgba(0,0,0,0.10)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
               <img src="/logo-new.png" alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} />
             </div>
-            <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: "8.5px", color: "#111111" }}>umusa.cloud</span>
+            {/* same style as the school name in the front footer */}
+            <span style={{ fontFamily: SANS, fontWeight: 700, fontSize: "9.5px", lineHeight: 1.2, color: "#111111" }}>umusa.cloud</span>
           </div>
         </div>
       </div>
