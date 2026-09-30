@@ -29,6 +29,10 @@ import { QrScanner } from "@/components/QrScanner";
 import { Wifi, Sparkles, Images } from "lucide-react";
 import { ClassPhotoImporter } from "@/components/tenant/ClassPhotoImporter";
 import { PhotoFilter, hasStudentPhoto, matchesPhotoFilter } from "@/lib/studentPhoto";
+import { ClassMultiSelect } from "@/components/ClassMultiSelect";
+
+const NO_CLASS = "No class";
+const classLabel = (c?: string | null) => c?.trim() || NO_CLASS;
 
 export function SuperAdmin() {
   const chartTheme = useChartTheme();
@@ -71,6 +75,7 @@ export function SuperAdmin() {
   const [cardActivatedStart, setCardActivatedStart] = useState("");
   const [cardActivatedEnd, setCardActivatedEnd] = useState("");
   const [cardFilterPhoto, setCardFilterPhoto] = useState<PhotoFilter>("all");
+  const [cardFilterClasses, setCardFilterClasses] = useState<string[]>([]);
   const [schoolPhotoFilter, setSchoolPhotoFilter] = useState<PhotoFilter>("all");
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [bulkPrintStudents, setBulkPrintStudents] = useState<any[] | null>(null);
@@ -507,10 +512,23 @@ export function SuperAdmin() {
         if (cardActivatedEnd && s.activatedAt > cardActivatedEnd) return false;
       }
       if (!matchesPhotoFilter(s, cardFilterPhoto)) return false;
+      if (cardFilterClasses.length > 0 && !cardFilterClasses.includes(classLabel(s.className))) return false;
       if (q && !s.name.toLowerCase().includes(q) && !s.studentId.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [students, cardFilterSchool, cardFilterStatus, cardActivatedStart, cardActivatedEnd, cardSearch, cardFilterPhoto]);
+  }, [students, cardFilterSchool, cardFilterStatus, cardActivatedStart, cardActivatedEnd, cardSearch, cardFilterPhoto, cardFilterClasses]);
+
+  // Classes available in the current school scope (with student counts), naturally sorted: JSS 1, JSS 2, … JSS 10.
+  const cardClassOptions = useMemo(() => {
+    const scoped = cardFilterSchool === "all" ? students : students.filter(s => s.tenantId === cardFilterSchool);
+    const counts = new Map<string, number>();
+    for (const s of scoped) {
+      const c = classLabel(s.className);
+      counts.set(c, (counts.get(c) ?? 0) + 1);
+    }
+    return Array.from(counts, ([value, count]) => ({ value, count }))
+      .sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true, sensitivity: "base" }));
+  }, [students, cardFilterSchool]);
 
   // Photo counts for the current school scope, so the photo filter can show "With photo (n)".
   const cardPhotoCounts = useMemo(() => {
@@ -1312,10 +1330,10 @@ export function SuperAdmin() {
                       className="bg-background border-border text-foreground h-10"
                       data-testid="input-card-search"
                     />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-1">
                       <div className="flex flex-col">
                         <span className="text-[10px] font-bold text-muted-foreground tracking-wider mb-1">School</span>
-                        <Select value={cardFilterSchool} onValueChange={setCardFilterSchool}>
+                        <Select value={cardFilterSchool} onValueChange={v => { setCardFilterSchool(v); setCardFilterClasses([]); }}>
                           <SelectTrigger className="w-full bg-background border-border text-foreground h-9" data-testid="select-card-school">
                             <SelectValue placeholder="All Schools" />
                           </SelectTrigger>
@@ -1324,6 +1342,15 @@ export function SuperAdmin() {
                             {tenants.map(t => <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-muted-foreground tracking-wider mb-1">Class</span>
+                        <ClassMultiSelect
+                          options={cardClassOptions}
+                          selected={cardFilterClasses}
+                          onChange={setCardFilterClasses}
+                          data-testid="select-card-classes"
+                        />
                       </div>
                       <div className="flex flex-col">
                         <span className="text-[10px] font-bold text-muted-foreground tracking-wider mb-1">Status</span>
@@ -1360,12 +1387,12 @@ export function SuperAdmin() {
                     </div>
                     <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/30 mt-2">
                       <span data-testid="text-card-result-count">{cardFilteredStudents.length} student{cardFilteredStudents.length === 1 ? "" : "s"} found</span>
-                      {(cardSearch || cardFilterSchool !== "all" || cardFilterStatus !== "all" || cardFilterPhoto !== "all" || cardActivatedStart || cardActivatedEnd) && (
+                      {(cardSearch || cardFilterSchool !== "all" || cardFilterStatus !== "all" || cardFilterPhoto !== "all" || cardFilterClasses.length > 0 || cardActivatedStart || cardActivatedEnd) && (
                         <Button
                           type="button"
                           variant="ghost"
                           className="h-7 text-primary hover:text-primary/80 font-bold px-2 text-xs"
-                          onClick={() => { setCardSearch(""); setCardFilterSchool("all"); setCardFilterStatus("all"); setCardFilterPhoto("all"); setCardActivatedStart(""); setCardActivatedEnd(""); }}
+                          onClick={() => { setCardSearch(""); setCardFilterSchool("all"); setCardFilterStatus("all"); setCardFilterPhoto("all"); setCardFilterClasses([]); setCardActivatedStart(""); setCardActivatedEnd(""); }}
                           data-testid="btn-clear-card-filters"
                         >
                           Clear Filters
@@ -1374,7 +1401,7 @@ export function SuperAdmin() {
                     </div>
                   </div>
                   <div className="bg-background overflow-x-auto">
-                    <Table className="w-full min-w-[640px]">
+                    <Table className="w-full min-w-[760px]">
                       <TableHeader className="bg-card/80 sticky top-0">
                         <TableRow className="border-border">
                           <TableHead className="w-[40px] pl-4">
@@ -1392,6 +1419,7 @@ export function SuperAdmin() {
                           </TableHead>
                           <TableHead className="text-muted-foreground">School</TableHead>
                           <TableHead className="text-muted-foreground">Student</TableHead>
+                          <TableHead className="text-muted-foreground">Class</TableHead>
                           <TableHead className="text-muted-foreground">Status</TableHead>
                           <TableHead className="text-muted-foreground">Activated</TableHead>
                         </TableRow>
@@ -1427,6 +1455,9 @@ export function SuperAdmin() {
                                 </div>
                               </div>
                             </TableCell>
+                            <TableCell className="text-foreground text-sm whitespace-nowrap">
+                              {s.className?.trim() || <span className="text-muted-foreground">—</span>}
+                            </TableCell>
                             <TableCell>
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <Badge className={cardStatusBadgeClass(s.cardLifecycleStatus)}>
@@ -1441,7 +1472,7 @@ export function SuperAdmin() {
                           </TableRow>
                         ))}
                         {cardFilteredStudents.length === 0 && (
-                          <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">No students match your filters.</TableCell></TableRow>
+                          <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground">No students match your filters.</TableCell></TableRow>
                         )}
                       </TableBody>
                     </Table>
