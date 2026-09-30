@@ -28,6 +28,7 @@ import { useNfcScanner } from "@/lib/useNfcScanner";
 import { QrScanner } from "@/components/QrScanner";
 import { Wifi, Sparkles, Images } from "lucide-react";
 import { ClassPhotoImporter } from "@/components/tenant/ClassPhotoImporter";
+import { PhotoFilter, hasStudentPhoto, matchesPhotoFilter } from "@/lib/studentPhoto";
 
 export function SuperAdmin() {
   const chartTheme = useChartTheme();
@@ -69,6 +70,8 @@ export function SuperAdmin() {
   const [cardFilterStatus, setCardFilterStatus] = useState<string>("all");
   const [cardActivatedStart, setCardActivatedStart] = useState("");
   const [cardActivatedEnd, setCardActivatedEnd] = useState("");
+  const [cardFilterPhoto, setCardFilterPhoto] = useState<PhotoFilter>("all");
+  const [schoolPhotoFilter, setSchoolPhotoFilter] = useState<PhotoFilter>("all");
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [bulkPrintStudents, setBulkPrintStudents] = useState<any[] | null>(null);
 
@@ -503,10 +506,18 @@ export function SuperAdmin() {
         if (cardActivatedStart && s.activatedAt < cardActivatedStart) return false;
         if (cardActivatedEnd && s.activatedAt > cardActivatedEnd) return false;
       }
+      if (!matchesPhotoFilter(s, cardFilterPhoto)) return false;
       if (q && !s.name.toLowerCase().includes(q) && !s.studentId.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [students, cardFilterSchool, cardFilterStatus, cardActivatedStart, cardActivatedEnd, cardSearch]);
+  }, [students, cardFilterSchool, cardFilterStatus, cardActivatedStart, cardActivatedEnd, cardSearch, cardFilterPhoto]);
+
+  // Photo counts for the current school scope, so the photo filter can show "With photo (n)".
+  const cardPhotoCounts = useMemo(() => {
+    const scoped = cardFilterSchool === "all" ? students : students.filter(s => s.tenantId === cardFilterSchool);
+    const withPhoto = scoped.filter(hasStudentPhoto).length;
+    return { all: scoped.length, with: withPhoto, without: scoped.length - withPhoto };
+  }, [students, cardFilterSchool]);
 
   const cardStatusBadgeClass = (status: CardLifecycleStatus) =>
     status === "pending_assignment" ? "text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 font-medium" :
@@ -854,6 +865,10 @@ export function SuperAdmin() {
                 const school = tenants.find(t => t.id === selectedSchoolId);
                 if (!school) return null;
                 const schoolStudents = students.filter(s => s.tenantId === school.id);
+                const schoolWithPhoto = schoolStudents.filter(hasStudentPhoto).length;
+                const visibleSchoolStudents = schoolStudents.filter(s => matchesPhotoFilter(s, schoolPhotoFilter));
+                const visibleSchoolIds = new Set(visibleSchoolStudents.map(s => s.id));
+                const allVisibleSelected = visibleSchoolStudents.length > 0 && visibleSchoolStudents.every(s => schoolSelectedStudentIds.includes(s.id));
                 const schoolTransactions = transactions.filter(t => t.tenantId === school.id);
 
                 return (
@@ -971,6 +986,25 @@ export function SuperAdmin() {
                           <p className="text-xs text-muted-foreground mt-0.5">{schoolStudents.length} students enrolled in {school.name}</p>
                         </div>
                         {schoolStudents.length > 0 && (
+                          <div className="flex items-center gap-1 rounded-full border border-border bg-background p-1" role="group" aria-label="Filter by photo" data-testid="school-photo-filter">
+                            {([
+                              { value: "all", label: "All", count: schoolStudents.length },
+                              { value: "with", label: "With photo", count: schoolWithPhoto },
+                              { value: "without", label: "Without photo", count: schoolStudents.length - schoolWithPhoto },
+                            ] as { value: PhotoFilter; label: string; count: number }[]).map(o => (
+                              <button
+                                key={o.value}
+                                type="button"
+                                onClick={() => setSchoolPhotoFilter(o.value)}
+                                aria-pressed={schoolPhotoFilter === o.value}
+                                className={`h-8 px-3 rounded-full text-xs font-bold transition-colors ${schoolPhotoFilter === o.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                              >
+                                {o.label} <span className="opacity-80">({o.count})</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {schoolStudents.length > 0 && (
                           <Button
                             onClick={() => {
                               setPhotoImporterSchoolId(school.id);
@@ -1015,12 +1049,12 @@ export function SuperAdmin() {
                               <TableRow className="border-border">
                                 <TableHead className="w-[45px] py-4 pl-4">
                                   <Checkbox
-                                    checked={schoolStudents.length > 0 && schoolSelectedStudentIds.length === schoolStudents.length}
+                                    checked={allVisibleSelected}
                                     onCheckedChange={() => {
-                                      if (schoolSelectedStudentIds.length === schoolStudents.length) {
-                                        setSchoolSelectedStudentIds([]);
+                                      if (allVisibleSelected) {
+                                        setSchoolSelectedStudentIds(prev => prev.filter(id => !visibleSchoolIds.has(id)));
                                       } else {
-                                        setSchoolSelectedStudentIds(schoolStudents.map(s => s.id));
+                                        setSchoolSelectedStudentIds(prev => Array.from(new Set([...prev, ...visibleSchoolStudents.map(s => s.id)])));
                                       }
                                     }}
                                     aria-label="Select all students"
@@ -1035,8 +1069,9 @@ export function SuperAdmin() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {schoolStudents.map(s => {
+                              {visibleSchoolStudents.map(s => {
                                 const isSelected = schoolSelectedStudentIds.includes(s.id);
+                                const withPhoto = hasStudentPhoto(s);
                                 return (
                                   <TableRow key={s.id} className={`border-border/50 hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
                                     <TableCell className="py-4 pl-4">
@@ -1051,8 +1086,18 @@ export function SuperAdmin() {
                                       />
                                     </TableCell>
                                     <TableCell className="px-4 py-4">
-                                      <div className="text-foreground font-bold">{s.name}</div>
-                                      <div className="text-xs font-mono text-muted-foreground">{s.studentId}</div>
+                                      <div className="flex items-center gap-3">
+                                        <img
+                                          src={s.imageUrl}
+                                          alt=""
+                                          className={`w-9 h-9 rounded-full object-cover shrink-0 border ${withPhoto ? "border-border" : "border-dashed border-amber-400 opacity-70"}`}
+                                          title={withPhoto ? "Has photo" : "No photo yet"}
+                                        />
+                                        <div className="min-w-0">
+                                          <div className="text-foreground font-bold">{s.name}</div>
+                                          <div className="text-xs font-mono text-muted-foreground">{s.studentId}</div>
+                                        </div>
+                                      </div>
                                     </TableCell>
                                     <TableCell className="text-foreground">{s.className}</TableCell>
                                     <TableCell>
@@ -1091,6 +1136,13 @@ export function SuperAdmin() {
                                 <TableRow>
                                   <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
                                     No students registered for this school yet. Click "Import Students" to bulk upload.
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                              {schoolStudents.length > 0 && visibleSchoolStudents.length === 0 && (
+                                <TableRow>
+                                  <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                                    {schoolPhotoFilter === "with" ? "No students with a photo yet." : "Every student has a photo."}
                                   </TableCell>
                                 </TableRow>
                               )}
@@ -1260,7 +1312,7 @@ export function SuperAdmin() {
                       className="bg-background border-border text-foreground h-10"
                       data-testid="input-card-search"
                     />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-1">
                       <div className="flex flex-col">
                         <span className="text-[10px] font-bold text-muted-foreground tracking-wider mb-1">School</span>
                         <Select value={cardFilterSchool} onValueChange={setCardFilterSchool}>
@@ -1285,6 +1337,19 @@ export function SuperAdmin() {
                         </Select>
                       </div>
                       <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-muted-foreground tracking-wider mb-1">Photo</span>
+                        <Select value={cardFilterPhoto} onValueChange={v => setCardFilterPhoto(v as PhotoFilter)}>
+                          <SelectTrigger className="w-full bg-background border-border text-foreground h-9" data-testid="select-card-photo">
+                            <SelectValue placeholder="All students" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-card border-border text-foreground">
+                            <SelectItem value="all">All students ({cardPhotoCounts.all})</SelectItem>
+                            <SelectItem value="with">With photo ({cardPhotoCounts.with})</SelectItem>
+                            <SelectItem value="without">Without photo ({cardPhotoCounts.without})</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex flex-col">
                         <span className="text-[10px] font-bold text-muted-foreground tracking-wider mb-1">Activated From</span>
                         <Input type="date" value={cardActivatedStart} onChange={e => setCardActivatedStart(e.target.value)} className="w-full bg-background border-border text-foreground h-9" data-testid="input-card-activated-start" />
                       </div>
@@ -1295,12 +1360,12 @@ export function SuperAdmin() {
                     </div>
                     <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/30 mt-2">
                       <span data-testid="text-card-result-count">{cardFilteredStudents.length} student{cardFilteredStudents.length === 1 ? "" : "s"} found</span>
-                      {(cardSearch || cardFilterSchool !== "all" || cardFilterStatus !== "all" || cardActivatedStart || cardActivatedEnd) && (
+                      {(cardSearch || cardFilterSchool !== "all" || cardFilterStatus !== "all" || cardFilterPhoto !== "all" || cardActivatedStart || cardActivatedEnd) && (
                         <Button
                           type="button"
                           variant="ghost"
                           className="h-7 text-primary hover:text-primary/80 font-bold px-2 text-xs"
-                          onClick={() => { setCardSearch(""); setCardFilterSchool("all"); setCardFilterStatus("all"); setCardActivatedStart(""); setCardActivatedEnd(""); }}
+                          onClick={() => { setCardSearch(""); setCardFilterSchool("all"); setCardFilterStatus("all"); setCardFilterPhoto("all"); setCardActivatedStart(""); setCardActivatedEnd(""); }}
                           data-testid="btn-clear-card-filters"
                         >
                           Clear Filters
