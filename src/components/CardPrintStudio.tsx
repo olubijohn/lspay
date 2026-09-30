@@ -63,9 +63,11 @@ const PHOTO_CX = 102;
 const PHOTO_CY = 100;
 const PHOTO_R = 52; // outer radius including the white border
 
-const SANS = "Arial, Helvetica, sans-serif";
-const SERIF = "Georgia, 'Times New Roman', serif";
-const MONO = "'Courier New', Courier, monospace";
+// LSPay theme fonts: Fredoka (600) for headline text, Nunito for everything else. They are loaded by the app,
+// and by the print window / exported file via CARD_FONTS_LINK.
+const DISPLAY = "'Fredoka', 'Nunito', Arial, sans-serif";
+const BODY = "'Nunito', Arial, Helvetica, sans-serif";
+const CARD_FONTS_LINK = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">`;
 
 type BubbleColor = "blue" | "green" | "red" | "yellow" | "purple";
 // light highlight → body → shaded edge, for a glossy bubble
@@ -147,7 +149,7 @@ const cardShell = (extra: React.CSSProperties = {}): React.CSSProperties => ({
   boxSizing: "border-box",
   background: "#FFFFFF",
   color: "#111111",
-  fontFamily: SANS,
+  fontFamily: BODY,
   WebkitPrintColorAdjust: "exact",
   printColorAdjust: "exact",
   ...extra,
@@ -222,6 +224,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
 <html>
 <head>
   <meta charset="utf-8">
+  ${CARD_FONTS_LINK}
   <title>${schoolName} — ID Cards</title>
   <style>
     * {
@@ -286,14 +289,23 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
     doc.write(contentHtml);
     doc.close();
 
-    // Trigger print once iframe content is parsed
-    setTimeout(() => {
+    // Print once the card fonts (Fredoka / Nunito) have loaded, so the printout matches the preview;
+    // give up waiting after 4 s so printing still works offline (fallback fonts).
+    const printNow = () => {
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
       setTimeout(() => {
         iframe.remove();
       }, 3000);
-    }, 400);
+    };
+    setTimeout(() => {
+      const fonts = iframe.contentWindow?.document.fonts;
+      if (!fonts) { printNow(); return; }
+      Promise.race([
+        Promise.all([fonts.load("600 12px Fredoka"), fonts.load("800 12px Nunito")]).then(() => fonts.ready),
+        new Promise((r) => setTimeout(r, 4000)),
+      ]).then(printNow, printNow);
+    }, 200);
   };
 
   const handleExportHTML = async () => {
@@ -324,6 +336,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  ${CARD_FONTS_LINK}
   <title>${schoolName} — ${printList.length} Student ID Cards</title>
   <style>
     * {
@@ -551,11 +564,11 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
 
         {/* Student number + name */}
         <div style={{ position: "absolute", left: "16px", right: "16px", top: "186px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "4px" }}>
-          <span style={{ fontFamily: SANS, fontSize: "12px", color: "#374151", letterSpacing: "0.02em", lineHeight: 1 }}>{stud.studentId}</span>
+          <span style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: "12px", color: "#374151", letterSpacing: "0.04em", lineHeight: 1 }}>{stud.studentId}</span>
           <span
             style={{
-              fontFamily: SERIF,
-              fontWeight: 700,
+              fontFamily: DISPLAY,
+              fontWeight: 600,
               fontSize: "15px",
               lineHeight: 1.2,
               color: "#111111",
@@ -591,12 +604,12 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
             {studSchoolLogo ? (
               <img src={studSchoolLogo} alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />
             ) : (
-              <span style={{ fontFamily: SANS, fontWeight: 700, fontSize: "9px", color: "#2B2863" }}>
+              <span style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: "9px", color: "#2B2863" }}>
                 {studSchoolName.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase()}
               </span>
             )}
           </div>
-          <span style={{ flex: 1, minWidth: 0, fontFamily: SANS, fontWeight: 700, fontSize: "9.5px", lineHeight: 1.2, color: "#111111", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+          <span style={{ flex: 1, minWidth: 0, fontFamily: BODY, fontWeight: 800, fontSize: "9.5px", lineHeight: 1.2, color: "#111111", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
             {studSchoolName}
           </span>
         </div>
@@ -637,12 +650,12 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
 
         {/* School details */}
         <div style={{ position: "absolute", left: "12px", right: "12px", top: "176px", bottom: "40px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: "7px" }}>
-          <span style={{ fontFamily: SANS, fontWeight: 800, fontSize: "14px", lineHeight: 1.2, color: "#111111", maxWidth: "180px", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+          <span style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: "15px", lineHeight: 1.15, color: "#111111", maxWidth: "180px", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
             {studSchoolName}
           </span>
-          <span style={{ fontFamily: SANS, fontWeight: 700, fontSize: "8px", lineHeight: 1.35, color: "#111111", maxWidth: "170px" }}>{studSchoolAddress}</span>
+          <span style={{ fontFamily: BODY, fontWeight: 800, fontSize: "8.5px", lineHeight: 1.35, color: "#111111", maxWidth: "170px" }}>{studSchoolAddress}</span>
           {studSchoolPhone ? (
-            <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: "8px", lineHeight: 1.35, color: "#111111", maxWidth: "180px" }}>{studSchoolPhone}</span>
+            <span style={{ fontFamily: BODY, fontWeight: 800, fontSize: "8.5px", lineHeight: 1.35, color: "#111111", maxWidth: "180px", letterSpacing: "0.02em" }}>{studSchoolPhone}</span>
           ) : null}
         </div>
 
@@ -653,7 +666,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
               <img src="/logo-new.png" alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} />
             </div>
             {/* same style as the school name in the front footer */}
-            <span style={{ fontFamily: SANS, fontWeight: 700, fontSize: "9.5px", lineHeight: 1.2, color: "#111111" }}>umusa.cloud</span>
+            <span style={{ fontFamily: BODY, fontWeight: 800, fontSize: "9.5px", lineHeight: 1.2, color: "#111111" }}>umusa.cloud</span>
           </div>
         </div>
       </div>
