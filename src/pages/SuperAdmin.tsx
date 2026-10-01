@@ -733,33 +733,33 @@ export function SuperAdmin() {
                       </div>
                     ) : (
                       <Paged items={filteredTx} resetKey={overviewTxFilter}>{(pg) => (
-                      <div className="overflow-hidden rounded-2xl border border-border">
-                      <ListScroll page={pg.page} offset="16rem">
-                        <Table>
-                          <TableHeader className="bg-muted/60">
-                            <TableRow className="border-border">
-                              <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide whitespace-nowrap">Date</TableHead>
-                              <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide">School</TableHead>
-                              <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide">Student</TableHead>
-                              <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide">Items</TableHead>
-                              <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide text-right">Amount</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {pg.pageItems.map(tx => (
-                              <TableRow key={tx.id} className="border-border/50 hover:bg-muted/40">
-                                <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{tx.date}</TableCell>
-                                <TableCell className="text-foreground">{tx.schoolName}</TableCell>
-                                <TableCell className="text-foreground font-extrabold">{tx.studentName}</TableCell>
-                                <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
-                                <TableCell className={`font-display text-base text-right whitespace-nowrap ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </ListScroll>
-                      <PaginationBar p={pg} label="transactions" />
-                      </div>
+                        <div className="overflow-hidden rounded-2xl border border-border">
+                          <ListScroll page={pg.page} offset="16rem">
+                            <Table>
+                              <TableHeader className="bg-muted/60">
+                                <TableRow className="border-border">
+                                  <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide whitespace-nowrap">Date</TableHead>
+                                  <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide">School</TableHead>
+                                  <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide">Student</TableHead>
+                                  <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide">Items</TableHead>
+                                  <TableHead className="text-muted-foreground text-xs font-extrabold tracking-wide text-right">Amount</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {pg.pageItems.map(tx => (
+                                  <TableRow key={tx.id} className="border-border/50 hover:bg-muted/40">
+                                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{tx.date}</TableCell>
+                                    <TableCell className="text-foreground">{tx.schoolName}</TableCell>
+                                    <TableCell className="text-foreground font-extrabold">{tx.studentName}</TableCell>
+                                    <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
+                                    <TableCell className={`font-display text-base text-right whitespace-nowrap ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </ListScroll>
+                          <PaginationBar p={pg} label="transactions" />
+                        </div>
                       )}</Paged>
                     )}
                   </CardContent>
@@ -837,72 +837,72 @@ export function SuperAdmin() {
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-xl border border-border bg-card">
-                <ListScroll page={txDays.page} offset="24rem" className="space-y-3 p-3">
-                {txDays.pageItems.map(([date, schoolMap]) => {
-                const dayTotal = Object.values(schoolMap).reduce((s, v) => s + v.total, 0);
-                return (
-                  <Card key={date} className="bg-card border-border overflow-hidden">
-                    <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-card/80">
-                      <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-primary"></div>
-                        <span className="text-foreground font-bold text-lg">{date}</span>
-                        <Badge variant="outline" className="text-muted-foreground border-border ml-2">{Object.values(schoolMap).reduce((s, v) => s + v.count, 0)} transactions</Badge>
-                      </div>
-                      <span className="text-primary font-display text-xl">{naira(dayTotal)}</span>
-                    </div>
-                    <div className="divide-y divide-border">
-                      {Object.entries(schoolMap).map(([tenantKey, data]) => {
-                        const rowKey = `${date}-${tenantKey}`;
-                        // With a student or item filter on, open every group so the matching rows are visible.
-                        const isExpanded = txNarrowed || expandedSchoolDay === rowKey;
-                        return (
-                          <div key={tenantKey}>
-                            <button
-                              onClick={() => setExpandedSchoolDay(isExpanded ? null : rowKey)}
-                              className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
-                              data-testid={`btn-expand-${rowKey}`}
-                            >
-                              <div className="flex items-center gap-3">
-                                {isExpanded ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                                <span className="text-foreground font-medium">{data.schoolName}</span>
-                                <Badge className="bg-muted text-muted-foreground border-0">{data.count} txs</Badge>
-                              </div>
-                              <span className="text-primary font-bold">{naira(data.total)}</span>
-                            </button>
-                            {isExpanded && (
-                              <Paged items={data.txs}>{(pg) => (
-                              <div className="bg-background border-t border-border">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow className="border-border">
-                                      <TableHead className="text-muted-foreground pl-14">Student</TableHead>
-                                      <TableHead className="text-muted-foreground">Items</TableHead>
-                                      <TableHead className="text-muted-foreground text-right pr-6">Amount</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {pg.pageItems.map(tx => (
-                                      <TableRow key={tx.id} className="border-border/40">
-                                        <TableCell className="text-foreground pl-14 font-medium">{tx.studentName}</TableCell>
-                                        <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
-                                        <TableCell className={`font-bold text-right pr-6 ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                                <PaginationBar p={pg} label="transactions" className="bg-background" />
-                              </div>
-                              )}</Paged>
-                            )}
+                  <ListScroll page={txDays.page} offset="24rem" className="space-y-3 p-3">
+                    {txDays.pageItems.map(([date, schoolMap]) => {
+                      const dayTotal = Object.values(schoolMap).reduce((s, v) => s + v.total, 0);
+                      return (
+                        <Card key={date} className="bg-card border-border overflow-hidden">
+                          <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-card/80">
+                            <div className="flex items-center gap-3">
+                              <div className="w-2 h-2 rounded-full bg-primary"></div>
+                              <span className="text-foreground font-bold text-lg">{date}</span>
+                              <Badge variant="outline" className="text-muted-foreground border-border ml-2">{Object.values(schoolMap).reduce((s, v) => s + v.count, 0)} transactions</Badge>
+                            </div>
+                            <span className="text-primary font-display text-xl">{naira(dayTotal)}</span>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </Card>
-                );
-              })}
-                </ListScroll>
-                <PaginationBar p={txDays} label="days" />
+                          <div className="divide-y divide-border">
+                            {Object.entries(schoolMap).map(([tenantKey, data]) => {
+                              const rowKey = `${date}-${tenantKey}`;
+                              // With a student or item filter on, open every group so the matching rows are visible.
+                              const isExpanded = txNarrowed || expandedSchoolDay === rowKey;
+                              return (
+                                <div key={tenantKey}>
+                                  <button
+                                    onClick={() => setExpandedSchoolDay(isExpanded ? null : rowKey)}
+                                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
+                                    data-testid={`btn-expand-${rowKey}`}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      {isExpanded ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                                      <span className="text-foreground font-medium">{data.schoolName}</span>
+                                      <Badge className="bg-muted text-muted-foreground border-0">{data.count} txs</Badge>
+                                    </div>
+                                    <span className="text-primary font-bold">{naira(data.total)}</span>
+                                  </button>
+                                  {isExpanded && (
+                                    <Paged items={data.txs}>{(pg) => (
+                                      <div className="bg-background border-t border-border">
+                                        <Table>
+                                          <TableHeader>
+                                            <TableRow className="border-border">
+                                              <TableHead className="text-muted-foreground pl-14">Student</TableHead>
+                                              <TableHead className="text-muted-foreground">Items</TableHead>
+                                              <TableHead className="text-muted-foreground text-right pr-6">Amount</TableHead>
+                                            </TableRow>
+                                          </TableHeader>
+                                          <TableBody>
+                                            {pg.pageItems.map(tx => (
+                                              <TableRow key={tx.id} className="border-border/40">
+                                                <TableCell className="text-foreground pl-14 font-medium">{tx.studentName}</TableCell>
+                                                <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
+                                                <TableCell className={`font-bold text-right pr-6 ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
+                                              </TableRow>
+                                            ))}
+                                          </TableBody>
+                                        </Table>
+                                        <PaginationBar p={pg} label="transactions" className="bg-background" />
+                                      </div>
+                                    )}</Paged>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </ListScroll>
+                  <PaginationBar p={txDays} label="days" />
                 </div>
               )}
             </div>
@@ -1054,18 +1054,18 @@ export function SuperAdmin() {
                         {schoolStudents.length > 0 && (
                           <div className="flex flex-wrap gap-2">
                             <Button variant="outline" onClick={() => exportStudentsWithGuardians(
-                                `${fileSlug(school.name)}-students${schoolPhotoFilter !== "all" || schoolGuardianFilter !== "all" ? "-filtered" : ""}`,
-                                visibleSchoolStudents, guardianMap,
-                                [{ header: "Photo", value: st => (hasStudentPhoto(st) ? "Yes" : "No") }, { header: "Card status", value: st => st.cardStatus }],
-                              )} disabled={visibleSchoolStudents.length === 0} className="h-10 px-4 font-bold" data-testid="btn-export-school-students">
+                              `${fileSlug(school.name)}-students${schoolPhotoFilter !== "all" || schoolGuardianFilter !== "all" ? "-filtered" : ""}`,
+                              visibleSchoolStudents, guardianMap,
+                              [{ header: "Photo", value: st => (hasStudentPhoto(st) ? "Yes" : "No") }, { header: "Card status", value: st => st.cardStatus }],
+                            )} disabled={visibleSchoolStudents.length === 0} className="h-10 px-4 font-bold" data-testid="btn-export-school-students">
                               <Download className="w-4 h-4 mr-2" /> Export {visibleSchoolStudents.length} (Excel)
                             </Button>
                             <Button variant="outline" onClick={() => setGuardianReportSchoolId(school.id)} className="h-10 px-4 font-bold" data-testid="btn-guardians-report">
                               <Users className="w-4 h-4 mr-2" /> Guardians report
                             </Button>
-                            <Button onClick={() => setParentImportSchoolId(school.id)} className="h-10 px-4 font-bold" data-testid="btn-import-parents">
+                            {/* <Button onClick={() => setParentImportSchoolId(school.id)} className="h-10 px-4 font-bold" data-testid="btn-import-parents">
                               <Upload className="w-4 h-4 mr-2" /> Import parents
-                            </Button>
+                            </Button> */}
                           </div>
                         )}
                       </div>
@@ -1097,112 +1097,112 @@ export function SuperAdmin() {
                       <Card className="bg-card border-border overflow-hidden shadow-lg">
                         <CardContent className="p-0">
                           <Paged items={visibleSchoolStudents} resetKey={`${school.id}-${schoolPhotoFilter}-${schoolGuardianFilter}`}>{(pg) => (<>
-                          <ListScroll page={pg.page} offset="21rem">
-                          <Table>
-                            <TableHeader className="bg-background">
-                              <TableRow className="border-border">
-                                <TableHead className="w-[45px] py-4 pl-4">
-                                  <Checkbox
-                                    checked={allVisibleSelected}
-                                    onCheckedChange={() => {
-                                      if (allVisibleSelected) {
-                                        setSchoolSelectedStudentIds(prev => prev.filter(id => !visibleSchoolIds.has(id)));
-                                      } else {
-                                        setSchoolSelectedStudentIds(prev => Array.from(new Set([...prev, ...visibleSchoolStudents.map(s => s.id)])));
-                                      }
-                                    }}
-                                    aria-label="Select all students"
-                                  />
-                                </TableHead>
-                                <TableHead className="text-muted-foreground px-4 py-4">Student</TableHead>
-                                <TableHead className="text-muted-foreground py-4">Class</TableHead>
-                                <TableHead className="text-muted-foreground py-4">Parent Details</TableHead>
-                                <TableHead className="text-muted-foreground py-4">Card Status</TableHead>
-                                <TableHead className="text-muted-foreground py-4 text-right">Wallet Balance</TableHead>
-                                <TableHead className="text-muted-foreground py-4 text-right pr-6">Action</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {pg.pageItems.map(s => {
-                                const isSelected = schoolSelectedStudentIds.includes(s.id);
-                                const withPhoto = hasStudentPhoto(s);
-                                return (
-                                  <TableRow key={s.id} className={`border-border/50 hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
-                                    <TableCell className="py-4 pl-4">
+                            <ListScroll page={pg.page} offset="21rem">
+                              <Table>
+                                <TableHeader className="bg-background">
+                                  <TableRow className="border-border">
+                                    <TableHead className="w-[45px] py-4 pl-4">
                                       <Checkbox
-                                        checked={isSelected}
+                                        checked={allVisibleSelected}
                                         onCheckedChange={() => {
-                                          setSchoolSelectedStudentIds(prev =>
-                                            prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id]
-                                          );
+                                          if (allVisibleSelected) {
+                                            setSchoolSelectedStudentIds(prev => prev.filter(id => !visibleSchoolIds.has(id)));
+                                          } else {
+                                            setSchoolSelectedStudentIds(prev => Array.from(new Set([...prev, ...visibleSchoolStudents.map(s => s.id)])));
+                                          }
                                         }}
-                                        aria-label={`Select ${s.name}`}
+                                        aria-label="Select all students"
                                       />
-                                    </TableCell>
-                                    <TableCell className="px-4 py-4">
-                                      <div className="flex items-center gap-3">
-                                        <img
-                                          src={s.imageUrl}
-                                          alt=""
-                                          className={`w-9 h-9 rounded-full object-cover shrink-0 border ${withPhoto ? "border-border" : "border-dashed border-amber-400 opacity-70"}`}
-                                          title={withPhoto ? "Has photo" : "No photo yet"}
-                                        />
-                                        <div className="min-w-0">
-                                          <div className="text-foreground font-bold">{s.name}</div>
-                                          <div className="text-xs font-mono text-muted-foreground">{s.studentId}</div>
-                                        </div>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="text-foreground">{s.className}</TableCell>
-                                    <TableCell>
-                                      <GuardianCell guardians={guardiansFor(s.id)} />
-                                    </TableCell>
-                                    <TableCell>
-                                      <Badge variant="outline" className={
-                                        s.cardStatus === "Active"
-                                          ? "text-emerald-700 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800/30 dark:bg-emerald-950/20"
-                                          : s.cardStatus === "Blocked"
-                                            ? "text-red-700 border-red-200 bg-red-50 dark:text-red-400 dark:border-red-800/30 dark:bg-red-950/20"
-                                            : "text-amber-700 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-800/30 dark:bg-amber-950/20"
-                                      }>
-                                        {s.cardStatus}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-foreground font-bold text-right">{naira(s.walletBalance)}</TableCell>
-                                    <TableCell className="text-right pr-6">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => {
-                                          setAdminDeleteTarget({ mode: "single", singleId: s.id, studentName: s.name, tenantId: school.id, schoolName: school.name });
-                                          setAdminDeleteConfirmOpen(true);
-                                        }}
-                                        className="text-red-400 hover:text-red-300 hover:bg-red-950/30 h-8 px-2"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </Button>
-                                    </TableCell>
+                                    </TableHead>
+                                    <TableHead className="text-muted-foreground px-4 py-4">Student</TableHead>
+                                    <TableHead className="text-muted-foreground py-4">Class</TableHead>
+                                    <TableHead className="text-muted-foreground py-4">Parent Details</TableHead>
+                                    <TableHead className="text-muted-foreground py-4">Card Status</TableHead>
+                                    <TableHead className="text-muted-foreground py-4 text-right">Wallet Balance</TableHead>
+                                    <TableHead className="text-muted-foreground py-4 text-right pr-6">Action</TableHead>
                                   </TableRow>
-                                );
-                              })}
-                              {schoolStudents.length === 0 && (
-                                <TableRow>
-                                  <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                                    No students registered for this school yet. Click "Import Students" to bulk upload.
-                                  </TableCell>
-                                </TableRow>
-                              )}
-                              {schoolStudents.length > 0 && visibleSchoolStudents.length === 0 && (
-                                <TableRow>
-                                  <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                                    No students match these filters.
-                                  </TableCell>
-                                </TableRow>
-                              )}
-                            </TableBody>
-                          </Table>
-                          </ListScroll>
-                          <PaginationBar p={pg} label="students" />
+                                </TableHeader>
+                                <TableBody>
+                                  {pg.pageItems.map(s => {
+                                    const isSelected = schoolSelectedStudentIds.includes(s.id);
+                                    const withPhoto = hasStudentPhoto(s);
+                                    return (
+                                      <TableRow key={s.id} className={`border-border/50 hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
+                                        <TableCell className="py-4 pl-4">
+                                          <Checkbox
+                                            checked={isSelected}
+                                            onCheckedChange={() => {
+                                              setSchoolSelectedStudentIds(prev =>
+                                                prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id]
+                                              );
+                                            }}
+                                            aria-label={`Select ${s.name}`}
+                                          />
+                                        </TableCell>
+                                        <TableCell className="px-4 py-4">
+                                          <div className="flex items-center gap-3">
+                                            <img
+                                              src={s.imageUrl}
+                                              alt=""
+                                              className={`w-9 h-9 rounded-full object-cover shrink-0 border ${withPhoto ? "border-border" : "border-dashed border-amber-400 opacity-70"}`}
+                                              title={withPhoto ? "Has photo" : "No photo yet"}
+                                            />
+                                            <div className="min-w-0">
+                                              <div className="text-foreground font-bold">{s.name}</div>
+                                              <div className="text-xs font-mono text-muted-foreground">{s.studentId}</div>
+                                            </div>
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="text-foreground">{s.className}</TableCell>
+                                        <TableCell>
+                                          <GuardianCell guardians={guardiansFor(s.id)} />
+                                        </TableCell>
+                                        <TableCell>
+                                          <Badge variant="outline" className={
+                                            s.cardStatus === "Active"
+                                              ? "text-emerald-700 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800/30 dark:bg-emerald-950/20"
+                                              : s.cardStatus === "Blocked"
+                                                ? "text-red-700 border-red-200 bg-red-50 dark:text-red-400 dark:border-red-800/30 dark:bg-red-950/20"
+                                                : "text-amber-700 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-800/30 dark:bg-amber-950/20"
+                                          }>
+                                            {s.cardStatus}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-foreground font-bold text-right">{naira(s.walletBalance)}</TableCell>
+                                        <TableCell className="text-right pr-6">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => {
+                                              setAdminDeleteTarget({ mode: "single", singleId: s.id, studentName: s.name, tenantId: school.id, schoolName: school.name });
+                                              setAdminDeleteConfirmOpen(true);
+                                            }}
+                                            className="text-red-400 hover:text-red-300 hover:bg-red-950/30 h-8 px-2"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </Button>
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                  {schoolStudents.length === 0 && (
+                                    <TableRow>
+                                      <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                                        No students registered for this school yet. Click "Import Students" to bulk upload.
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                  {schoolStudents.length > 0 && visibleSchoolStudents.length === 0 && (
+                                    <TableRow>
+                                      <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                                        No students match these filters.
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                </TableBody>
+                              </Table>
+                            </ListScroll>
+                            <PaginationBar p={pg} label="students" />
                           </>)}</Paged>
                         </CardContent>
                       </Card>
@@ -1224,66 +1224,66 @@ export function SuperAdmin() {
                 <Card className="bg-card border-border overflow-hidden">
                   <CardContent className="p-0">
                     <Paged items={tenants}>{(pg) => (<>
-                    <ListScroll page={pg.page} offset="16rem">
-                    <Table>
-                      <TableHeader className="bg-background">
-                        <TableRow className="border-border">
-                          <TableHead className="text-muted-foreground px-6 py-4">School</TableHead>
-                          <TableHead className="text-muted-foreground py-4">Enrollment Key</TableHead>
-                          <TableHead className="text-muted-foreground py-4">Contact</TableHead>
-                          <TableHead className="text-muted-foreground py-4 text-right pr-6">Students</TableHead>
-                          <TableHead className="text-muted-foreground py-4 text-center">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {pg.pageItems.map(t => (
-                          <TableRow key={t.id} className="border-border/50">
-                            <TableCell
-                              className="px-6 py-4 cursor-pointer hover:bg-muted/50 transition-colors"
-                              onClick={() => setSelectedSchoolId(t.id)}
-                            >
-                              <div className="text-foreground font-bold hover:text-primary transition-colors">{t.name}</div>
-                              <div className="text-xs text-muted-foreground">{t.address}</div>
-                            </TableCell>
-                            <TableCell
-                              className="cursor-pointer hover:bg-muted/50 transition-colors"
-                              onClick={() => setSelectedSchoolId(t.id)}
-                            >
-                              <Badge variant="outline" className="bg-background text-primary border-primary/50 font-display tracking-wide">{t.enrollmentKey}</Badge>
-                            </TableCell>
-                            <TableCell
-                              className="cursor-pointer hover:bg-muted/50 transition-colors"
-                              onClick={() => setSelectedSchoolId(t.id)}
-                            >
-                              <div className="text-foreground">{t.contactName}</div>
-                              <div className="text-xs text-muted-foreground">{t.contactEmail}</div>
-                            </TableCell>
-                            <TableCell
-                              className="text-foreground font-bold text-right pr-6 cursor-pointer hover:bg-muted/50 transition-colors"
-                              onClick={() => setSelectedSchoolId(t.id)}
-                            >
-                              {students.filter(s => s.tenantId === t.id).length}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleEditSchoolClick(t)}
-                                className="border-border hover:bg-muted text-foreground"
-                                data-testid={`btn-edit-school-${t.id}`}
-                              >
-                                Edit
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {tenants.length === 0 && (
-                          <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">No schools provisioned yet.</TableCell></TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                    </ListScroll>
-                    <PaginationBar p={pg} label="schools" />
+                      <ListScroll page={pg.page} offset="16rem">
+                        <Table>
+                          <TableHeader className="bg-background">
+                            <TableRow className="border-border">
+                              <TableHead className="text-muted-foreground px-6 py-4">School</TableHead>
+                              <TableHead className="text-muted-foreground py-4">Enrollment Key</TableHead>
+                              <TableHead className="text-muted-foreground py-4">Contact</TableHead>
+                              <TableHead className="text-muted-foreground py-4 text-right pr-6">Students</TableHead>
+                              <TableHead className="text-muted-foreground py-4 text-center">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {pg.pageItems.map(t => (
+                              <TableRow key={t.id} className="border-border/50">
+                                <TableCell
+                                  className="px-6 py-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                                  onClick={() => setSelectedSchoolId(t.id)}
+                                >
+                                  <div className="text-foreground font-bold hover:text-primary transition-colors">{t.name}</div>
+                                  <div className="text-xs text-muted-foreground">{t.address}</div>
+                                </TableCell>
+                                <TableCell
+                                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                  onClick={() => setSelectedSchoolId(t.id)}
+                                >
+                                  <Badge variant="outline" className="bg-background text-primary border-primary/50 font-display tracking-wide">{t.enrollmentKey}</Badge>
+                                </TableCell>
+                                <TableCell
+                                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                  onClick={() => setSelectedSchoolId(t.id)}
+                                >
+                                  <div className="text-foreground">{t.contactName}</div>
+                                  <div className="text-xs text-muted-foreground">{t.contactEmail}</div>
+                                </TableCell>
+                                <TableCell
+                                  className="text-foreground font-bold text-right pr-6 cursor-pointer hover:bg-muted/50 transition-colors"
+                                  onClick={() => setSelectedSchoolId(t.id)}
+                                >
+                                  {students.filter(s => s.tenantId === t.id).length}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEditSchoolClick(t)}
+                                    className="border-border hover:bg-muted text-foreground"
+                                    data-testid={`btn-edit-school-${t.id}`}
+                                  >
+                                    Edit
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            {tenants.length === 0 && (
+                              <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">No schools provisioned yet.</TableCell></TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </ListScroll>
+                      <PaginationBar p={pg} label="schools" />
                     </>)}</Paged>
                   </CardContent>
                 </Card>
@@ -1823,36 +1823,36 @@ export function SuperAdmin() {
               <Card className="bg-card border-border overflow-hidden">
                 <CardContent className="p-0">
                   <Paged items={systemUsers.filter(u => u.tenantId === null)}>{(pg) => (<>
-                  <ListScroll page={pg.page} offset="16rem">
-                  <Table>
-                    <TableHeader className="bg-background">
-                      <TableRow className="border-border">
-                        <TableHead className="text-muted-foreground px-6 py-4">User</TableHead>
-                        <TableHead className="text-muted-foreground">Role</TableHead>
-                        <TableHead className="text-muted-foreground">Status</TableHead>
-                        <TableHead className="text-right px-6">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {pg.pageItems.map(u => (
-                        <TableRow key={u.id} className="border-border/50">
-                          <TableCell className="px-6 py-4">
-                            <div className="text-foreground font-bold">{u.name}</div>
-                            <div className="text-sm text-muted-foreground">{u.email}</div>
-                          </TableCell>
-                          <TableCell><Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">super admin</Badge></TableCell>
-                          <TableCell><Badge variant="outline" className={u.isActive ? "text-primary border-primary" : "text-muted-foreground border-border"}>{u.isActive ? "Active" : "Inactive"}</Badge></TableCell>
-                          <TableCell className="text-right px-6">
-                            <Button variant="ghost" size="sm" onClick={() => updateSystemUser(u.id, { isActive: !u.isActive })} className="text-muted-foreground hover:text-foreground" data-testid={`btn-toggle-user-${u.id}`}>
-                              {u.isActive ? "Deactivate" : "Activate"}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  </ListScroll>
-                  <PaginationBar p={pg} label="users" />
+                    <ListScroll page={pg.page} offset="16rem">
+                      <Table>
+                        <TableHeader className="bg-background">
+                          <TableRow className="border-border">
+                            <TableHead className="text-muted-foreground px-6 py-4">User</TableHead>
+                            <TableHead className="text-muted-foreground">Role</TableHead>
+                            <TableHead className="text-muted-foreground">Status</TableHead>
+                            <TableHead className="text-right px-6">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {pg.pageItems.map(u => (
+                            <TableRow key={u.id} className="border-border/50">
+                              <TableCell className="px-6 py-4">
+                                <div className="text-foreground font-bold">{u.name}</div>
+                                <div className="text-sm text-muted-foreground">{u.email}</div>
+                              </TableCell>
+                              <TableCell><Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">super admin</Badge></TableCell>
+                              <TableCell><Badge variant="outline" className={u.isActive ? "text-primary border-primary" : "text-muted-foreground border-border"}>{u.isActive ? "Active" : "Inactive"}</Badge></TableCell>
+                              <TableCell className="text-right px-6">
+                                <Button variant="ghost" size="sm" onClick={() => updateSystemUser(u.id, { isActive: !u.isActive })} className="text-muted-foreground hover:text-foreground" data-testid={`btn-toggle-user-${u.id}`}>
+                                  {u.isActive ? "Deactivate" : "Activate"}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ListScroll>
+                    <PaginationBar p={pg} label="users" />
                   </>)}</Paged>
                 </CardContent>
               </Card>
@@ -1886,39 +1886,39 @@ export function SuperAdmin() {
                 <Card className="bg-card border-border overflow-hidden">
                   <CardContent className="p-0">
                     <Paged items={systemUsers.filter(u => u.tenantId === selectedUserTenantId)} resetKey={selectedUserTenantId}>{(pg) => (<>
-                    <ListScroll page={pg.page} offset="16rem">
-                    <Table>
-                      <TableHeader className="bg-background">
-                        <TableRow className="border-border">
-                          <TableHead className="text-muted-foreground px-6 py-4">User</TableHead>
-                          <TableHead className="text-muted-foreground">Role</TableHead>
-                          <TableHead className="text-muted-foreground">Status</TableHead>
-                          <TableHead className="text-right px-6">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {pg.pageItems.map(u => (
-                          <TableRow key={u.id} className="border-border/50">
-                            <TableCell className="px-6 py-4">
-                              <div className="text-foreground font-bold">{u.name}</div>
-                              <div className="text-sm text-muted-foreground">{u.email}</div>
-                            </TableCell>
-                            <TableCell>{roleBadge(u.role)}</TableCell>
-                            <TableCell><Badge variant="outline" className={u.isActive ? "text-primary border-primary" : "text-muted-foreground border-border"}>{u.isActive ? "Active" : "Inactive"}</Badge></TableCell>
-                            <TableCell className="text-right px-6">
-                              <Button variant="ghost" size="sm" onClick={() => updateSystemUser(u.id, { isActive: !u.isActive })} className="text-muted-foreground hover:text-foreground" data-testid={`btn-toggle-tenant-user-${u.id}`}>
-                                {u.isActive ? "Deactivate" : "Activate"}
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {systemUsers.filter(u => u.tenantId === selectedUserTenantId).length === 0 && (
-                          <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground">No users for this school.</TableCell></TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                    </ListScroll>
-                    <PaginationBar p={pg} label="users" />
+                      <ListScroll page={pg.page} offset="16rem">
+                        <Table>
+                          <TableHeader className="bg-background">
+                            <TableRow className="border-border">
+                              <TableHead className="text-muted-foreground px-6 py-4">User</TableHead>
+                              <TableHead className="text-muted-foreground">Role</TableHead>
+                              <TableHead className="text-muted-foreground">Status</TableHead>
+                              <TableHead className="text-right px-6">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {pg.pageItems.map(u => (
+                              <TableRow key={u.id} className="border-border/50">
+                                <TableCell className="px-6 py-4">
+                                  <div className="text-foreground font-bold">{u.name}</div>
+                                  <div className="text-sm text-muted-foreground">{u.email}</div>
+                                </TableCell>
+                                <TableCell>{roleBadge(u.role)}</TableCell>
+                                <TableCell><Badge variant="outline" className={u.isActive ? "text-primary border-primary" : "text-muted-foreground border-border"}>{u.isActive ? "Active" : "Inactive"}</Badge></TableCell>
+                                <TableCell className="text-right px-6">
+                                  <Button variant="ghost" size="sm" onClick={() => updateSystemUser(u.id, { isActive: !u.isActive })} className="text-muted-foreground hover:text-foreground" data-testid={`btn-toggle-tenant-user-${u.id}`}>
+                                    {u.isActive ? "Deactivate" : "Activate"}
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            {systemUsers.filter(u => u.tenantId === selectedUserTenantId).length === 0 && (
+                              <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground">No users for this school.</TableCell></TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </ListScroll>
+                      <PaginationBar p={pg} label="users" />
                     </>)}</Paged>
                   </CardContent>
                 </Card>
@@ -1945,31 +1945,31 @@ export function SuperAdmin() {
                   </div>
                 ) : (
                   <Paged items={notifications.filter(n => n.targetRole === "super_admin")}>{(pg) => (<>
-                  <ListScroll page={pg.page} offset="14rem" className="divide-y divide-border">
-                    {pg.pageItems.map(n => (
-                      <div key={n.id} className={`p-6 flex items-start gap-4 ${!n.isRead ? "bg-muted/50" : "bg-card"}`}>
-                        <div className={`p-3 rounded-full ${!n.isRead ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
-                          <CreditCard className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start mb-1">
-                            <h4 className={`font-bold ${!n.isRead ? "text-foreground" : "text-foreground"}`}>Card Assignment Request</h4>
-                            <span className="text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleString()}</span>
+                    <ListScroll page={pg.page} offset="14rem" className="divide-y divide-border">
+                      {pg.pageItems.map(n => (
+                        <div key={n.id} className={`p-6 flex items-start gap-4 ${!n.isRead ? "bg-muted/50" : "bg-card"}`}>
+                          <div className={`p-3 rounded-full ${!n.isRead ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
+                            <CreditCard className="w-5 h-5" />
                           </div>
-                          <p className={`mb-3 text-sm ${!n.isRead ? "text-foreground" : "text-muted-foreground"}`}>{n.message}</p>
-                          {!n.isRead && (
-                            <div className="flex gap-3">
-                              <Button size="sm" onClick={() => { setActiveTab("cards"); setSelectedStudentId(n.studentId.toString()); setReplaceMode(false); setRemoveConfirm(false); setHardwareId(""); markNotificationRead(n.id); }} className="bg-primary hover:bg-primary-hover text-primary-foreground" data-testid={`btn-go-to-studio-${n.id}`}>
-                                Go to Studio
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => markNotificationRead(n.id)} className="text-muted-foreground hover:text-foreground">Mark as Read</Button>
+                          <div className="flex-1">
+                            <div className="flex justify-between items-start mb-1">
+                              <h4 className={`font-bold ${!n.isRead ? "text-foreground" : "text-foreground"}`}>Card Assignment Request</h4>
+                              <span className="text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleString()}</span>
                             </div>
-                          )}
+                            <p className={`mb-3 text-sm ${!n.isRead ? "text-foreground" : "text-muted-foreground"}`}>{n.message}</p>
+                            {!n.isRead && (
+                              <div className="flex gap-3">
+                                <Button size="sm" onClick={() => { setActiveTab("cards"); setSelectedStudentId(n.studentId.toString()); setReplaceMode(false); setRemoveConfirm(false); setHardwareId(""); markNotificationRead(n.id); }} className="bg-primary hover:bg-primary-hover text-primary-foreground" data-testid={`btn-go-to-studio-${n.id}`}>
+                                  Go to Studio
+                                </Button>
+                                <Button size="sm" variant="ghost" onClick={() => markNotificationRead(n.id)} className="text-muted-foreground hover:text-foreground">Mark as Read</Button>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </ListScroll>
-                  <PaginationBar p={pg} label="notifications" />
+                      ))}
+                    </ListScroll>
+                    <PaginationBar p={pg} label="notifications" />
                   </>)}</Paged>
                 )}
               </div>
