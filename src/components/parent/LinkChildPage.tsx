@@ -51,14 +51,14 @@ export function LinkChildPage(props: Props) {
 
         <div className="space-y-6 p-5 sm:p-6">
           {/* Step 1 — privacy */}
-          <div className={cn("rounded-2xl border p-4 transition-colors", privacyAccepted ? "border-green-500/40 bg-mint/60" : "border-border bg-muted/40")}>
+          <div className={cn("rounded-2xl border p-4 transition-colors", privacyAccepted ? "border-green-500/40 bg-mint/60 dark:border-green-400/40 dark:bg-green-500/15" : "border-border bg-muted/40")}>
             <div className="flex items-start gap-3">
               <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", privacyAccepted ? "bg-green text-white" : "bg-lilac text-ink-2")}>
                 {privacyAccepted ? <CheckCircle2 className="h-5 w-5" /> : <span className="font-display">1</span>}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="font-extrabold">Privacy & compliance</div>
-                <p className="text-sm text-muted-foreground">
+                <div className={cn("font-extrabold", privacyAccepted && "dark:text-white")}>Privacy & compliance</div>
+                <p className={cn("text-sm text-muted-foreground", privacyAccepted && "dark:text-white/90")}>
                   {privacyAccepted ? "Thanks — you've accepted the notice. You can review it again any time." : "Read and accept how we handle your family's data before linking."}
                 </p>
                 <Button
@@ -128,11 +128,11 @@ export function LinkChildPage(props: Props) {
               </div>
 
               <div className="space-y-2 rounded-xl border border-green-500/30 bg-mint/70 px-3.5 py-3">
-                <p className="flex items-start gap-2.5 text-xs leading-relaxed text-green-800">
+                <p className="flex items-start gap-2.5 text-xs leading-relaxed text-[#1B1942]">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-700" />
                   <span><strong>Linking is free.</strong> An enrollment charge applies to every wallet top-up to cover infrastructure, payment gateway and transaction fees — you'll see it before you pay.</span>
                 </p>
-                <p className="flex items-start gap-2.5 text-xs leading-relaxed text-green-800">
+                <p className="flex items-start gap-2.5 text-xs leading-relaxed text-[#1B1942]">
                   <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-green-700" />
                   <span>All payments are processed by <strong>Paystack</strong>. LSPay never holds or stores your card or bank details.</span>
                 </p>

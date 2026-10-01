@@ -586,7 +586,7 @@ export function ParentPortal() {
                   <Alert className="bg-peach border-amber-500/40 rounded-2xl">
                     <AlertTriangle className="h-5 w-5 text-amber-500" />
                     <AlertTitle className="text-amber-700 text-lg font-extrabold ml-2">Action Required: Activate Card</AlertTitle>
-                    <AlertDescription className="text-amber-800 dark:text-amber-300 ml-2 mt-2">
+                    <AlertDescription className="text-amber-700 dark:text-amber-300 ml-2 mt-2">
                       {child.cardLifecycleStatus === 'ready'
                         ? "Your child's card is ready for pickup. Please set a secure PIN and limits to activate it."
                         : "Card has been delivered. Please activate it below to enable purchases."}
