@@ -126,11 +126,11 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
   }, [checkoutStage, nfcSupported, startNfc, stopNfc]);
 
   const notifyLimitBreach = (student: Student, kind: "daily" | "monthly", limit: number, alreadySpent: number) => {
-    if (!student.parentEmail) return;
+    // every LSPay parent linked to the student gets a copy (database trigger, 0088)
     addNotification({
       targetRole: "parent",
       targetTenantId: student.tenantId,
-      targetParentEmail: student.parentEmail,
+      targetParentEmail: student.parentEmail || null,
       type: "limit_exceeded",
       message: `${student.name} attempted a ${naira(cartTotal)} purchase at ${activeTenant?.name ?? "the canteen"}, which would exceed their ${kind} spending limit of ${naira(limit)} (${naira(alreadySpent)} already spent ${kind === "daily" ? "today" : "this month"}). The purchase was declined.`,
       studentId: student.id,

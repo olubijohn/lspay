@@ -1,4 +1,5 @@
 import { naira, nairaAxis } from "@/lib/money";
+import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
 import { useState, useMemo } from "react";
 import { useStore } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -493,9 +494,11 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
             <CardTitle className="text-foreground">Student Spending Overview</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="max-h-[400px] overflow-auto border border-border rounded-lg bg-background">
+            <Paged items={studentData}>{(pg) => (
+            <div className="border border-border rounded-lg bg-background overflow-hidden">
+            <ListScroll page={pg.page} offset="18rem">
               <Table>
-                <TableHeader className="bg-card/80 sticky top-0">
+                <TableHeader className="bg-card/80">
                   <TableRow className="border-border">
                     <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Student Name</TableHead>
                     <TableHead className="text-muted-foreground font-bold tracking-wider text-xs text-right">
@@ -508,7 +511,7 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {studentData.map((s, idx) => (
+                  {pg.pageItems.map((s, idx) => (
                     <TableRow key={idx} className="border-border/50 hover:bg-muted/50">
                       <TableCell className="text-foreground font-medium">{s.name}</TableCell>
                       <TableCell className="text-right text-foreground font-mono">
@@ -525,7 +528,10 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
                   )}
                 </TableBody>
               </Table>
+            </ListScroll>
+            <PaginationBar p={pg} label="students" />
             </div>
+            )}</Paged>
           </CardContent>
         </Card>
       )}

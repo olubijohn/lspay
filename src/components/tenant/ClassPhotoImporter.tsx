@@ -1,3 +1,4 @@
+import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
 import { useState, useRef, useMemo, useEffect, ChangeEvent } from "react";
 import { Student } from "@/lib/types";
 import { useStore } from "@/store";
@@ -760,9 +761,11 @@ export function ClassPhotoImporter({
               </div>
 
               {/* Matching Table / List */}
-              <div className="border border-border rounded-xl overflow-hidden bg-card shadow-inner max-h-[380px] overflow-y-auto">
+              <Paged items={displayItems}>{(pg) => (
+              <div className="border border-border rounded-xl overflow-hidden bg-card shadow-inner">
+                <ListScroll page={pg.page} offset="30rem">
                 <table className="w-full text-xs text-left">
-                  <thead className="bg-muted/70 text-muted-foreground font-semibold border-b border-border sticky top-0 z-10 backdrop-blur-md">
+                  <thead className="bg-muted/70 text-muted-foreground font-semibold border-b border-border">
                     <tr>
                       <th className="py-2.5 px-3">Photo Preview</th>
                       <th className="py-2.5 px-3">Detected Name (from file)</th>
@@ -779,7 +782,7 @@ export function ClassPhotoImporter({
                         </td>
                       </tr>
                     ) : (
-                      displayItems.map((item) => (
+                      pg.pageItems.map((item) => (
                         <tr
                           key={item.id}
                           className={`hover:bg-muted/30 transition-colors ${
@@ -908,7 +911,10 @@ export function ClassPhotoImporter({
                     )}
                   </tbody>
                 </table>
+                </ListScroll>
+                <PaginationBar p={pg} label="photos" />
               </div>
+              )}</Paged>
 
               {/* Progress bar during upload */}
               {isProcessing && (

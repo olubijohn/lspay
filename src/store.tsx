@@ -2,6 +2,7 @@ import { createContext, useContext, useState, ReactNode, useEffect, useCallback,
 import {
   AppState, Tenant, Student, InventoryItem, Transaction, SystemUser, ParentUser, StockMovement,
   AuthSession, AppNotification, CardStatus, CardLifecycleStatus, TenantUserRole, LspayParentCredentials,
+  LspayGuardian, LspayGuardianImportRow, LspayGuardianImportResult, GuardianRelationship,
 } from "./lib/types";
 import { getSupabase, isSupabaseConfigured } from "./lib/supabaseClient";
 
@@ -43,7 +44,7 @@ function mapStudentRow(r: any): Student {
     cardLifecycleStatus: (w.card_lifecycle_status ?? "none") as CardLifecycleStatus,
     activatedAt: w.activated_at ?? undefined,
     homeAddress: r.address ?? "", billingAddress: r.address ?? "",
-    parentName: r.guardian_name ?? "", parentEmail: r.guardian_email ?? "",
+    parentName: r.guardian_name ?? "", parentEmail: r.guardian_email ?? "", parentPhone: r.guardian_phone ?? "",
   };
 }
 
@@ -116,6 +117,19 @@ function mergeParentAccounts(rows: any[]): ParentUser | null {
   };
 }
 
+/** Readable messages for lspay_student_guardians write errors (unique email, 3-guardian limit, main guardian). */
+function guardianError(error: { code?: string; message: string }): string {
+  if (error.code === "23505") return "This email is already a guardian of this student.";
+  return error.message.replace(/^.*?(This (email|student)[^.]*\.).*$/s, "$1");
+}
+
+function mapGuardianRow(r: any): LspayGuardian {
+  return {
+    id: r.id, tenantId: r.tenant_id, studentId: r.student_id, name: r.full_name ?? "Parent", email: r.email ?? "",
+    phone: r.phone ?? "", relationship: (r.relationship ?? "guardian") as GuardianRelationship, createdAt: r.created_at,
+  };
+}
+
 // levels!students_level_id_fkey disambiguates from students.next_level_id, which also points at levels
 // (added later for LSA's roster-import "next class" field) - PostgREST can't guess which one we mean.
 const STUDENT_SELECT = "*, lspay_student_wallets(*), levels!students_level_id_fkey(name)";
@@ -129,6 +143,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [systemUsers, setSystemUsers] = useState<SystemUser[]>([]);
   const [parentUsers, setParentUsers] = useState<ParentUser[]>([]);
+  const [lspayGuardians, setLspayGuardians] = useState<LspayGuardian[]>([]);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
@@ -140,7 +155,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const clearAll = () => {
     setTenants([]); setStudents([]); setInventory([]); setTransactions([]);
-    setSystemUsers([]); setParentUsers([]); setStockMovements([]); setNotifications([]);
+    setSystemUsers([]); setParentUsers([]); setStockMovements([]); setNotifications([]); setLspayGuardians([]);
   };
 
   // ------------------------------ data loading ------------------------------
@@ -155,20 +170,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let nq = supabase.from("lspay_notifications").select("*").order("created_at", { ascending: false });
     let puq = supabase.from("profiles").select("*");
     let paq = supabase.from("lspay_parent_accounts").select(LSPAY_PARENT_SELECT);
+    let gq = supabase.from("lspay_student_guardians").select("*");
 
     if (tenantId) {
       sq = sq.eq("tenant_id", tenantId); tq = tq.eq("id", tenantId); iq = iq.eq("tenant_id", tenantId);
       txq = txq.eq("tenant_id", tenantId); lq = lq.eq("tenant_id", tenantId); smq = smq.eq("tenant_id", tenantId);
       nq = nq.eq("target_role", "tenant").eq("target_tenant_id", tenantId);
-      puq = puq.eq("tenant_id", tenantId); paq = paq.eq("tenant_id", tenantId);
+      puq = puq.eq("tenant_id", tenantId); paq = paq.eq("tenant_id", tenantId); gq = gq.eq("tenant_id", tenantId);
     } else {
       nq = nq.eq("target_role", "super_admin");
     }
 
-    const [{ data: sData }, { data: tData }, { data: iData }, { data: txData }, { data: lData }, { data: smData }, { data: nData }, { data: puData }, { data: paData }, { data: paAdmins }] =
+    const [{ data: sData }, { data: tData }, { data: iData }, { data: txData }, { data: lData }, { data: smData }, { data: nData }, { data: puData }, { data: paData }, { data: paAdmins }, { data: gData }] =
       await Promise.all([
         sq, tq, iq, txq, lq, smq, nq, puq, paq,
         tenantId ? Promise.resolve({ data: [] as any[] }) : supabase.from("platform_admins").select("*"),
+        gq,
       ]);
     if (loadToken.current !== myToken) return;
 
@@ -203,6 +220,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setSystemUsers([...adminUsers, ...staffUsers]);
 
     setParentUsers((paData ?? []).map(mapLspayParentRow));
+    setLspayGuardians((gData ?? []).map(mapGuardianRow));
   }, []);
 
   const loadForParent = useCallback(async (accountId: string, linkedStudentIds: string[], myToken: number) => {
@@ -530,7 +548,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (updates.name !== undefined) sUpdates.full_name = updates.name;
     if (updates.homeAddress !== undefined) sUpdates.address = updates.homeAddress;
     if (updates.parentName !== undefined) sUpdates.guardian_name = updates.parentName;
-    if (updates.parentEmail !== undefined) sUpdates.guardian_email = updates.parentEmail;
+    if (updates.parentEmail !== undefined) sUpdates.guardian_email = updates.parentEmail.trim().toLowerCase() || null;
+    if (updates.parentPhone !== undefined) sUpdates.guardian_phone = updates.parentPhone;
     if (updates.imageUrl !== undefined) {
       sUpdates.avatar_path = updates.imageUrl && !updates.imageUrl.includes("dicebear") ? updates.imageUrl : null;
     }
@@ -614,9 +633,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!student) return;
     const wasActivated = student.cardLifecycleStatus === "activated";
     updateStudent(studentId, { cardType, cardHardwareId: hardwareId, cardStatus: wasActivated ? "Active" : "Issued", cardLifecycleStatus: wasActivated ? "activated" : "assigned" });
-    if (wasActivated && student.parentEmail) {
+    if (wasActivated) {
       addNotification({
-        targetRole: "parent", targetTenantId: student.tenantId, targetParentEmail: student.parentEmail, type: "card_delivered",
+        targetRole: "parent", targetTenantId: student.tenantId, targetParentEmail: student.parentEmail || null, type: "card_delivered",
         message: `${student.name}'s card was replaced. The new card is active and ready to use.`, studentId: student.id, studentName: student.name, isRead: false, createdAt: new Date().toISOString(),
       });
     }
@@ -761,19 +780,81 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Staff: the lspay-parent-access edge function creates/links the guardian's LSPay parent login (like LSA's
   // create-portal-access) and links every sibling with the same guardian email. Re-read the accounts afterwards.
-  const connectLspayParent = async (studentId: string, action: "connect" | "reset" = "connect") => {
-    const supabase = getSupabase();
-    const { data, error } = await supabase.functions.invoke("lspay-parent-access", { body: { studentId, action } });
+  const connectLspayParent = async (studentId: string, action: "connect" | "reset" = "connect", guardianId?: string, opts: { refresh?: boolean } = {}) => {
+    const { data, error } = await getSupabase().functions.invoke("lspay-parent-access", { body: { studentId, action, guardianId: guardianId ?? null } });
     if (error) return { success: false, message: (await functionError(error)).message };
     const tenantId = students.find((s) => s.id === studentId)?.tenantId;
-    let q = supabase.from("lspay_parent_accounts").select(LSPAY_PARENT_SELECT);
-    if (session.portal === "tenant" && tenantId) q = q.eq("tenant_id", tenantId);
-    const { data: rows } = await q;
+    if (tenantId && opts.refresh !== false) await refreshLspayParents(tenantId);
+    return { success: true, credentials: data as LspayParentCredentials };
+  };
+
+  // Re-read one school's LSPay parent accounts and guardians (links change through database triggers).
+  const refreshLspayParents = async (tenantId: string) => {
+    const supabase = getSupabase();
+    const [{ data: rows }, { data: gRows }] = await Promise.all([
+      supabase.from("lspay_parent_accounts").select(LSPAY_PARENT_SELECT).eq("tenant_id", tenantId),
+      supabase.from("lspay_student_guardians").select("*").eq("tenant_id", tenantId),
+    ]);
     if (rows) {
       const fresh = rows.map(mapLspayParentRow);
-      setParentUsers((prev) => session.portal === "tenant" ? fresh : [...prev.filter((p) => p.tenantId !== tenantId), ...fresh.filter((p) => p.tenantId === tenantId)]);
+      setParentUsers((prev) => [...prev.filter((p) => p.tenantId !== tenantId), ...fresh]);
     }
-    return { success: true, credentials: data as LspayParentCredentials };
+    if (gRows) {
+      const fresh = gRows.map(mapGuardianRow);
+      setLspayGuardians((prev) => [...prev.filter((g) => g.tenantId !== tenantId), ...fresh]);
+    }
+  };
+
+  // `tenantId` lets callers add guardians to a student created moments ago (not yet in this render's list).
+  const addLspayGuardian = async (studentId: string, g: { name: string; email: string; phone: string; relationship: GuardianRelationship }, opts: { tenantId?: string; refresh?: boolean } = {}) => {
+    const student = students.find((s) => s.id === studentId);
+    const tenantId = student?.tenantId ?? opts.tenantId;
+    if (!tenantId) return { success: false, message: "Student not found." };
+    const email = g.email.trim().toLowerCase();
+    if (student && student.parentEmail?.trim().toLowerCase() === email) return { success: false, message: "This email is already the student's main guardian." };
+    const { error } = await getSupabase().from("lspay_student_guardians").insert({
+      tenant_id: tenantId, student_id: studentId, full_name: g.name.trim() || "Parent", email,
+      phone: g.phone.trim(), relationship: g.relationship, created_by_name: session.user?.name ?? null,
+    });
+    if (error) return { success: false, message: guardianError(error) };
+    if (opts.refresh !== false) await refreshLspayParents(tenantId);
+    return { success: true };
+  };
+
+  const updateLspayGuardian = async (guardianId: string, g: { name: string; email: string; phone: string; relationship: GuardianRelationship }, opts: { refresh?: boolean } = {}) => {
+    const existing = lspayGuardians.find((x) => x.id === guardianId);
+    const { error } = await getSupabase().from("lspay_student_guardians").update({
+      full_name: g.name.trim() || "Parent", email: g.email.trim().toLowerCase(), phone: g.phone.trim(), relationship: g.relationship,
+    }).eq("id", guardianId);
+    if (error) return { success: false, message: guardianError(error) };
+    if (existing && opts.refresh !== false) await refreshLspayParents(existing.tenantId);
+    return { success: true };
+  };
+
+  const removeLspayGuardian = async (guardianId: string, opts: { refresh?: boolean } = {}) => {
+    const g = lspayGuardians.find((x) => x.id === guardianId);
+    const { error } = await getSupabase().from("lspay_student_guardians").delete().eq("id", guardianId);
+    if (error) return { success: false, message: error.message };
+    if (g && opts.refresh !== false) await refreshLspayParents(g.tenantId);
+    return { success: true };
+  };
+
+  const importLspayGuardians = async (tenantId: string, rows: LspayGuardianImportRow[]): Promise<LspayGuardianImportResult> => {
+    const total: LspayGuardianImportResult = { added: 0, updated: 0, alreadyOnRecord: 0, skipped: [] };
+    // batches keep each call small for schools with hundreds of parents
+    for (let i = 0; i < rows.length; i += 200) {
+      const batch = rows.slice(i, i + 200).map((r) => ({
+        student_id: r.studentId, full_name: r.name, email: r.email, phone: r.phone, relationship: r.relationship,
+      }));
+      const { data, error } = await getSupabase().rpc("lspay_import_guardians", { p_tenant: tenantId, p_rows: batch });
+      if (error) throw new Error(error.message);
+      total.added += data?.added ?? 0;
+      total.updated += data?.updated ?? 0;
+      total.alreadyOnRecord += data?.already_on_record ?? 0;
+      total.skipped.push(...(data?.skipped ?? []).map((x: any) => ({ studentId: x.student_id, email: x.email, reason: x.reason })));
+    }
+    await refreshLspayParents(tenantId);
+    return total;
   };
 
   const topupWallet = async (studentId: string, paystackReference: string) => {
@@ -875,9 +956,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const student = students.find((s) => s.id === studentId);
     if (!student || student.cardLifecycleStatus !== "ready") return;
     updateStudent(studentId, { cardLifecycleStatus: "delivered" });
-    if (student.parentEmail) {
+    {
       addNotification({
-        targetRole: "parent", targetTenantId: student.tenantId, targetParentEmail: student.parentEmail, type: "card_delivered",
+        targetRole: "parent", targetTenantId: student.tenantId, targetParentEmail: student.parentEmail || null, type: "card_delivered",
         message: `Card for ${student.name} has been delivered. Please activate it.`, studentId: student.id, studentName: student.name, isRead: false, createdAt: new Date().toISOString(),
       });
     }
@@ -936,6 +1017,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addTenant, updateTenant, assignCard, replaceCard, removeCard, createStudent, updateStudent, bulkUpdateStudentAvatars, deleteStudent, deleteStudents, addInventory, updateInventory, deleteInventory, addTransaction, cancelTransaction, deductBalanceAndStock,
         addStockMovement, addParentChild, addNotification, markNotificationRead, markCardReady, markCardDelivered, activateCard,
         verifyStaffCode, verifyKioskExit, verifyWalletPin, topupWallet, connectLspayParent, lastAccessError,
+        lspayGuardians, addLspayGuardian, updateLspayGuardian, removeLspayGuardian, importLspayGuardians, refreshLspayParents,
       }}
     >
       {children}

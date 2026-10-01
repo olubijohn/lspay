@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
 import { useStore } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -92,9 +93,11 @@ export function TenantStockManagement({ tenantId }: { tenantId: string }) {
             <CardTitle className="text-foreground">Stock Movement Log</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="max-h-[600px] overflow-auto border-t border-border bg-background rounded-b-xl">
+            <Paged items={tenantStockMovements}>{(pg) => (
+            <div className="border-t border-border bg-background rounded-b-xl overflow-hidden">
+            <ListScroll page={pg.page} offset="18rem">
               <Table>
-                <TableHeader className="bg-card/80 sticky top-0">
+                <TableHeader className="bg-card/80">
                   <TableRow className="border-border hover:bg-transparent">
                     <TableHead className="text-muted-foreground font-bold tracking-wider text-xs py-4 pl-6">Date</TableHead>
                     <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Item</TableHead>
@@ -103,7 +106,7 @@ export function TenantStockManagement({ tenantId }: { tenantId: string }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tenantStockMovements.map(m => (
+                  {pg.pageItems.map(m => (
                     <TableRow key={m.id} className="border-border/50 hover:bg-muted/50 transition-colors">
                       <TableCell className="text-muted-foreground text-sm whitespace-nowrap pl-6">{m.date}</TableCell>
                       <TableCell className="text-foreground">
@@ -129,7 +132,10 @@ export function TenantStockManagement({ tenantId }: { tenantId: string }) {
                   )}
                 </TableBody>
               </Table>
+            </ListScroll>
+            <PaginationBar p={pg} label="movements" />
             </div>
+            )}</Paged>
           </CardContent>
         </Card>
       </div>

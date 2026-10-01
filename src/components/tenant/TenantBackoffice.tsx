@@ -1,4 +1,5 @@
 import { naira } from "@/lib/money";
+import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
 import { useState } from "react";
 import { useStore } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -101,9 +102,11 @@ export function TenantBackoffice({ tenantId }: { tenantId: string }) {
               <Button type="submit" className="col-span-2 sm:col-span-4 bg-primary hover:bg-primary-hover text-primary-foreground h-9">Add Item</Button>
             </form>
 
-            <div className="max-h-[500px] overflow-auto border border-border rounded-md">
+            <Paged items={tenantInventory}>{(pg) => (
+            <div className="border border-border rounded-md overflow-hidden">
+            <ListScroll page={pg.page} offset="20rem">
               <Table>
-                <TableHeader className="bg-background sticky top-0 z-10 shadow-sm">
+                <TableHeader className="bg-background z-10 shadow-sm">
                   <TableRow className="border-b border-border">
                     <TableHead className="text-muted-foreground">Item</TableHead>
                     <TableHead className="text-muted-foreground">Category</TableHead>
@@ -113,7 +116,7 @@ export function TenantBackoffice({ tenantId }: { tenantId: string }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tenantInventory.map(item => (
+                  {pg.pageItems.map(item => (
                     <TableRow key={item.id} className="border-b border-border/50 hover:bg-muted/30">
                       <TableCell className="text-foreground font-medium">{item.name}</TableCell>
                       <TableCell>
@@ -132,7 +135,10 @@ export function TenantBackoffice({ tenantId }: { tenantId: string }) {
                   ))}
                 </TableBody>
               </Table>
+            </ListScroll>
+            <PaginationBar p={pg} label="items" />
             </div>
+            )}</Paged>
           </CardContent>
         </Card>
       </div>
@@ -171,9 +177,11 @@ export function TenantBackoffice({ tenantId }: { tenantId: string }) {
 
             <div>
               <h3 className="text-sm font-bold text-muted-foreground mb-3 tracking-wider">Recent Stock Movements</h3>
-              <div className="max-h-[350px] overflow-auto border border-border rounded-md">
+              <Paged items={tenantStockMovements}>{(pg) => (
+              <div className="border border-border rounded-md overflow-hidden">
+              <ListScroll page={pg.page} offset="24rem">
                 <Table>
-                  <TableHeader className="bg-background sticky top-0 z-10 shadow-sm">
+                  <TableHeader className="bg-background z-10 shadow-sm">
                     <TableRow className="border-b border-border">
                       <TableHead className="text-muted-foreground">Date</TableHead>
                       <TableHead className="text-muted-foreground">Item</TableHead>
@@ -182,7 +190,7 @@ export function TenantBackoffice({ tenantId }: { tenantId: string }) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {tenantStockMovements.slice(0, 30).map(m => (
+                    {pg.pageItems.map(m => (
                       <TableRow key={m.id} className="border-b border-border/50 hover:bg-muted/30">
                         <TableCell className="text-muted-foreground text-xs whitespace-nowrap">{m.date}</TableCell>
                         <TableCell className="text-foreground">
@@ -208,7 +216,10 @@ export function TenantBackoffice({ tenantId }: { tenantId: string }) {
                     )}
                   </TableBody>
                 </Table>
+              </ListScroll>
+              <PaginationBar p={pg} label="movements" />
               </div>
+              )}</Paged>
             </div>
           </CardContent>
         </Card>

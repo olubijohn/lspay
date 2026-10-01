@@ -49,6 +49,8 @@ export interface Student {
   billingAddress: string;
   parentName: string;
   parentEmail: string;
+  /** Phone of the guardian on the student record. */
+  parentPhone?: string;
 }
 
 export type CardLifecycleStatus =
@@ -141,6 +143,37 @@ export interface LspayParentCredentials {
   mustChange: boolean;
 }
 
+export type GuardianRelationship = "father" | "mother" | "guardian";
+
+/** An extra LSPay guardian of a student (0088), besides the guardian on the student record. */
+export interface LspayGuardian {
+  id: string;
+  tenantId: string;
+  studentId: string;
+  name: string;
+  email: string;
+  phone: string;
+  relationship: GuardianRelationship;
+  createdAt: string;
+}
+
+export interface GuardianInput { name: string; email: string; phone: string; relationship: GuardianRelationship }
+
+export interface LspayGuardianImportRow {
+  studentId: string;
+  name: string;
+  email: string;
+  phone: string;
+  relationship: GuardianRelationship;
+}
+
+export interface LspayGuardianImportResult {
+  added: number;
+  updated: number;
+  alreadyOnRecord: number;
+  skipped: { studentId: string; email: string; reason: string }[];
+}
+
 export interface StockMovement {
   id: string;
   tenantId: string;
@@ -211,5 +244,13 @@ export interface AppState {
   verifyWalletPin: (studentId: string, pin: string) => Promise<boolean>;
   topupWallet: (studentId: string, paystackReference: string) => Promise<void>;
   /** Staff: connect a student's guardian to the LSPay parent portal (temporary password), or reset that password. */
-  connectLspayParent: (studentId: string, action?: "connect" | "reset") => Promise<{ success: boolean; message?: string; credentials?: LspayParentCredentials }>;
+  /** guardianId: an extra LSPay guardian; omitted = the guardian on the student record. */
+  connectLspayParent: (studentId: string, action?: "connect" | "reset", guardianId?: string, opts?: { refresh?: boolean }) => Promise<{ success: boolean; message?: string; credentials?: LspayParentCredentials }>;
+  /** Re-read one school's LSPay parent accounts and guardians. */
+  refreshLspayParents: (tenantId: string) => Promise<void>;
+  lspayGuardians: LspayGuardian[];
+  addLspayGuardian: (studentId: string, g: GuardianInput, opts?: { tenantId?: string; refresh?: boolean }) => Promise<{ success: boolean; message?: string }>;
+  updateLspayGuardian: (guardianId: string, g: GuardianInput, opts?: { refresh?: boolean }) => Promise<{ success: boolean; message?: string }>;
+  removeLspayGuardian: (guardianId: string, opts?: { refresh?: boolean }) => Promise<{ success: boolean; message?: string }>;
+  importLspayGuardians: (tenantId: string, rows: LspayGuardianImportRow[]) => Promise<LspayGuardianImportResult>;
 }

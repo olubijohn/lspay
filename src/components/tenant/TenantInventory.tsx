@@ -14,6 +14,7 @@ import { InventoryItem } from "@/lib/types";
 import { CameraCaptureButton, asFileEvent } from "@/components/CameraCapture";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 import { useChartTheme } from "@/theme";
+import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
 
 function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; tenantId: string; onClose: () => void }) {
   const chartTheme = useChartTheme();
@@ -96,9 +97,11 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
           <h3 className="text-sm font-bold text-muted-foreground tracking-wide mb-3 flex items-center gap-2">
             <ShoppingCart className="h-4 w-4" /> Sales Log
           </h3>
-          <div className="rounded-xl border border-border overflow-hidden max-h-48 overflow-y-auto">
+          <Paged items={sales} resetKey={item.id}>{(pg) => (
+          <div className="rounded-xl border border-border overflow-hidden">
+            <ListScroll page={pg.page} offset="30rem" minHeight="10rem">
             <Table>
-              <TableHeader className="bg-background sticky top-0">
+              <TableHeader className="bg-background">
                 <TableRow className="border-border">
                   <TableHead className="text-muted-foreground">Date</TableHead>
                   <TableHead className="text-muted-foreground text-right">Qty Sold</TableHead>
@@ -108,7 +111,7 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
               <TableBody>
                 {sales.length === 0 ? (
                   <TableRow><TableCell colSpan={3} className="text-center py-6 text-muted-foreground">No sales recorded.</TableCell></TableRow>
-                ) : sales.map(m => (
+                ) : pg.pageItems.map(m => (
                   <TableRow key={m.id} className="border-border/50">
                     <TableCell className="text-foreground text-sm">{m.date}</TableCell>
                     <TableCell className="text-foreground font-bold text-right">{m.quantity}</TableCell>
@@ -117,7 +120,10 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
                 ))}
               </TableBody>
             </Table>
+            </ListScroll>
+            <PaginationBar p={pg} label="sales" />
           </div>
+          )}</Paged>
         </div>
 
         {/* Restock log */}
@@ -125,9 +131,11 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
           <h3 className="text-sm font-bold text-muted-foreground tracking-wide mb-3 flex items-center gap-2">
             <ArrowUpCircle className="h-4 w-4 text-amber-400" /> Restock Log
           </h3>
-          <div className="rounded-xl border border-border overflow-hidden max-h-48 overflow-y-auto">
+          <Paged items={restocks} resetKey={item.id}>{(pg) => (
+          <div className="rounded-xl border border-border overflow-hidden">
+            <ListScroll page={pg.page} offset="30rem" minHeight="10rem">
             <Table>
-              <TableHeader className="bg-background sticky top-0">
+              <TableHeader className="bg-background">
                 <TableRow className="border-border">
                   <TableHead className="text-muted-foreground">Date</TableHead>
                   <TableHead className="text-muted-foreground">Note</TableHead>
@@ -137,7 +145,7 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
               <TableBody>
                 {restocks.length === 0 ? (
                   <TableRow><TableCell colSpan={3} className="text-center py-6 text-muted-foreground">No restocks recorded.</TableCell></TableRow>
-                ) : restocks.map(m => (
+                ) : pg.pageItems.map(m => (
                   <TableRow key={m.id} className="border-border/50">
                     <TableCell className="text-foreground text-sm">{m.date}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{m.note || "—"}</TableCell>
@@ -146,7 +154,10 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
                 ))}
               </TableBody>
             </Table>
+            </ListScroll>
+            <PaginationBar p={pg} label="restocks" />
           </div>
+          )}</Paged>
         </div>
       </div>
     </DialogContent>
@@ -273,9 +284,10 @@ export function TenantInventory({ tenantId }: { tenantId: string }) {
         </Dialog>
       </div>
 
-      <Card className="bg-card border-border shadow-sm">
+      <Card className="bg-card border-border shadow-sm overflow-hidden">
         <CardContent className="p-0">
-          <div className="overflow-auto rounded-xl">
+          <Paged items={tenantInventory}>{(pg) => (<>
+          <ListScroll page={pg.page} offset="16rem">
             <Table>
               <TableHeader className="bg-background">
                 <TableRow className="border-border hover:bg-transparent">
@@ -289,7 +301,7 @@ export function TenantInventory({ tenantId }: { tenantId: string }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tenantInventory.map(item => (
+                {pg.pageItems.map(item => (
                   <TableRow
                     key={item.id}
                     className="border-border/50 hover:bg-muted/30 transition-colors cursor-pointer"
@@ -334,7 +346,9 @@ export function TenantInventory({ tenantId }: { tenantId: string }) {
                 )}
               </TableBody>
             </Table>
-          </div>
+          </ListScroll>
+          <PaginationBar p={pg} label="items" />
+          </>)}</Paged>
         </CardContent>
       </Card>
 

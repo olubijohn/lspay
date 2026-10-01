@@ -1,3 +1,4 @@
+import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
 import { naira } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { useStore } from "@/store";
@@ -301,6 +302,8 @@ export function TenantConsole() {
               </div>
               <Card className="bg-card border-border overflow-hidden">
                 <CardContent className="p-0">
+                  <Paged items={tenantTxs}>{(pg) => (<>
+                  <ListScroll page={pg.page} offset="24rem">
                   <Table>
                     <TableHeader className="bg-background">
                       <TableRow className="border-border">
@@ -319,7 +322,7 @@ export function TenantConsole() {
                             {txNarrowed ? "No transactions match this student or item." : "No transactions in this date range."}
                           </TableCell>
                         </TableRow>
-                      ) : tenantTxs.map(tx => {
+                      ) : pg.pageItems.map(tx => {
                         const student = students.find(s => s.id === tx.studentId);
                         return (
                           <TableRow key={tx.id} className="border-border/50 hover:bg-card/50">
@@ -345,6 +348,9 @@ export function TenantConsole() {
                       })}
                     </TableBody>
                   </Table>
+                  </ListScroll>
+                  <PaginationBar p={pg} label="transactions" />
+                  </>)}</Paged>
                 </CardContent>
               </Card>
             </div>
@@ -363,6 +369,8 @@ export function TenantConsole() {
               </div>
               <Card className="bg-card border-border overflow-hidden">
                 <CardContent className="p-0">
+                  <Paged items={tenantSystemUsers}>{(pg) => (<>
+                  <ListScroll page={pg.page} offset="16rem">
                   <Table>
                     <TableHeader className="bg-background">
                       <TableRow className="border-border">
@@ -373,7 +381,7 @@ export function TenantConsole() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {tenantSystemUsers.map(u => (
+                      {pg.pageItems.map(u => (
                         <TableRow key={u.id} className="border-border/50">
                           <TableCell className="px-6 py-4">
                             <div className="text-foreground font-bold">{u.name}</div>
@@ -399,6 +407,9 @@ export function TenantConsole() {
                       )}
                     </TableBody>
                   </Table>
+                  </ListScroll>
+                  <PaginationBar p={pg} label="users" />
+                  </>)}</Paged>
                 </CardContent>
               </Card>
             </div>
@@ -417,8 +428,9 @@ export function TenantConsole() {
                     <p>No notifications.</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-border">
-                    {tenantNotifications.map(n => (
+                  <Paged items={tenantNotifications}>{(pg) => (<>
+                  <ListScroll page={pg.page} offset="14rem" className="divide-y divide-border">
+                    {pg.pageItems.map(n => (
                       <div key={n.id} className={`p-6 flex items-start gap-4 ${!n.isRead ? "bg-muted/50" : "bg-card"}`}>
                         <div className={`p-3 rounded-full ${!n.isRead ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
                           <CreditCard className="w-5 h-5" />
@@ -438,7 +450,9 @@ export function TenantConsole() {
                         </div>
                       </div>
                     ))}
-                  </div>
+                  </ListScroll>
+                  <PaginationBar p={pg} label="notifications" />
+                  </>)}</Paged>
                 )}
               </div>
             </div>

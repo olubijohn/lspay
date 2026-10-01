@@ -4,6 +4,12 @@ import { useStore } from "@/store";
 import { LspayParentAccessPanel, LspayParentBadge } from "@/components/LspayParentAccess";
 import { CameraCaptureButton, asFileEvent } from "@/components/CameraCapture";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
+import { usePagination } from "@/lib/usePagination";
+import { PhotoFilter, hasStudentPhoto, matchesPhotoFilter } from "@/lib/studentPhoto";
+import { GUARDIAN_FILTER_OPTIONS, GuardianFilter, exportStudentsWithGuardians, fileSlug, guardiansByStudent, matchesGuardianFilter } from "@/lib/guardians";
+import { GuardianCell } from "@/components/guardians/GuardianCell";
+import { GuardianEditor, GuardianDraft, draftsFor, guardianDraftErrors } from "@/components/guardians/GuardianEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,11 +19,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { GraduationCap, ArrowLeft, Banknote, Trash2, AlertTriangle, Search, Filter, RotateCcw, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { GraduationCap, ArrowLeft, Banknote, Trash2, AlertTriangle, Search, Filter, RotateCcw, X, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { cardLifecycleLabel, Student } from "@/lib/types";
 
 export function TenantStudents({ tenantId }: { tenantId: string }) {
-  const { students, parentUsers, createStudent, updateStudent, deleteStudent, deleteStudents, markCardDelivered, transactions, tenants } = useStore();
+  const { students, parentUsers, lspayGuardians, addLspayGuardian, updateLspayGuardian, removeLspayGuardian, refreshLspayParents, createStudent, updateStudent, deleteStudent, deleteStudents, markCardDelivered, transactions, tenants } = useStore();
   const tenantStudents = students.filter(s => s.tenantId === tenantId);
 
   const [isOpen, setIsOpen] = useState(false);
@@ -30,9 +36,8 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
   const [classFilter, setClassFilter] = useState("all");
   const [cardStatusFilter, setCardStatusFilter] = useState("all");
   const [lifecycleFilter, setLifecycleFilter] = useState("all");
-  const [parentStatusFilter, setParentStatusFilter] = useState("all");
-  const [pageSize, setPageSize] = useState<number>(50);
-  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [parentStatusFilter, setParentStatusFilter] = useState<GuardianFilter>("all");
+  const [photoFilter, setPhotoFilter] = useState<PhotoFilter>("all");
 
   // Selection & Bulk Delete state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -48,15 +53,16 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
   const [homeAddress, setHomeAddress] = useState("");
   const [billingAddress, setBillingAddress] = useState("");
   const [sameAsHome, setSameAsHome] = useState(false);
-  const [parentName, setParentName] = useState("");
-  const [parentEmail, setParentEmail] = useState("");
+  const [guardianDrafts, setGuardianDrafts] = useState<GuardianDraft[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState("");
 
   const resetForm = () => {
     setEditingId(null);
     setFirstName(""); setLastName(""); setStudentId(""); setClassName("");
     setHomeAddress(""); setBillingAddress(""); setSameAsHome(false);
-    setParentName(""); setParentEmail(""); setImageUrl("");
+    setGuardianDrafts([]); setFormError([]); setImageUrl("");
   };
 
   const openEdit = (s: any) => {
@@ -69,8 +75,8 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
     setHomeAddress(s.homeAddress || "");
     setBillingAddress(s.billingAddress || "");
     setSameAsHome(s.homeAddress === s.billingAddress && !!s.homeAddress);
-    setParentName(s.parentName || "");
-    setParentEmail(s.parentEmail || "");
+    setGuardianDrafts(draftsFor(s, lspayGuardians, parentUsers));
+    setFormError([]);
     setImageUrl(s.imageUrl && !s.imageUrl.includes('dicebear') ? s.imageUrl : "");
     setIsOpen(true);
   };
@@ -113,15 +119,12 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
     }
   };
 
-  // Helper to determine parent portal status
-  const getParentStatus = (s: any): "linked" | "unlinked" | "no_info" => {
-    const email = s.parentEmail?.trim().toLowerCase();
-    // LSPay parent accounts; siblings with the same guardian email are linked automatically by the database.
-    const isLinked = parentUsers.some(p => p.linkedStudentIds && p.linkedStudentIds.includes(s.id));
-    if (isLinked) return "linked";
-    if (email || s.parentName?.trim()) return "unlinked";
-    return "no_info";
-  };
+  // Every LSPay guardian of each student: the one on the student record plus imported/added guardians.
+  const guardianMap = useMemo(
+    () => guardiansByStudent(tenantStudents, lspayGuardians.filter(g => g.tenantId === tenantId), parentUsers.filter(p => p.tenantId === tenantId)),
+    [tenantStudents, lspayGuardians, parentUsers, tenantId],
+  );
+  const guardiansFor = (id: string) => guardianMap.get(id) ?? [];
 
   const availableClasses = useMemo(() => {
     return Array.from(new Set(tenantStudents.map(s => s.className?.trim()).filter(Boolean))).sort();
@@ -152,20 +155,16 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
       if (lifecycleFilter !== "all" && s.cardLifecycleStatus !== lifecycleFilter) return false;
 
       if (parentStatusFilter !== "all") {
-        const pStatus = getParentStatus(s);
-        if (parentStatusFilter !== pStatus) return false;
+        if (!matchesGuardianFilter(guardiansFor(s.id), parentStatusFilter)) return false;
       }
+      if (!matchesPhotoFilter(s, photoFilter)) return false;
 
       return true;
     });
-  }, [tenantStudents, searchQuery, classFilter, cardStatusFilter, lifecycleFilter, parentStatusFilter, parentUsers]);
+  }, [tenantStudents, searchQuery, classFilter, cardStatusFilter, lifecycleFilter, parentStatusFilter, photoFilter, guardianMap]);
 
-  const totalPages = pageSize === -1 ? 1 : Math.max(1, Math.ceil(filteredStudents.length / pageSize));
-  const paginatedStudents = useMemo(() => {
-    if (pageSize === -1) return filteredStudents;
-    const start = (currentPage - 1) * pageSize;
-    return filteredStudents.slice(start, start + pageSize);
-  }, [filteredStudents, currentPage, pageSize]);
+  const studentPage = usePagination(filteredStudents, `${searchQuery}|${classFilter}|${cardStatusFilter}|${lifecycleFilter}|${parentStatusFilter}|${photoFilter}`);
+  const paginatedStudents = studentPage.pageItems;
 
   const resetFilters = () => {
     setSearchQuery("");
@@ -173,10 +172,10 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
     setCardStatusFilter("all");
     setLifecycleFilter("all");
     setParentStatusFilter("all");
-    setCurrentPage(1);
+    setPhotoFilter("all");
   };
 
-  const isFilterActive = searchQuery !== "" || classFilter !== "all" || cardStatusFilter !== "all" || lifecycleFilter !== "all" || parentStatusFilter !== "all";
+  const isFilterActive = searchQuery !== "" || classFilter !== "all" || cardStatusFilter !== "all" || lifecycleFilter !== "all" || parentStatusFilter !== "all" || photoFilter !== "all";
 
   const toggleSelectAll = () => {
     if (selectedIds.length === filteredStudents.length && filteredStudents.length > 0) {
@@ -201,25 +200,65 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  // Saves the guardian rows: the main one on the student record, the others as LSPay guardians.
+  const saveGuardians = async (studentId: string, original: { parentName?: string; parentEmail?: string; parentPhone?: string } | null) => {
+    const problems: string[] = [];
+    const record = guardianDrafts.find(r => r.isRecord);
+    const next = { parentName: record?.name.trim() ?? "", parentEmail: record?.email.trim().toLowerCase() ?? "", parentPhone: record?.phone.trim() ?? "" };
+    const before = lspayGuardians.filter(g => g.studentId === studentId);
+    const kept = new Set(guardianDrafts.map(r => r.guardianId).filter(Boolean));
+    // removals first, so the 3-guardian limit and email checks see the final list
+    for (const g of before) if (!kept.has(g.id)) {
+      const r = await removeLspayGuardian(g.id, { refresh: false });
+      if (!r.success) problems.push(`${g.email}: ${r.message}`);
+    }
+    if (!original || original.parentName !== next.parentName || (original.parentEmail ?? "").toLowerCase() !== next.parentEmail || (original.parentPhone ?? "") !== next.parentPhone) {
+      updateStudent(studentId, next);
+    }
+    for (const r of guardianDrafts) {
+      if (r.isRecord) continue;
+      const input = { name: r.name, email: r.email, phone: r.phone, relationship: r.relationship };
+      if (r.guardianId) {
+        const old = before.find(g => g.id === r.guardianId);
+        if (old && old.name === r.name.trim() && old.email === r.email.trim().toLowerCase() && old.phone === r.phone.trim() && old.relationship === r.relationship) continue;
+        const res = await updateLspayGuardian(r.guardianId, input, { refresh: false });
+        if (!res.success) problems.push(`${r.email}: ${res.message}`);
+      } else {
+        const res = await addLspayGuardian(studentId, input, { tenantId, refresh: false });
+        if (!res.success) problems.push(`${r.email}: ${res.message}`);
+      }
+    }
+    await refreshLspayParents(tenantId);
+    return problems;
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    const invalid = guardianDraftErrors(guardianDrafts);
+    if (invalid.length) { setFormError(invalid); return; }
+    setFormError([]);
+    setSaving(true);
     const fullName = `${firstName} ${lastName}`.trim();
     const finalBilling = sameAsHome ? homeAddress : billingAddress;
     const finalImage = imageUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${fullName}`;
+    const record = guardianDrafts.find(r => r.isRecord);
+    const parentName = record?.name.trim() ?? "";
+    const parentEmail = record?.email.trim().toLowerCase() ?? "";
 
+    let problems: string[] = [];
     if (editingId) {
+      const original = tenantStudents.find(st => st.id === editingId) ?? null;
       updateStudent(editingId, {
         name: fullName,
         studentId,
         className,
         homeAddress,
         billingAddress: finalBilling,
-        parentName,
-        parentEmail,
         imageUrl: finalImage
       });
+      problems = await saveGuardians(editingId, original);
     } else {
-      createStudent({
+      const created = await createStudent({
         tenantId,
         name: fullName,
         studentId,
@@ -239,6 +278,14 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
         parentNotificationSent: false,
         cardLifecycleStatus: "pending_assignment"
       });
+      if (!created) { setSaving(false); return; }
+      // createStudent only creates the record; the guardians are saved here (main one on the record, rest as LSPay guardians)
+      problems = await saveGuardians(created.id, null);
+    }
+    setSaving(false);
+    if (problems.length) {
+      setFormError(["The student was saved, but some guardians were not:", ...problems]);
+      return;
     }
     setIsOpen(false);
     resetForm();
@@ -261,8 +308,8 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
           </Button>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <Card className="bg-card border-border lg:col-span-1 h-max shadow-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:items-start">
+          <Card className="bg-card border-border lg:col-span-1 h-max shadow-sm lg:max-h-[calc(100dvh-10rem)] lg:overflow-y-auto overscroll-contain">
             <CardContent className="p-8 text-center">
               <Avatar className="h-32 w-32 mx-auto mb-6 border-4 border-border bg-background">
                 <AvatarImage src={s.imageUrl} />
@@ -297,26 +344,15 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                   <div className="text-foreground text-sm">Daily: {naira(s.dailyLimit)} | Monthly: {naira(s.monthlyLimit)}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground tracking-wider font-bold mb-1">Parent / Guardian</div>
-                  <div className="text-foreground text-sm font-medium">{s.parentName}</div>
-                  <div className="text-muted-foreground text-xs mt-0.5">{s.parentEmail}</div>
-                  {(() => {
-                    const pu = parentUsers.find(p => p.email.toLowerCase() === s.parentEmail.toLowerCase());
-                    return pu?.phone ? (
-                      <div className="text-muted-foreground text-xs mt-0.5">📞 {pu.phone}</div>
-                    ) : null;
-                  })()}
-                </div>
-                <div>
                   <div className="text-xs text-muted-foreground tracking-wider font-bold mb-1">Home Address</div>
-                  <div className="text-foreground text-sm">{s.homeAddress}</div>
+                  <div className="text-foreground text-sm">{s.homeAddress || <span className="text-muted-foreground">Not set</span>}</div>
                 </div>
-                <LspayParentAccessPanel student={s} />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border lg:col-span-2 shadow-sm">
+          <div className="lg:col-span-2 flex flex-col gap-6 lg:max-h-[calc(100dvh-10rem)] lg:overflow-y-auto overscroll-contain">
+          <Card className="bg-card border-border shadow-sm">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
               <CardTitle className="text-foreground">Transaction History</CardTitle>
               <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
@@ -326,9 +362,11 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="max-h-[600px] overflow-auto border border-border rounded-lg bg-background">
+              <Paged items={sTx} resetKey={s.id}>{(pg) => (
+              <div className="overflow-hidden border border-border rounded-lg bg-background">
+                <ListScroll page={pg.page} offset="20rem">
                 <Table>
-                  <TableHeader className="bg-card/80 sticky top-0">
+                  <TableHeader className="bg-card/80">
                     <TableRow className="border-border">
                       <TableHead className="text-muted-foreground">Date</TableHead>
                       <TableHead className="text-muted-foreground">Items</TableHead>
@@ -336,7 +374,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sTx.map(tx => (
+                    {pg.pageItems.map(tx => (
                       <TableRow key={tx.id} className="border-border/50">
                         <TableCell className="text-foreground text-sm">{tx.date}</TableCell>
                         <TableCell className="text-foreground">{tx.itemsString}</TableCell>
@@ -350,9 +388,14 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                     )}
                   </TableBody>
                 </Table>
+                </ListScroll>
+                <PaginationBar p={pg} label="transactions" />
               </div>
+              )}</Paged>
             </CardContent>
           </Card>
+          <LspayParentAccessPanel student={s} wide className="shadow-sm" />
+          </div>
         </div>
       </div>
     );
@@ -383,7 +426,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary-hover text-primary-foreground font-bold h-10 px-6 rounded-lg shadow-lg shadow-primary/20">Add Student</Button>
             </DialogTrigger>
-            <DialogContent className="bg-card border-border text-foreground sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+            <DialogContent className="bg-card border-border text-foreground sm:max-w-[860px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-2xl">{editingId ? 'Edit Student Profile' : 'Register New Student'}</DialogTitle>
               </DialogHeader>
@@ -441,17 +484,20 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                   )}
                 </div>
 
-                <div className="space-y-2 mt-4 pt-4 border-t border-border">
-                  <Label className="text-foreground">Parent/Guardian Name <span className="text-muted-foreground text-xs font-normal">(Optional)</span></Label>
-                  <Input value={parentName} onChange={e => setParentName(e.target.value)} placeholder="e.g. Mr. & Mrs. Okonkwo" className="bg-background border-border text-foreground h-11" />
-                </div>
-                <div className="space-y-2 mt-4 pt-4 border-t border-border">
-                  <Label className="text-foreground">Parent/Guardian Email <span className="text-muted-foreground text-xs font-normal">(Optional)</span></Label>
-                  <Input type="email" value={parentEmail} onChange={e => setParentEmail(e.target.value)} placeholder="e.g. parent@example.com" className="bg-background border-border text-foreground h-11" />
+                <div className="sm:col-span-2 mt-2 pt-4 border-t border-border">
+                  <GuardianEditor rows={guardianDrafts} onChange={setGuardianDrafts} />
                 </div>
 
+                {formError.length > 0 && (
+                  <div className="sm:col-span-2 rounded-xl bg-blush px-3 py-2 text-sm font-semibold text-red-700" role="alert">
+                    {formError.map((m, i) => <div key={i}>{m}</div>)}
+                  </div>
+                )}
+
                 <div className="col-span-2 flex justify-end mt-6">
-                  <Button type="submit" className="bg-primary hover:bg-primary-hover text-primary-foreground h-12 px-8 font-bold text-lg w-full">Save Student Record</Button>
+                  <Button type="submit" disabled={saving} className="bg-primary hover:bg-primary-hover text-primary-foreground h-12 px-8 font-bold text-lg w-full">
+                    {saving ? "Saving…" : "Save Student Record"}
+                  </Button>
                 </div>
               </form>
             </DialogContent>
@@ -498,14 +544,14 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
             <Input
               type="text"
               value={searchQuery}
-              onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+              onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search student name, ID, class, parent..."
               className="pl-9 pr-8 bg-background border-border text-foreground h-10 text-sm"
             />
             {searchQuery && (
               <button
                 type="button"
-                onClick={() => { setSearchQuery(""); setCurrentPage(1); }}
+                onClick={() => setSearchQuery("")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 <X className="w-3.5 h-3.5" />
@@ -515,7 +561,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
 
           {/* Class Filter */}
           <div>
-            <Select value={classFilter} onValueChange={v => { setClassFilter(v); setCurrentPage(1); }}>
+            <Select value={classFilter} onValueChange={v => setClassFilter(v)}>
               <SelectTrigger className="bg-background border-border text-foreground h-10 text-xs">
                 <SelectValue placeholder="All Classes" />
               </SelectTrigger>
@@ -530,7 +576,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
 
           {/* Card Status Filter */}
           <div>
-            <Select value={cardStatusFilter} onValueChange={v => { setCardStatusFilter(v); setCurrentPage(1); }}>
+            <Select value={cardStatusFilter} onValueChange={v => setCardStatusFilter(v)}>
               <SelectTrigger className="bg-background border-border text-foreground h-10 text-xs">
                 <SelectValue placeholder="Card Status" />
               </SelectTrigger>
@@ -545,7 +591,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
 
           {/* Card Lifecycle Filter */}
           <div>
-            <Select value={lifecycleFilter} onValueChange={v => { setLifecycleFilter(v); setCurrentPage(1); }}>
+            <Select value={lifecycleFilter} onValueChange={v => setLifecycleFilter(v)}>
               <SelectTrigger className="bg-background border-border text-foreground h-10 text-xs">
                 <SelectValue placeholder="Card Lifecycle" />
               </SelectTrigger>
@@ -564,16 +610,30 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
         {/* Second Row: Parent Link Status & Quick Controls */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border/50 text-xs">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="w-56">
-              <Select value={parentStatusFilter} onValueChange={v => { setParentStatusFilter(v); setCurrentPage(1); }}>
+            <div className="w-64">
+              <Select value={parentStatusFilter} onValueChange={v => setParentStatusFilter(v as GuardianFilter)}>
                 <SelectTrigger className="bg-background border-border text-foreground h-8 text-xs">
                   <SelectValue placeholder="Parent Status" />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border text-foreground">
-                  <SelectItem value="all">All Parent Statuses</SelectItem>
-                  <SelectItem value="linked">✓ LSPay parent connected</SelectItem>
-                  <SelectItem value="unlinked">LSPay not connected</SelectItem>
-                  <SelectItem value="no_info">No Guardian Info</SelectItem>
+                  {GUARDIAN_FILTER_OPTIONS.map(o => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label} ({tenantStudents.filter(st => matchesGuardianFilter(guardiansFor(st.id), o.value)).length})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-52">
+              <Select value={photoFilter} onValueChange={v => setPhotoFilter(v as PhotoFilter)}>
+                <SelectTrigger className="bg-background border-border text-foreground h-8 text-xs" data-testid="select-photo-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border text-foreground">
+                  <SelectItem value="all">All photos ({tenantStudents.length})</SelectItem>
+                  <SelectItem value="with">With photo ({tenantStudents.filter(hasStudentPhoto).length})</SelectItem>
+                  <SelectItem value="without">Without photo ({tenantStudents.length - tenantStudents.filter(hasStudentPhoto).length})</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -593,26 +653,26 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
               Showing <span className="font-bold text-foreground">{filteredStudents.length}</span> of {tenantStudents.length} enrolled students
             </span>
           </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Per page:</span>
-            <Select value={String(pageSize)} onValueChange={v => { setPageSize(Number(v)); setCurrentPage(1); }}>
-              <SelectTrigger className="bg-background border-border text-foreground h-8 w-20 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border text-foreground">
-                <SelectItem value="25">25</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-                <SelectItem value="100">100</SelectItem>
-                <SelectItem value="-1">All</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs font-bold"
+            disabled={filteredStudents.length === 0}
+            onClick={() => exportStudentsWithGuardians(
+              `${fileSlug(tenants.find(t => t.id === tenantId)?.name ?? "school")}-students${isFilterActive ? "-filtered" : ""}`,
+              filteredStudents, guardianMap,
+              [{ header: "Photo", value: st => (hasStudentPhoto(st) ? "Yes" : "No") }, { header: "Card status", value: st => st.cardStatus }, { header: "Wallet balance", value: st => st.walletBalance }],
+            )}
+            data-testid="btn-export-students"
+          >
+            <Download className="w-3.5 h-3.5 mr-1.5" /> Export {isFilterActive ? "filtered list" : "all"} (Excel)
+          </Button>
         </div>
       </div>
 
       <Card className="bg-card border-border shadow-sm overflow-hidden">
         <CardContent className="p-0">
+          <ListScroll page={studentPage.page} offset="24rem">
           <Table>
             <TableHeader className="bg-background border-b border-border">
               <TableRow className="hover:bg-transparent">
@@ -634,7 +694,6 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
             <TableBody>
               {paginatedStudents.map(s => {
                 const isSelected = selectedIds.includes(s.id);
-                const pStatus = getParentStatus(s);
                 return (
                   <TableRow key={s.id} className={`border-b border-border/50 hover:bg-muted/50 transition-colors ${isSelected ? "bg-primary/5" : ""}`}>
                     <TableCell className="py-3 pl-4">
@@ -661,17 +720,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                     </TableCell>
                     <TableCell className="text-foreground">{s.className}</TableCell>
                     <TableCell>
-                      <div className="text-foreground font-medium">{s.parentName || "—"}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{s.parentEmail || "No email"}</div>
-                      {pStatus === "linked" ? (
-                        <LspayParentBadge student={s} className="mt-1" />
-                      ) : pStatus === "unlinked" ? (
-                        <Badge variant="outline" className="text-[10px] text-muted-foreground border-border bg-muted mt-1">
-                          LSPay not connected
-                        </Badge>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground/60 italic block mt-0.5">No parent info</span>
-                      )}
+                      <GuardianCell guardians={guardiansFor(s.id)} />
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1.5 items-start">
@@ -730,37 +779,9 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
               ) : null}
             </TableBody>
           </Table>
+          </ListScroll>
         </CardContent>
-
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-background/50">
-            <div className="text-xs text-muted-foreground">
-              Page <span className="font-semibold text-foreground">{currentPage}</span> of{" "}
-              <span className="font-semibold text-foreground">{totalPages}</span>
-              {" "}· Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, filteredStudents.length)} of {filteredStudents.length}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="h-8 text-xs"
-              >
-                <ChevronLeft className="w-3.5 h-3.5 mr-1" /> Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="h-8 text-xs"
-              >
-                Next <ChevronRight className="w-3.5 h-3.5 ml-1" />
-              </Button>
-            </div>
-          </div>
-        )}
+        <PaginationBar p={studentPage} label="students" />
       </Card>
 
       {/* Delete Confirmation Dialog */}

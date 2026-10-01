@@ -30,13 +30,19 @@ import { Wifi, Sparkles, Images } from "lucide-react";
 import { ClassPhotoImporter } from "@/components/tenant/ClassPhotoImporter";
 import { PhotoFilter, hasStudentPhoto, matchesPhotoFilter } from "@/lib/studentPhoto";
 import { ClassMultiSelect } from "@/components/ClassMultiSelect";
+import { ParentImportDialog } from "@/components/guardians/ParentImportDialog";
+import { GuardianReport } from "@/components/guardians/GuardianReport";
+import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
+import { GUARDIAN_FILTER_OPTIONS, GuardianFilter, exportStudentsWithGuardians, fileSlug, guardiansByStudent, matchesGuardianFilter } from "@/lib/guardians";
+import { GuardianCell } from "@/components/guardians/GuardianCell";
+import { usePagination } from "@/lib/usePagination";
 
 const NO_CLASS = "No class";
 const classLabel = (c?: string | null) => c?.trim() || NO_CLASS;
 
 export function SuperAdmin() {
   const chartTheme = useChartTheme();
-  const { tenants, students, transactions, addTenant, updateTenant, createStudent, updateStudent, deleteStudent, deleteStudents, assignCard, replaceCard, removeCard, systemUsers, createSystemUser, updateSystemUser, notifications, markNotificationRead, markCardReady } = useStore();
+  const { tenants, students, transactions, parentUsers, lspayGuardians, addTenant, updateTenant, createStudent, updateStudent, deleteStudent, deleteStudents, assignCard, replaceCard, removeCard, systemUsers, createSystemUser, updateSystemUser, notifications, markNotificationRead, markCardReady } = useStore();
   const [activeTab, setActiveTab] = useState("overview");
   const [successMsg, setSuccessMsg] = useState("");
   const [mobileNav, setMobileNav] = useState(false);
@@ -44,6 +50,8 @@ export function SuperAdmin() {
 
   // Class Photo Importer State (SuperAdmin-only)
   const [showPhotoImporter, setShowPhotoImporter] = useState(false);
+  const [parentImportSchoolId, setParentImportSchoolId] = useState<string | null>(null);
+  const [guardianReportSchoolId, setGuardianReportSchoolId] = useState<string | null>(null);
   const [photoImporterSchoolId, setPhotoImporterSchoolId] = useState<string | null>(null);
 
   // SuperAdmin Student Deletion State
@@ -77,6 +85,8 @@ export function SuperAdmin() {
   const [cardFilterPhoto, setCardFilterPhoto] = useState<PhotoFilter>("all");
   const [cardFilterClasses, setCardFilterClasses] = useState<string[]>([]);
   const [schoolPhotoFilter, setSchoolPhotoFilter] = useState<PhotoFilter>("all");
+  const [schoolGuardianFilter, setSchoolGuardianFilter] = useState<GuardianFilter>("all");
+  const [cardFilterGuardian, setCardFilterGuardian] = useState<GuardianFilter>("all");
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [bulkPrintStudents, setBulkPrintStudents] = useState<any[] | null>(null);
 
@@ -499,6 +509,10 @@ export function SuperAdmin() {
     });
     return Object.entries(map).sort(([a], [b]) => b.localeCompare(a));
   }, [txFiltered]);
+  const txDays = usePagination(txRollup);
+
+  const guardianMap = useMemo(() => guardiansByStudent(students, lspayGuardians, parentUsers), [students, lspayGuardians, parentUsers]);
+  const guardiansFor = (id: string) => guardianMap.get(id) ?? [];
 
   // Card Assignment Studio — filtered & searched students
   const cardFilteredStudents = useMemo(() => {
@@ -512,11 +526,12 @@ export function SuperAdmin() {
         if (cardActivatedEnd && s.activatedAt > cardActivatedEnd) return false;
       }
       if (!matchesPhotoFilter(s, cardFilterPhoto)) return false;
+      if (!matchesGuardianFilter(guardianMap.get(s.id) ?? [], cardFilterGuardian)) return false;
       if (cardFilterClasses.length > 0 && !cardFilterClasses.includes(classLabel(s.className))) return false;
       if (q && !s.name.toLowerCase().includes(q) && !s.studentId.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [students, cardFilterSchool, cardFilterStatus, cardActivatedStart, cardActivatedEnd, cardSearch, cardFilterPhoto, cardFilterClasses]);
+  }, [students, cardFilterSchool, cardFilterStatus, cardActivatedStart, cardActivatedEnd, cardSearch, cardFilterPhoto, cardFilterClasses, cardFilterGuardian, guardianMap]);
 
   // Classes available in the current school scope (with student counts), naturally sorted: JSS 1, JSS 2, … JSS 10.
   const cardClassOptions = useMemo(() => {
@@ -529,6 +544,8 @@ export function SuperAdmin() {
     return Array.from(counts, ([value, count]) => ({ value, count }))
       .sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true, sensitivity: "base" }));
   }, [students, cardFilterSchool]);
+
+  const cardPage = usePagination(cardFilteredStudents, `${cardFilterGuardian}|${cardFilterClasses.join(",")}|${cardFilterPhoto}`);
 
   // Photo counts for the current school scope, so the photo filter can show "With photo (n)".
   const cardPhotoCounts = useMemo(() => {
@@ -715,7 +732,9 @@ export function SuperAdmin() {
                         <p className="text-sm text-muted-foreground mt-1">Adjust the school or date filters above to see more.</p>
                       </div>
                     ) : (
-                      <div className="max-h-96 overflow-auto rounded-2xl border border-border">
+                      <Paged items={filteredTx} resetKey={overviewTxFilter}>{(pg) => (
+                      <div className="overflow-hidden rounded-2xl border border-border">
+                      <ListScroll page={pg.page} offset="16rem">
                         <Table>
                           <TableHeader className="bg-muted/60">
                             <TableRow className="border-border">
@@ -727,7 +746,7 @@ export function SuperAdmin() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {filteredTx.map(tx => (
+                            {pg.pageItems.map(tx => (
                               <TableRow key={tx.id} className="border-border/50 hover:bg-muted/40">
                                 <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{tx.date}</TableCell>
                                 <TableCell className="text-foreground">{tx.schoolName}</TableCell>
@@ -738,7 +757,10 @@ export function SuperAdmin() {
                             ))}
                           </TableBody>
                         </Table>
+                      </ListScroll>
+                      <PaginationBar p={pg} label="transactions" />
                       </div>
+                      )}</Paged>
                     )}
                   </CardContent>
                 </Card>
@@ -813,7 +835,10 @@ export function SuperAdmin() {
                   <Receipt className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">No transactions match your filters.</p>
                 </div>
-              ) : txRollup.map(([date, schoolMap]) => {
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <ListScroll page={txDays.page} offset="24rem" className="space-y-3 p-3">
+                {txDays.pageItems.map(([date, schoolMap]) => {
                 const dayTotal = Object.values(schoolMap).reduce((s, v) => s + v.total, 0);
                 return (
                   <Card key={date} className="bg-card border-border overflow-hidden">
@@ -845,6 +870,7 @@ export function SuperAdmin() {
                               <span className="text-primary font-bold">{naira(data.total)}</span>
                             </button>
                             {isExpanded && (
+                              <Paged items={data.txs}>{(pg) => (
                               <div className="bg-background border-t border-border">
                                 <Table>
                                   <TableHeader>
@@ -855,7 +881,7 @@ export function SuperAdmin() {
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
-                                    {data.txs.map(tx => (
+                                    {pg.pageItems.map(tx => (
                                       <TableRow key={tx.id} className="border-border/40">
                                         <TableCell className="text-foreground pl-14 font-medium">{tx.studentName}</TableCell>
                                         <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
@@ -864,7 +890,9 @@ export function SuperAdmin() {
                                     ))}
                                   </TableBody>
                                 </Table>
+                                <PaginationBar p={pg} label="transactions" className="bg-background" />
                               </div>
+                              )}</Paged>
                             )}
                           </div>
                         );
@@ -873,6 +901,10 @@ export function SuperAdmin() {
                   </Card>
                 );
               })}
+                </ListScroll>
+                <PaginationBar p={txDays} label="days" />
+                </div>
+              )}
             </div>
           )}
 
@@ -884,7 +916,7 @@ export function SuperAdmin() {
                 if (!school) return null;
                 const schoolStudents = students.filter(s => s.tenantId === school.id);
                 const schoolWithPhoto = schoolStudents.filter(hasStudentPhoto).length;
-                const visibleSchoolStudents = schoolStudents.filter(s => matchesPhotoFilter(s, schoolPhotoFilter));
+                const visibleSchoolStudents = schoolStudents.filter(s => matchesPhotoFilter(s, schoolPhotoFilter) && matchesGuardianFilter(guardiansFor(s.id), schoolGuardianFilter));
                 const visibleSchoolIds = new Set(visibleSchoolStudents.map(s => s.id));
                 const allVisibleSelected = visibleSchoolStudents.length > 0 && visibleSchoolStudents.every(s => schoolSelectedStudentIds.includes(s.id));
                 const schoolTransactions = transactions.filter(t => t.tenantId === school.id);
@@ -917,11 +949,11 @@ export function SuperAdmin() {
                       </div>
                     </div>
 
-                    {/* School Details Card */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <Card className="bg-card border-border md:col-span-2 shadow-lg">
-                        <CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-4 border-b border-border/50">
-                          <div className="w-12 h-12 rounded-xl border border-border bg-muted flex items-center justify-center shadow-xs shrink-0 overflow-hidden bg-white">
+                    {/* School summary: details + stats in one compact strip, so the student list gets the screen */}
+                    <Card className="bg-card border-border shadow-sm">
+                      <CardContent className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center">
+                        <div className="flex min-w-0 flex-1 items-center gap-4">
+                          <div className="w-14 h-14 rounded-xl border border-border flex items-center justify-center shadow-xs shrink-0 overflow-hidden bg-white">
                             {school.logoUrl ? (
                               <img src={school.logoUrl} alt="School Logo" className="w-full h-full object-cover" />
                             ) : school.name.toLowerCase().includes("demonstration") ? (
@@ -939,62 +971,33 @@ export function SuperAdmin() {
                               />
                             )}
                           </div>
-                          <div>
-                            <CardTitle className="text-xl font-bold text-foreground">School Information</CardTitle>
-                            <p className="text-xs text-muted-foreground mt-0.5">{school.name} Profile</p>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <span className="text-xs text-muted-foreground font-bold tracking-wider">School Name</span>
-                              <p className="text-foreground font-semibold">{school.name}</p>
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h2 className="truncate font-display text-xl text-foreground">{school.name}</h2>
+                              <span className="rounded-full bg-lilac px-2 py-0.5 text-[11px] font-extrabold text-ink-2" title="3-letter code">{school.code}</span>
+                              <span className="rounded-full bg-sky px-2 py-0.5 font-mono text-[11px] font-bold text-ink-2" title="Enrollment key">{school.enrollmentKey}</span>
                             </div>
-                            <div>
-                              <span className="text-xs text-muted-foreground font-bold tracking-wider">3-Letter Code</span>
-                              <p className="text-foreground font-semibold">{school.code}</p>
-                            </div>
-                            <div>
-                              <span className="text-xs text-muted-foreground font-bold tracking-wider">Enrollment Key</span>
-                              <p className="text-primary font-display text-lg tracking-wide">{school.enrollmentKey}</p>
-                            </div>
-                            <div>
-                              <span className="text-xs text-muted-foreground font-bold tracking-wider">Contact Person</span>
-                              <p className="text-foreground">{school.contactName} ({school.contactEmail})</p>
-                            </div>
-                            <div className="col-span-2">
-                              <span className="text-xs text-muted-foreground font-bold tracking-wider">School Address</span>
-                              <p className="text-foreground">{school.address || "No address configured"}</p>
-                            </div>
-                            <div className="col-span-2">
-                              <span className="text-xs text-muted-foreground font-bold tracking-wider">Paystack Public Key</span>
-                              <p className="text-muted-foreground font-mono text-sm truncate bg-background p-2 rounded border border-border">{school.paystackPublicKey || "LSA platform account"}</p>
+                            <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                              <span title="Contact person"><b className="text-foreground">Contact:</b> {school.contactName || "—"}{school.contactEmail ? ` (${school.contactEmail})` : ""}</span>
+                              <span title="School address" className="truncate"><b className="text-foreground">Address:</b> {school.address || "Not set"}</span>
+                              <span title="Paystack public key" className="truncate"><b className="text-foreground">Paystack:</b> <span className="font-mono">{school.paystackPublicKey || "LSA platform account"}</span></span>
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* School Stats Card */}
-                      <Card className="bg-card border-border shadow-lg">
-                        <CardHeader>
-                          <CardTitle className="text-xl font-bold text-foreground">Overview & Stats</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                          <div className="flex justify-between items-center pb-3 border-b border-border">
-                            <span className="text-muted-foreground">Total Enrolled Students</span>
-                            <span className="text-foreground font-display text-2xl">{schoolStudents.length}</span>
-                          </div>
-                          <div className="flex justify-between items-center pb-3 border-b border-border">
-                            <span className="text-muted-foreground">Active Cards</span>
-                            <span className="text-primary font-display text-2xl">{schoolStudents.filter(s => s.cardStatus === "Active").length}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground">Total Transactions</span>
-                            <span className="text-blue-400 font-display text-2xl">{schoolTransactions.length}</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
+                        </div>
+                        <div className="grid shrink-0 grid-cols-3 gap-2 lg:w-[24rem]">
+                          {[
+                            { label: "Students", value: schoolStudents.length, cls: "bg-lilac" },
+                            { label: "Active cards", value: schoolStudents.filter(s => s.cardStatus === "Active").length, cls: "bg-mint" },
+                            { label: "Transactions", value: schoolTransactions.length, cls: "bg-sky" },
+                          ].map(st => (
+                            <div key={st.label} className={`rounded-xl px-3 py-2 ${st.cls}`}>
+                              <div className="font-display text-xl leading-tight text-foreground">{st.value.toLocaleString("en-NG")}</div>
+                              <div className="text-[11px] font-bold text-muted-foreground">{st.label}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
 
                     {/* Students Directory (Filtered for this school) */}
                     <div className="space-y-4">
@@ -1022,6 +1025,20 @@ export function SuperAdmin() {
                             ))}
                           </div>
                         )}
+                        {schoolStudents.length > 0 && (
+                          <Select value={schoolGuardianFilter} onValueChange={v => setSchoolGuardianFilter(v as GuardianFilter)}>
+                            <SelectTrigger className="h-10 w-60 rounded-full bg-background border-border text-foreground text-xs font-bold" data-testid="school-guardian-filter">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-card border-border text-foreground">
+                              {GUARDIAN_FILTER_OPTIONS.map(o => (
+                                <SelectItem key={o.value} value={o.value}>
+                                  {o.label} ({schoolStudents.filter(st => matchesGuardianFilter(guardiansFor(st.id), o.value)).length})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                         {/* {schoolStudents.length > 0 && (
                           <Button
                             onClick={() => {
@@ -1034,6 +1051,23 @@ export function SuperAdmin() {
                             <Images className="w-4 h-4 mr-2" /> Import Class Photos
                           </Button>
                         )} */}
+                        {schoolStudents.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            <Button variant="outline" onClick={() => exportStudentsWithGuardians(
+                                `${fileSlug(school.name)}-students${schoolPhotoFilter !== "all" || schoolGuardianFilter !== "all" ? "-filtered" : ""}`,
+                                visibleSchoolStudents, guardianMap,
+                                [{ header: "Photo", value: st => (hasStudentPhoto(st) ? "Yes" : "No") }, { header: "Card status", value: st => st.cardStatus }],
+                              )} disabled={visibleSchoolStudents.length === 0} className="h-10 px-4 font-bold" data-testid="btn-export-school-students">
+                              <Download className="w-4 h-4 mr-2" /> Export {visibleSchoolStudents.length} (Excel)
+                            </Button>
+                            <Button variant="outline" onClick={() => setGuardianReportSchoolId(school.id)} className="h-10 px-4 font-bold" data-testid="btn-guardians-report">
+                              <Users className="w-4 h-4 mr-2" /> Guardians report
+                            </Button>
+                            <Button onClick={() => setParentImportSchoolId(school.id)} className="h-10 px-4 font-bold" data-testid="btn-import-parents">
+                              <Upload className="w-4 h-4 mr-2" /> Import parents
+                            </Button>
+                          </div>
+                        )}
                       </div>
 
                       {schoolSelectedStudentIds.length > 0 && (
@@ -1062,6 +1096,8 @@ export function SuperAdmin() {
 
                       <Card className="bg-card border-border overflow-hidden shadow-lg">
                         <CardContent className="p-0">
+                          <Paged items={visibleSchoolStudents} resetKey={`${school.id}-${schoolPhotoFilter}-${schoolGuardianFilter}`}>{(pg) => (<>
+                          <ListScroll page={pg.page} offset="21rem">
                           <Table>
                             <TableHeader className="bg-background">
                               <TableRow className="border-border">
@@ -1087,7 +1123,7 @@ export function SuperAdmin() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {visibleSchoolStudents.map(s => {
+                              {pg.pageItems.map(s => {
                                 const isSelected = schoolSelectedStudentIds.includes(s.id);
                                 const withPhoto = hasStudentPhoto(s);
                                 return (
@@ -1119,8 +1155,7 @@ export function SuperAdmin() {
                                     </TableCell>
                                     <TableCell className="text-foreground">{s.className}</TableCell>
                                     <TableCell>
-                                      <div className="text-foreground">{s.parentName}</div>
-                                      <div className="text-xs text-muted-foreground">{s.parentEmail}</div>
+                                      <GuardianCell guardians={guardiansFor(s.id)} />
                                     </TableCell>
                                     <TableCell>
                                       <Badge variant="outline" className={
@@ -1160,12 +1195,15 @@ export function SuperAdmin() {
                               {schoolStudents.length > 0 && visibleSchoolStudents.length === 0 && (
                                 <TableRow>
                                   <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                                    {schoolPhotoFilter === "with" ? "No students with a photo yet." : "Every student has a photo."}
+                                    No students match these filters.
                                   </TableCell>
                                 </TableRow>
                               )}
                             </TableBody>
                           </Table>
+                          </ListScroll>
+                          <PaginationBar p={pg} label="students" />
+                          </>)}</Paged>
                         </CardContent>
                       </Card>
                     </div>
@@ -1183,8 +1221,10 @@ export function SuperAdmin() {
                   </Button>
                 </div>
 
-                <Card className="bg-card border-border">
+                <Card className="bg-card border-border overflow-hidden">
                   <CardContent className="p-0">
+                    <Paged items={tenants}>{(pg) => (<>
+                    <ListScroll page={pg.page} offset="16rem">
                     <Table>
                       <TableHeader className="bg-background">
                         <TableRow className="border-border">
@@ -1196,7 +1236,7 @@ export function SuperAdmin() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {tenants.map(t => (
+                        {pg.pageItems.map(t => (
                           <TableRow key={t.id} className="border-border/50">
                             <TableCell
                               className="px-6 py-4 cursor-pointer hover:bg-muted/50 transition-colors"
@@ -1242,6 +1282,9 @@ export function SuperAdmin() {
                         )}
                       </TableBody>
                     </Table>
+                    </ListScroll>
+                    <PaginationBar p={pg} label="schools" />
+                    </>)}</Paged>
                   </CardContent>
                 </Card>
               </div>
@@ -1377,6 +1420,17 @@ export function SuperAdmin() {
                         </Select>
                       </div>
                       <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-muted-foreground tracking-wider mb-1">Guardians</span>
+                        <Select value={cardFilterGuardian} onValueChange={v => setCardFilterGuardian(v as GuardianFilter)}>
+                          <SelectTrigger className="w-full bg-background border-border text-foreground h-9" data-testid="select-card-guardian">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-card border-border text-foreground">
+                            {GUARDIAN_FILTER_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex flex-col">
                         <span className="text-[10px] font-bold text-muted-foreground tracking-wider mb-1">Activated From</span>
                         <Input type="date" value={cardActivatedStart} onChange={e => setCardActivatedStart(e.target.value)} className="w-full bg-background border-border text-foreground h-9" data-testid="input-card-activated-start" />
                       </div>
@@ -1387,12 +1441,12 @@ export function SuperAdmin() {
                     </div>
                     <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/30 mt-2">
                       <span data-testid="text-card-result-count">{cardFilteredStudents.length} student{cardFilteredStudents.length === 1 ? "" : "s"} found</span>
-                      {(cardSearch || cardFilterSchool !== "all" || cardFilterStatus !== "all" || cardFilterPhoto !== "all" || cardFilterClasses.length > 0 || cardActivatedStart || cardActivatedEnd) && (
+                      {(cardSearch || cardFilterSchool !== "all" || cardFilterStatus !== "all" || cardFilterPhoto !== "all" || cardFilterGuardian !== "all" || cardFilterClasses.length > 0 || cardActivatedStart || cardActivatedEnd) && (
                         <Button
                           type="button"
                           variant="ghost"
                           className="h-7 text-primary hover:text-primary/80 font-bold px-2 text-xs"
-                          onClick={() => { setCardSearch(""); setCardFilterSchool("all"); setCardFilterStatus("all"); setCardFilterPhoto("all"); setCardFilterClasses([]); setCardActivatedStart(""); setCardActivatedEnd(""); }}
+                          onClick={() => { setCardSearch(""); setCardFilterSchool("all"); setCardFilterStatus("all"); setCardFilterPhoto("all"); setCardFilterGuardian("all"); setCardFilterClasses([]); setCardActivatedStart(""); setCardActivatedEnd(""); }}
                           data-testid="btn-clear-card-filters"
                         >
                           Clear Filters
@@ -1400,7 +1454,7 @@ export function SuperAdmin() {
                       )}
                     </div>
                   </div>
-                  <div className="bg-background overflow-x-auto">
+                  <ListScroll page={cardPage.page} offset="26rem" className="bg-background">
                     <Table className="w-full min-w-[760px]">
                       <TableHeader className="bg-card/80 sticky top-0">
                         <TableRow className="border-border">
@@ -1425,7 +1479,7 @@ export function SuperAdmin() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {cardFilteredStudents.map(s => (
+                        {cardPage.pageItems.map(s => (
                           <TableRow
                             key={s.id}
                             onClick={() => { setSelectedStudentId(s.id.toString()); setReplaceMode(false); setRemoveConfirm(false); setHardwareId(""); }}
@@ -1476,7 +1530,8 @@ export function SuperAdmin() {
                         )}
                       </TableBody>
                     </Table>
-                  </div>
+                  </ListScroll>
+                  <PaginationBar p={cardPage} label="students" className="rounded-b-xl" />
                 </div>
 
                 <div className="xl:col-span-5 2xl:col-span-4">
@@ -1765,8 +1820,10 @@ export function SuperAdmin() {
                   <Plus className="h-4 w-4 mr-2" /> Add User
                 </Button>
               </div>
-              <Card className="bg-card border-border">
+              <Card className="bg-card border-border overflow-hidden">
                 <CardContent className="p-0">
+                  <Paged items={systemUsers.filter(u => u.tenantId === null)}>{(pg) => (<>
+                  <ListScroll page={pg.page} offset="16rem">
                   <Table>
                     <TableHeader className="bg-background">
                       <TableRow className="border-border">
@@ -1777,7 +1834,7 @@ export function SuperAdmin() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {systemUsers.filter(u => u.tenantId === null).map(u => (
+                      {pg.pageItems.map(u => (
                         <TableRow key={u.id} className="border-border/50">
                           <TableCell className="px-6 py-4">
                             <div className="text-foreground font-bold">{u.name}</div>
@@ -1794,6 +1851,9 @@ export function SuperAdmin() {
                       ))}
                     </TableBody>
                   </Table>
+                  </ListScroll>
+                  <PaginationBar p={pg} label="users" />
+                  </>)}</Paged>
                 </CardContent>
               </Card>
             </div>
@@ -1823,8 +1883,10 @@ export function SuperAdmin() {
                 </div>
               </div>
               {selectedUserTenantId ? (
-                <Card className="bg-card border-border">
+                <Card className="bg-card border-border overflow-hidden">
                   <CardContent className="p-0">
+                    <Paged items={systemUsers.filter(u => u.tenantId === selectedUserTenantId)} resetKey={selectedUserTenantId}>{(pg) => (<>
+                    <ListScroll page={pg.page} offset="16rem">
                     <Table>
                       <TableHeader className="bg-background">
                         <TableRow className="border-border">
@@ -1835,7 +1897,7 @@ export function SuperAdmin() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {systemUsers.filter(u => u.tenantId === selectedUserTenantId).map(u => (
+                        {pg.pageItems.map(u => (
                           <TableRow key={u.id} className="border-border/50">
                             <TableCell className="px-6 py-4">
                               <div className="text-foreground font-bold">{u.name}</div>
@@ -1855,6 +1917,9 @@ export function SuperAdmin() {
                         )}
                       </TableBody>
                     </Table>
+                    </ListScroll>
+                    <PaginationBar p={pg} label="users" />
+                    </>)}</Paged>
                   </CardContent>
                 </Card>
               ) : (
@@ -1879,8 +1944,9 @@ export function SuperAdmin() {
                     <p>No notifications.</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-border">
-                    {notifications.filter(n => n.targetRole === "super_admin").map(n => (
+                  <Paged items={notifications.filter(n => n.targetRole === "super_admin")}>{(pg) => (<>
+                  <ListScroll page={pg.page} offset="14rem" className="divide-y divide-border">
+                    {pg.pageItems.map(n => (
                       <div key={n.id} className={`p-6 flex items-start gap-4 ${!n.isRead ? "bg-muted/50" : "bg-card"}`}>
                         <div className={`p-3 rounded-full ${!n.isRead ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
                           <CreditCard className="w-5 h-5" />
@@ -1902,7 +1968,9 @@ export function SuperAdmin() {
                         </div>
                       </div>
                     ))}
-                  </div>
+                  </ListScroll>
+                  <PaginationBar p={pg} label="notifications" />
+                  </>)}</Paged>
                 )}
               </div>
             </div>
@@ -2207,6 +2275,28 @@ export function SuperAdmin() {
           />
         );
       })()}
+
+      {/* LSPay guardians: parent list import and the guardians report (per school) */}
+      {parentImportSchoolId && (
+        <ParentImportDialog
+          open
+          tenantId={parentImportSchoolId}
+          schoolName={tenants.find(t => t.id === parentImportSchoolId)?.name ?? "School"}
+          onClose={() => setParentImportSchoolId(null)}
+          onOpenReport={() => { const id = parentImportSchoolId; setParentImportSchoolId(null); setGuardianReportSchoolId(id); }}
+        />
+      )}
+      <Dialog open={!!guardianReportSchoolId} onOpenChange={o => !o && setGuardianReportSchoolId(null)}>
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-6xl">
+          <DialogHeader className="text-left">
+            <DialogTitle className="font-display text-2xl">Guardians report</DialogTitle>
+            <p className="text-sm text-muted-foreground">{tenants.find(t => t.id === guardianReportSchoolId)?.name} · LSPay parents per student</p>
+          </DialogHeader>
+          {guardianReportSchoolId && (
+            <GuardianReport tenantId={guardianReportSchoolId} schoolName={tenants.find(t => t.id === guardianReportSchoolId)?.name ?? "School"} />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* SuperAdmin Student Delete Confirmation Dialog */}
       <Dialog open={adminDeleteConfirmOpen} onOpenChange={setAdminDeleteConfirmOpen}>

@@ -1,3 +1,4 @@
+import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
 import { naira, nairaAxis } from "@/lib/money";
 import { useState, useMemo, useEffect } from "react";
 import { useStore } from "@/store";
@@ -460,13 +461,13 @@ export function ParentPortal() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <MobileTxList
-                          showChild
-                          txs={allTx.filter(tx => txFilter === 'in' ? tx.amount < 0 : txFilter === 'out' ? tx.amount > 0 : true).reverse().slice(0, 30)}
-                        />
-                        <div className="hidden md:block max-h-[400px] overflow-auto border border-border rounded-xl bg-background">
+                        <Paged items={allTx.filter(tx => txFilter === 'in' ? tx.amount < 0 : txFilter === 'out' ? tx.amount > 0 : true).reverse()} resetKey={txFilter}>{(pg) => (
+                        <div className="overflow-hidden rounded-xl border border-border bg-background">
+                        <ListScroll page={pg.page} offset="18rem" className="px-3 md:px-0">
+                        <MobileTxList showChild txs={pg.pageItems} />
+                        <div className="hidden md:block">
                           <Table>
-                            <TableHeader className="bg-card/80 sticky top-0">
+                            <TableHeader className="bg-card/80">
                               <TableRow className="border-border hover:bg-transparent">
                                 <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Date</TableHead>
                                 <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Child</TableHead>
@@ -476,11 +477,7 @@ export function ParentPortal() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {allTx.filter(tx => {
-                                if (txFilter === 'in') return tx.amount < 0;
-                                if (txFilter === 'out') return tx.amount > 0;
-                                return true;
-                              }).reverse().map(tx => (
+                              {pg.pageItems.map(tx => (
                                 <TableRow key={tx.id} className="border-border/50 hover:bg-muted/50">
                                   <TableCell className="text-foreground text-sm">{tx.date}</TableCell>
                                   <TableCell className="text-foreground font-medium">{tx.studentName}</TableCell>
@@ -489,11 +486,7 @@ export function ParentPortal() {
                                   <TableCell className={`font-bold text-right pr-4 ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
                                 </TableRow>
                               ))}
-                              {allTx.filter(tx => {
-                                if (txFilter === 'in') return tx.amount < 0;
-                                if (txFilter === 'out') return tx.amount > 0;
-                                return true;
-                              }).length === 0 && (
+                              {pg.total === 0 && (
                                   <TableRow>
                                     <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No transactions found.</TableCell>
                                   </TableRow>
@@ -501,6 +494,10 @@ export function ParentPortal() {
                             </TableBody>
                           </Table>
                         </div>
+                        </ListScroll>
+                        <PaginationBar p={pg} label="transactions" />
+                        </div>
+                        )}</Paged>
                       </CardContent>
                     </Card>
                   </>
@@ -695,10 +692,13 @@ export function ParentPortal() {
                         <button onClick={() => setTxFilter('out')} className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${txFilter === 'out' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Money Out</button>
                       </div>
                     </div>
-                    <MobileTxList txs={periodTx.filter(tx => txFilter === 'in' ? tx.amount < 0 : txFilter === 'out' ? tx.amount > 0 : true)} />
-                    <div className="hidden md:block max-h-[300px] overflow-auto border border-border rounded-xl bg-background">
+                    <Paged items={periodTx.filter(tx => txFilter === 'in' ? tx.amount < 0 : txFilter === 'out' ? tx.amount > 0 : true)} resetKey={txFilter}>{(pg) => (
+                    <div className="overflow-hidden rounded-xl border border-border bg-background">
+                    <ListScroll page={pg.page} offset="18rem" className="px-3 md:px-0">
+                    <MobileTxList txs={pg.pageItems} />
+                    <div className="hidden md:block">
                       <Table>
-                        <TableHeader className="bg-card/80 sticky top-0">
+                        <TableHeader className="bg-card/80">
                           <TableRow className="border-border">
                             <TableHead className="text-muted-foreground font-bold text-xs tracking-wider">Date</TableHead>
                             <TableHead className="text-muted-foreground font-bold text-xs tracking-wider">Items</TableHead>
@@ -706,22 +706,14 @@ export function ParentPortal() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {periodTx.filter(tx => {
-                            if (txFilter === 'in') return tx.amount < 0;
-                            if (txFilter === 'out') return tx.amount > 0;
-                            return true;
-                          }).map(tx => (
+                          {pg.pageItems.map(tx => (
                             <TableRow key={tx.id} className="border-border/50 hover:bg-muted/50">
                               <TableCell className="text-foreground text-sm whitespace-nowrap">{tx.date}</TableCell>
                               <TableCell className="text-foreground text-sm">{tx.itemsString}</TableCell>
                               <TableCell className={`text-right font-bold pr-4 ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
                             </TableRow>
                           ))}
-                          {periodTx.filter(tx => {
-                            if (txFilter === 'in') return tx.amount < 0;
-                            if (txFilter === 'out') return tx.amount > 0;
-                            return true;
-                          }).length === 0 && (
+                          {pg.total === 0 && (
                               <TableRow>
                                 <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">No transactions found.</TableCell>
                               </TableRow>
@@ -729,6 +721,10 @@ export function ParentPortal() {
                         </TableBody>
                       </Table>
                     </div>
+                    </ListScroll>
+                    <PaginationBar p={pg} label="transactions" />
+                    </div>
+                    )}</Paged>
                   </CardContent>
                 </Card>
               </div>
@@ -810,8 +806,9 @@ export function ParentPortal() {
                     <p>No notifications.</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-border">
-                    {parentNotifications.map(n => (
+                  <Paged items={parentNotifications}>{(pg) => (<>
+                  <ListScroll page={pg.page} offset="16rem" className="divide-y divide-border">
+                    {pg.pageItems.map(n => (
                       <div key={n.id} className={`p-6 flex items-start gap-4 transition-colors ${!n.isRead ? 'bg-muted/50' : 'bg-card'}`}>
                         <div className={`p-3 rounded-full ${n.type === 'limit_exceeded' ? 'bg-amber-500/20 text-amber-500' : !n.isRead ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
                           {n.type === 'limit_exceeded' ? <AlertTriangle className="w-6 h-6" /> : <CreditCard className="w-6 h-6" />}
@@ -833,7 +830,9 @@ export function ParentPortal() {
                         </div>
                       </div>
                     ))}
-                  </div>
+                  </ListScroll>
+                  <PaginationBar p={pg} label="notifications" />
+                  </>)}</Paged>
                 )}
               </div>
             </div>
