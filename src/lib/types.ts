@@ -108,6 +108,8 @@ export interface SystemUser {
   role: SuperAdminUserRole | TenantUserRole;
   tenantId: string | null;
   isActive: boolean;
+  /** Staff created with a temporary password who haven't chosen their own yet. */
+  mustChangePassword?: boolean;
 }
 
 export interface AuthSession {
@@ -206,6 +208,8 @@ export interface AppState {
   logoutParent: () => Promise<void>;
 
   /** Parent chooses their own password (first sign-in after the school connected them). */
+  /** Staff: replace the temporary password, then clear the first-sign-in prompt. */
+  changeStaffPassword: (newPassword: string) => Promise<{ success: boolean; message?: string }>;
   changeParentPassword: (newPassword: string) => Promise<{ success: boolean; message?: string }>;
   updateParentUser: (id: string, data: Partial<Pick<ParentUser, "phone">>) => void;
   createSystemUser: (user: Omit<SystemUser, "id">) => Promise<SystemUser | null>;

@@ -1,3 +1,4 @@
+import { ForceChangePassword } from "@/components/parent/ForceChangePassword";
 import { DeleteUserButton } from "@/components/DeleteUserButton";
 import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
 import { naira } from "@/lib/money";
@@ -213,6 +214,9 @@ export function TenantConsole() {
     const cls = role === "tenant_admin" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : role === "backoffice" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20";
     return <Badge variant="outline" className={cls}>{role.replace(/_/g, " ")}</Badge>;
   };
+
+  // New staff (and staff whose password was reset) choose their own password before using the console.
+  if (session.user?.mustChangePassword) return <ForceChangePassword who="staff" />;
 
   return (
     <div className="flex h-screen overflow-hidden">

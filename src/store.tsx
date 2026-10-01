@@ -287,7 +287,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const refusal = await lspayRefusal();
           if (refusal) { setAccessError(refusal); await supabase.auth.signOut(); return; }
           setParentSession(null);
-          setSession({ user: { id: profile.user_id, name: profile.full_name, email: profile.email ?? "", passwordHash: "", role: LSA_TO_ROLE[profile.role] ?? "kiosk_operator", tenantId: profile.tenant_id, isActive: profile.active }, portal: "tenant" });
+          setSession({ user: { id: profile.user_id, name: profile.full_name, email: profile.email ?? "", passwordHash: "", role: LSA_TO_ROLE[profile.role] ?? "kiosk_operator", tenantId: profile.tenant_id, isActive: profile.active, mustChangePassword: !!profile.must_change_password }, portal: "tenant" });
           await loadTenantScoped(profile.tenant_id, myToken);
           return;
         }
@@ -377,7 +377,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const refusal = await lspayRefusal();
     if (refusal) { setAccessError(refusal); await supabase.auth.signOut(); return null; }
     setAccessError("");
-    const user: SystemUser = { id: profile.user_id, name: profile.full_name, email: profile.email ?? "", passwordHash: "", role: LSA_TO_ROLE[profile.role] ?? "kiosk_operator", tenantId: profile.tenant_id, isActive: profile.active };
+    const user: SystemUser = { id: profile.user_id, name: profile.full_name, email: profile.email ?? "", passwordHash: "", role: LSA_TO_ROLE[profile.role] ?? "kiosk_operator", tenantId: profile.tenant_id, isActive: profile.active, mustChangePassword: !!profile.must_change_password };
     setParentSession(null); setSession({ user, portal: "tenant" });
     await loadTenantScoped(profile.tenant_id, ++loadToken.current);
     return user;
@@ -418,6 +418,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const { error: clearErr } = await supabase.rpc("lspay_clear_must_change_password");
     if (clearErr) return { success: false, message: clearErr.message };
     setParentSession((prev) => (prev ? { ...prev, mustChangePassword: false } : prev));
+    return { success: true };
+  };
+
+  // Same as LSA: the new password must be set before the staff member can use the console.
+  const changeStaffPassword = async (newPassword: string) => {
+    const supabase = getSupabase();
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return { success: false, message: error.message };
+    const { error: clearErr } = await supabase.rpc("clear_must_change_password");
+    if (clearErr) return { success: false, message: clearErr.message };
+    setSession((prev) => (prev.user ? { ...prev, user: { ...prev.user, mustChangePassword: false } } : prev));
     return { success: true };
   };
 
@@ -1024,7 +1035,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       value={{
         tenants, students, inventory, transactions, systemUsers, parentUsers, stockMovements, notifications,
         session, parentSession,
-        login, loginParent, logout, logoutParent, changeParentPassword, updateParentUser, createSystemUser, updateSystemUser,
+        login, loginParent, logout, logoutParent, changeParentPassword, changeStaffPassword, updateParentUser, createSystemUser, updateSystemUser,
         addTenant, updateTenant, assignCard, replaceCard, removeCard, createStudent, updateStudent, bulkUpdateStudentAvatars, deleteStudent, deleteStudents, addInventory, updateInventory, deleteInventory, addTransaction, cancelTransaction, deductBalanceAndStock,
         addStockMovement, addParentChild, addNotification, markNotificationRead, markCardReady, markCardDelivered, activateCard,
         verifyStaffCode, verifyKioskExit, verifyWalletPin, topupWallet, connectLspayParent, lastAccessError,

@@ -9,15 +9,16 @@ import { cn } from "@/lib/utils";
 // Same rule as LSA: 8+ characters with upper, lower, number and symbol.
 const RULES: [string, (p: string) => boolean][] = [
   ["At least 8 characters", (p) => p.length >= 8],
-  ["An  letter", (p) => /[A-Z]/.test(p)],
+  ["An uppercase letter", (p) => /[A-Z]/.test(p)],
   ["A lowercase letter", (p) => /[a-z]/.test(p)],
   ["A number", (p) => /\d/.test(p)],
   ["A symbol (e.g. # @ $ %)", (p) => /[^A-Za-z0-9]/.test(p)],
 ];
 
-/** Shown instead of the portal until a parent the school connected replaces their temporary password. */
-export function ForceChangePassword() {
-  const { parentSession, changeParentPassword, logoutParent } = useStore();
+/** Shown instead of the portal/console until a parent or staff member replaces their temporary password. */
+export function ForceChangePassword({ who = "parent" }: { who?: "parent" | "staff" }) {
+  const { parentSession, session, changeParentPassword, changeStaffPassword, logoutParent, logout } = useStore();
+  const name = who === "staff" ? session.user?.name : parentSession?.name;
   const [pw, setPw] = useState("");
   const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
@@ -33,7 +34,7 @@ export function ForceChangePassword() {
     if (!allOk) { setError("Your new password doesn't meet all the rules yet."); return; }
     if (!match) { setError("The two passwords don't match."); return; }
     setBusy(true);
-    const r = await changeParentPassword(pw);
+    const r = await (who === "staff" ? changeStaffPassword(pw) : changeParentPassword(pw));
     setBusy(false);
     if (!r.success) setError(r.message || "Could not change your password. Please try again.");
   };
@@ -46,7 +47,7 @@ export function ForceChangePassword() {
           <span className="relative mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gold text-ink"><KeyRound className="h-6 w-6" /></span>
           <h1 className="relative text-3xl leading-tight">Choose your password</h1>
           <p className="relative mt-1.5 text-sm text-lilac/80">
-            Welcome{parentSession?.name ? `, ${parentSession.name.split(" ")[0]}` : ""}! Your school gave you a temporary password. Please choose your own to continue.
+            Welcome{name ? `, ${name.split(" ")[0]}` : ""}! {who === "staff" ? "Your account was created with a temporary password." : "Your school gave you a temporary password."} Please choose your own to continue.
           </p>
         </div>
 
@@ -76,7 +77,7 @@ export function ForceChangePassword() {
           <Button type="submit" variant="highlight" disabled={busy || !allOk || !match} className="h-12 w-full rounded-2xl text-base" data-testid="btn-save-new-password">
             {busy ? <Loader2 className="animate-spin" /> : <KeyRound />} {busy ? "Saving…" : "Save and continue"}
           </Button>
-          <button type="button" onClick={() => logoutParent()} className="mx-auto flex items-center gap-1.5 text-sm font-bold text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={() => (who === "staff" ? logout() : logoutParent())} className="mx-auto flex items-center gap-1.5 text-sm font-bold text-muted-foreground hover:text-foreground">
             <LogOut className="h-4 w-4" /> Sign out
           </button>
         </form>
