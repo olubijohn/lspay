@@ -1,3 +1,4 @@
+import { DeleteUserButton } from "@/components/DeleteUserButton";
 import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
 import { naira } from "@/lib/money";
 import { useState, useEffect } from "react";
@@ -397,6 +398,7 @@ export function TenantConsole() {
                             <Button variant="ghost" size="sm" onClick={() => updateSystemUser(u.id, { isActive: !u.isActive })} className="text-muted-foreground hover:text-foreground" data-testid={`btn-toggle-user-${u.id}`}>
                               {u.isActive ? "Deactivate" : "Activate"}
                             </Button>
+                            <DeleteUserButton user={u} />
                           </TableCell>
                         </TableRow>
                       ))}

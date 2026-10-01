@@ -1,3 +1,4 @@
+import { DeleteUserButton } from "@/components/DeleteUserButton";
 import { naira, nairaAxis } from "@/lib/money";
 import { useState, useMemo, useRef } from "react";
 import { useStore } from "@/store";
@@ -1846,6 +1847,7 @@ export function SuperAdmin() {
                                 <Button variant="ghost" size="sm" onClick={() => updateSystemUser(u.id, { isActive: !u.isActive })} className="text-muted-foreground hover:text-foreground" data-testid={`btn-toggle-user-${u.id}`}>
                                   {u.isActive ? "Deactivate" : "Activate"}
                                 </Button>
+                            <DeleteUserButton user={u} />
                               </TableCell>
                             </TableRow>
                           ))}
@@ -1909,6 +1911,7 @@ export function SuperAdmin() {
                                   <Button variant="ghost" size="sm" onClick={() => updateSystemUser(u.id, { isActive: !u.isActive })} className="text-muted-foreground hover:text-foreground" data-testid={`btn-toggle-tenant-user-${u.id}`}>
                                     {u.isActive ? "Deactivate" : "Activate"}
                                   </Button>
+                                  <DeleteUserButton user={u} />
                                 </TableCell>
                               </TableRow>
                             ))}

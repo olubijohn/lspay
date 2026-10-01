@@ -128,18 +128,6 @@ function Bubbles({ uid }: { uid: string }) {
   );
 }
 
-// Contactless mark (N + waves), top-right of the front
-const NfcMark = () => (
-  <svg width="30" height="20" viewBox="0 0 30 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", top: 10, right: 10 }} aria-hidden="true">
-    <path d="M2.5 17V4l8 13V4" stroke="#8C95A8" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-    <g stroke="#8C95A8" strokeWidth="1.8" strokeLinecap="round">
-      <path d="M15.5 6.6a5 5 0 0 1 0 6.8" />
-      <path d="M19 4.2a8.5 8.5 0 0 1 0 11.6" />
-      <path d="M22.5 1.9a12 12 0 0 1 0 16.2" />
-    </g>
-  </svg>
-);
-
 const cardShell = (extra: React.CSSProperties = {}): React.CSSProperties => ({
   width: `${CARD_W}px`,
   height: `${CARD_H}px`,
@@ -537,7 +525,6 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
     return (
       <div className="id-card" style={cardShell({ background: "linear-gradient(180deg, #FFFFFF 0%, #FAFBFC 100%)", border: "1px solid #d1d5db" })}>
         <Bubbles uid={uid} />
-        <NfcMark />
 
         {/* Photo */}
         <div

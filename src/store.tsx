@@ -453,6 +453,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           password: user.passwordHash,
           notify: true,
           appCodes: ["LSPAY"],
+          app: "LSPAY",
         },
       });
       if (error) {
@@ -473,6 +474,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       console.error("createSystemUser failed:", e);
       throw e;
     }
+  };
+
+  // Removes a staff account completely (profile + login) through the delete-staff edge function.
+  // Platform (Super Admin) users go through delete-platform-user; school staff through delete-staff.
+  const deleteSystemUser = async (id: string) => {
+    const isPlatform = systemUsers.find((u) => u.id === id)?.role === "super_admin";
+    const { error } = await getSupabase().functions.invoke(isPlatform ? "delete-platform-user" : "delete-staff", { body: { userId: id } });
+    if (error) return { success: false, message: (await functionError(error)).message };
+    setSystemUsers((prev) => prev.filter((u) => u.id !== id));
+    return { success: true };
   };
 
   const updateSystemUser = (id: string, data: Partial<SystemUser>) => {
@@ -1017,7 +1028,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addTenant, updateTenant, assignCard, replaceCard, removeCard, createStudent, updateStudent, bulkUpdateStudentAvatars, deleteStudent, deleteStudents, addInventory, updateInventory, deleteInventory, addTransaction, cancelTransaction, deductBalanceAndStock,
         addStockMovement, addParentChild, addNotification, markNotificationRead, markCardReady, markCardDelivered, activateCard,
         verifyStaffCode, verifyKioskExit, verifyWalletPin, topupWallet, connectLspayParent, lastAccessError,
-        lspayGuardians, addLspayGuardian, updateLspayGuardian, removeLspayGuardian, importLspayGuardians, refreshLspayParents,
+        deleteSystemUser, lspayGuardians, addLspayGuardian, updateLspayGuardian, removeLspayGuardian, importLspayGuardians, refreshLspayParents,
       }}
     >
       {children}

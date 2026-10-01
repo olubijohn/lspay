@@ -210,6 +210,8 @@ export interface AppState {
   updateParentUser: (id: string, data: Partial<Pick<ParentUser, "phone">>) => void;
   createSystemUser: (user: Omit<SystemUser, "id">) => Promise<SystemUser | null>;
   updateSystemUser: (id: string, data: Partial<SystemUser>) => void;
+  /** Deletes a staff account and its login (no more access anywhere). */
+  deleteSystemUser: (id: string) => Promise<{ success: boolean; message?: string }>;
 
   addTenant: (t: Omit<Tenant, "id">) => Promise<Tenant>;
   updateTenant: (id: string, updates: Partial<Tenant>) => void;
