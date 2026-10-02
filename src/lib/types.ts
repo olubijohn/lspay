@@ -3,7 +3,7 @@ export interface AppNotification {
   targetRole: 'super_admin' | 'tenant' | 'parent';
   targetTenantId: string | null;
   targetParentEmail: string | null;
-  type: 'card_pending' | 'card_ready' | 'card_delivered' | 'limit_exceeded';
+  type: 'card_pending' | 'card_ready' | 'card_delivered' | 'limit_exceeded' | 'purchase' | 'topup';
   message: string;
   studentId: string;
   studentName: string;
@@ -99,6 +99,8 @@ export interface Transaction {
   amount: number;
   cost: number;
   date: string;
+  /** Exact time (ISO) the record was saved. */
+  createdAt?: string;
 }
 
 export type SuperAdminUserRole = 'super_admin';
@@ -191,6 +193,7 @@ export interface StockMovement {
   type: 'restock' | 'sale';
   quantity: number;
   note?: string;
+  createdAt?: string;
 }
 
 export interface AppState {

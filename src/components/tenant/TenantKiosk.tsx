@@ -1,3 +1,4 @@
+import { FitText } from "@/components/ui/fit-text";
 import { naira } from "@/lib/money";
 import { useState, useEffect } from "react";
 import { useStore } from "@/store";
@@ -506,11 +507,11 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
                     <div className="grid grid-cols-2 gap-3 mb-6">
                       <div className={`rounded-2xl p-4 ${posStudent.walletBalance >= cartTotal ? "bg-mint dark:bg-green-900/40" : "bg-blush dark:bg-red-900/40"}`}>
                         <div className={`text-xs tracking-wider font-extrabold mb-1 ${posStudent.walletBalance >= cartTotal ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}>Wallet Balance</div>
-                        <div className={`text-xl sm:text-2xl font-display tabular-nums break-all ${posStudent.walletBalance >= cartTotal ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}>{naira(posStudent.walletBalance)}</div>
+                        <FitText className={`text-xl sm:text-2xl font-display tabular-nums ${posStudent.walletBalance >= cartTotal ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}>{naira(posStudent.walletBalance)}</FitText>
                       </div>
                       <div className="bg-muted rounded-2xl p-4">
                         <div className="text-xs text-muted-foreground tracking-wider font-extrabold mb-1">Total Due</div>
-                        <div className="text-xl sm:text-2xl font-display text-foreground tabular-nums break-all">{naira(cartTotal)}</div>
+                        <FitText className="text-xl sm:text-2xl font-display text-foreground tabular-nums">{naira(cartTotal)}</FitText>
                       </div>
                     </div>
                     <Button variant="highlight" onClick={() => setCheckoutStage("pin")} disabled={posStudent.walletBalance < cartTotal} className="w-full h-16 text-xl rounded-2xl shadow-md active:scale-[.98] transition-transform disabled:opacity-60" data-testid="btn-pay">

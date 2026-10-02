@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { AlertTriangle, Bell, BellOff, CheckCheck, Clock, CreditCard, PackageCheck } from "lucide-react";
+import { AlertTriangle, Bell, BellOff, CheckCheck, Clock, CreditCard, PackageCheck, ShoppingBag, Wallet } from "lucide-react";
 import { useStore } from "@/store";
 import type { AppNotification } from "@/lib/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -11,6 +11,8 @@ const META: Record<AppNotification["type"], { title: string; icon: typeof Bell; 
   card_pending: { title: "Card pending", icon: Clock, tint: "bg-sky text-blue-700" },
   card_ready: { title: "Card ready for pickup", icon: CreditCard, tint: "bg-mint text-green-700" },
   card_delivered: { title: "Card collected", icon: PackageCheck, tint: "bg-lilac text-purple-700" },
+  purchase: { title: "Purchase", icon: ShoppingBag, tint: "bg-sky text-blue-700" },
+  topup: { title: "Wallet topped up", icon: Wallet, tint: "bg-mint text-green-700" },
 };
 
 function timeAgo(iso: string) {

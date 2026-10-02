@@ -1,3 +1,5 @@
+import { when } from "@/lib/datetime";
+import { FitText } from "@/components/ui/fit-text";
 import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
 import { naira, nairaAxis } from "@/lib/money";
 import { useState, useMemo, useEffect } from "react";
@@ -12,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { AlertTriangle, ShieldAlert, Wallet, Lock, History, Link as LinkIcon, Settings, Bell, CreditCard, ShieldCheck, CheckCircle2, ArrowDownLeft, ArrowUpRight, ChevronRight, Users, Plus, LogOut, FileText } from "lucide-react";
+import { AlertTriangle, ShieldAlert, Wallet, Lock, History, Link as LinkIcon, Settings, Bell, CreditCard, ShoppingBag, ShieldCheck, CheckCircle2, ArrowDownLeft, ArrowUpRight, ChevronRight, Users, Plus, LogOut, FileText } from "lucide-react";
 import { AppTopBar } from "@/components/layout/AppTopBar";
 import { NotificationCenter } from "@/components/layout/NotificationCenter";
 import { ParentBottomNav } from "@/components/parent/ParentBottomNav";
@@ -54,11 +56,11 @@ function MobileTxList({ txs, showChild }: { txs: Transaction[]; showChild?: bool
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-bold">{tx.itemsString || (isIn ? "Wallet top-up" : "Purchase")}</div>
               <div className="truncate text-xs text-muted-foreground">
-                {showChild ? `${tx.studentName} · ` : ""}{tx.date}
+                {showChild ? `${tx.studentName} · ` : ""}{when(tx)}
               </div>
             </div>
             <div className={`shrink-0 font-display text-base ${isIn ? "text-green-600" : "text-foreground"}`}>
-              {isIn ? "+" : "−"}{naira(Math.abs(tx.amount))}
+              {naira(Math.abs(tx.amount))}
             </div>
           </li>
         );
@@ -123,12 +125,14 @@ export function ParentPortal() {
     }
   }, [parentSession, setLocation]);
 
+  const [pickTopupChild, setPickTopupChild] = useState(false);   // must stay above the early returns
+
   if (!parentSession) return null;
   // Connected by the school with a temporary password: they must choose their own before anything else.
   if (parentSession.mustChangePassword) return <ForceChangePassword />;
 
   const linkedChildren = students.filter(s => parentSession.linkedStudentIds.includes(s.id));
-  const parentNotifications = notifications.filter(n => n.targetRole === 'parent' && n.targetParentEmail === parentSession.email);
+  const parentNotifications = notifications.filter(n => n.targetRole === 'parent' && (n.targetParentEmail ?? '').toLowerCase() === parentSession.email.toLowerCase());
   const unreadCount = parentNotifications.filter(n => !n.isRead).length;
   const firstName = parentSession.name.split(" ")[0] || "there";
   const familyBalance = linkedChildren.reduce((sum, c) => sum + c.walletBalance, 0);
@@ -152,8 +156,17 @@ export function ParentPortal() {
     setActiveTab("link");
   };
 
+  // The middle "+" tops up a wallet (straight to the child when there is one, otherwise pick a child first).
+  const openTopup = () => {
+    if (linkedChildren.length === 0) { handleOpenAddChild(); return; }
+    setTopupError(""); setTopupAmount("");
+    if (linkedChildren.length === 1) setShowTopupModal(linkedChildren[0].id);
+    else setPickTopupChild(true);
+  };
+
   const handleNavigate = (tab: string) => {
     if (tab === "link") handleOpenAddChild();
+    else if (tab === "topup") openTopup();
     else setActiveTab(tab);
   };
 
@@ -338,14 +351,11 @@ export function ParentPortal() {
                 <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
                   <div>
                     <div className="text-xs font-extrabold tracking-widest text-lilac/70">Family balance</div>
-                    <div className="mt-1 font-display text-4xl sm:text-5xl">{naira(familyBalance)}</div>
+                    <FitText className="mt-1 font-display text-4xl sm:text-5xl">{naira(familyBalance)}</FitText>
                     <div className="mt-1 text-sm text-lilac/80">
                       {linkedChildren.length === 0 ? "No children linked yet" : `Across ${linkedChildren.length} ${linkedChildren.length === 1 ? "child" : "children"}`}
                     </div>
                   </div>
-                  <Button onClick={handleOpenAddChild} variant="highlight" className="h-11 self-start rounded-2xl px-5 md:self-auto" data-testid="btn-link-child-hero">
-                    <Plus /> Link a child
-                  </Button>
                 </div>
 
                 {linkedChildren.length > 0 && (
@@ -367,7 +377,7 @@ export function ParentPortal() {
                           </span>
                           <span className="min-w-0">
                             <span className="block truncate text-sm font-extrabold">{child.name.split(' ')[0]}</span>
-                            <span className="block font-display text-sm text-gold">{naira(child.walletBalance)}</span>
+                            <FitText className="block font-display text-sm text-gold">{naira(child.walletBalance)}</FitText>
                           </span>
                         </button>
                       );
@@ -418,7 +428,7 @@ export function ParentPortal() {
                           <CardContent className="p-4 md:p-6">
                             <span className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${s.tint}`}><s.icon className="h-4 w-4" /></span>
                             <div className="text-muted-foreground text-xs mb-1 font-extrabold tracking-wide ">{s.label}</div>
-                            <div className={`text-2xl md:text-3xl font-display truncate ${s.tone}`}>{s.value}</div>
+                            <FitText className={`text-2xl md:text-3xl font-display ${s.tone}`}>{s.value}</FitText>
                           </CardContent>
                         </Card>
                       ))}
@@ -469,7 +479,7 @@ export function ParentPortal() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <Paged items={allTx.filter(tx => txFilter === 'in' ? tx.amount < 0 : txFilter === 'out' ? tx.amount > 0 : true).reverse()} resetKey={txFilter}>{(pg) => (
+                        <Paged items={allTx.filter(tx => txFilter === 'in' ? tx.amount < 0 : txFilter === 'out' ? tx.amount > 0 : true)} resetKey={txFilter}>{(pg) => (
                         <div className="overflow-hidden rounded-xl border border-border bg-background">
                         <ListScroll page={pg.page} offset="18rem" className="px-3 md:px-0">
                         <MobileTxList showChild txs={pg.pageItems} />
@@ -487,11 +497,11 @@ export function ParentPortal() {
                             <TableBody>
                               {pg.pageItems.map(tx => (
                                 <TableRow key={tx.id} className="border-border/50 hover:bg-muted/50">
-                                  <TableCell className="text-foreground text-sm">{tx.date}</TableCell>
+                                  <TableCell className="text-foreground text-sm">{when(tx)}</TableCell>
                                   <TableCell className="text-foreground font-medium">{tx.studentName}</TableCell>
                                   <TableCell className="text-muted-foreground text-sm">{tx.schoolName}</TableCell>
                                   <TableCell className="text-foreground text-sm">{tx.itemsString}</TableCell>
-                                  <TableCell className={`font-bold text-right pr-4 ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
+                                  <TableCell className={`font-bold text-right pr-4 ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{naira(Math.abs(tx.amount))}</TableCell>
                                 </TableRow>
                               ))}
                               {pg.total === 0 && (
@@ -520,7 +530,7 @@ export function ParentPortal() {
             const child = students.find(s => s.id === childId);
             if (!child) return null;
 
-            const childTx = transactions.filter(t => t.studentId === childId).reverse();
+            const childTx = transactions.filter(t => t.studentId === childId);   // newest first
             const periodTx = childTx.filter(t => t.date >= startDate && t.date <= endDate);
 
             const moneyOutPeriod = periodTx.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
@@ -582,7 +592,7 @@ export function ParentPortal() {
 
                   <div className="on-ink w-full md:w-auto bg-ink text-white p-5 sm:p-6 rounded-2xl text-center min-w-[220px] z-10 shadow-md">
                     <div className="text-xs text-lilac/70 mb-1 font-extrabold tracking-widest ">Wallet Balance</div>
-                    <div className="text-4xl sm:text-5xl font-display">{naira(child.walletBalance)}</div>
+                    <FitText className="text-4xl sm:text-5xl font-display">{naira(child.walletBalance)}</FitText>
                     <Button onClick={() => setShowTopupModal(child.id)} variant="highlight" size="sm" className="mt-3 h-9 rounded-xl px-4">
                       <Plus /> Top up
                     </Button>
@@ -649,11 +659,11 @@ export function ParentPortal() {
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-8">
                       <div className="bg-background p-4 rounded-xl border border-border">
                         <div className="text-muted-foreground text-xs font-bold tracking-wider mb-1">Money In</div>
-                        <div className="text-3xl font-display text-green-500">+{naira(moneyInPeriod)}</div>
+                        <FitText className="text-3xl font-display text-green-500">{naira(moneyInPeriod)}</FitText>
                       </div>
                       <div className="bg-background p-4 rounded-xl border border-border">
                         <div className="text-muted-foreground text-xs font-bold tracking-wider mb-1">Money Out</div>
-                        <div className="text-3xl font-display text-foreground">−{naira(moneyOutPeriod)}</div>
+                        <FitText className="text-3xl font-display text-foreground">{naira(moneyOutPeriod)}</FitText>
                       </div>
                       <div className="bg-background p-4 rounded-xl border border-border">
                         <div className="text-muted-foreground text-xs font-bold tracking-wider mb-1">Most Frequent Item</div>
@@ -716,9 +726,9 @@ export function ParentPortal() {
                         <TableBody>
                           {pg.pageItems.map(tx => (
                             <TableRow key={tx.id} className="border-border/50 hover:bg-muted/50">
-                              <TableCell className="text-foreground text-sm whitespace-nowrap">{tx.date}</TableCell>
+                              <TableCell className="text-foreground text-sm whitespace-nowrap">{when(tx)}</TableCell>
                               <TableCell className="text-foreground text-sm">{tx.itemsString}</TableCell>
-                              <TableCell className={`text-right font-bold pr-4 ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
+                              <TableCell className={`text-right font-bold pr-4 ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{naira(Math.abs(tx.amount))}</TableCell>
                             </TableRow>
                           ))}
                           {pg.total === 0 && (
@@ -769,7 +779,7 @@ export function ParentPortal() {
                         <div className="truncate font-extrabold">{child.name}</div>
                         <div className="truncate text-xs text-muted-foreground">{child.className} · {tenants.find(t => t.id === child.tenantId)?.name}</div>
                         <div className="mt-1.5 flex items-center gap-2">
-                          <span className="font-display text-lg text-primary">{naira(child.walletBalance)}</span>
+                          <FitText className="font-display text-lg text-primary">{naira(child.walletBalance)}</FitText>
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${child.cardStatus === 'Active' ? 'bg-mint text-green-700' : child.cardStatus === 'Blocked' ? 'bg-blush text-red-700' : 'bg-peach text-amber-700'}`}>
                             {child.cardStatus}
                           </span>
@@ -819,11 +829,11 @@ export function ParentPortal() {
                     {pg.pageItems.map(n => (
                       <div key={n.id} className={`p-6 flex items-start gap-4 transition-colors ${!n.isRead ? 'bg-muted/50' : 'bg-card'}`}>
                         <div className={`p-3 rounded-full ${n.type === 'limit_exceeded' ? 'bg-amber-500/20 text-amber-500' : !n.isRead ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                          {n.type === 'limit_exceeded' ? <AlertTriangle className="w-6 h-6" /> : <CreditCard className="w-6 h-6" />}
+                          {n.type === 'limit_exceeded' ? <AlertTriangle className="w-6 h-6" /> : n.type === 'purchase' ? <ShoppingBag className="w-6 h-6" /> : n.type === 'topup' ? <Wallet className="w-6 h-6" /> : <CreditCard className="w-6 h-6" />}
                         </div>
                         <div className="flex-1">
                           <div className="flex justify-between items-start mb-1">
-                            <h4 className={`font-bold text-lg ${!n.isRead ? 'text-foreground' : 'text-foreground'}`}>{n.type === 'limit_exceeded' ? 'Spending Limit Alert' : 'Card Update'}</h4>
+                            <h4 className={`font-bold text-lg ${!n.isRead ? 'text-foreground' : 'text-foreground'}`}>{n.type === 'limit_exceeded' ? 'Spending Limit Alert' : n.type === 'purchase' ? 'Purchase' : n.type === 'topup' ? 'Wallet Topped Up' : 'Card Update'}</h4>
                             <span className="text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleString()}</span>
                           </div>
                           <p className={`mb-3 ${!n.isRead ? 'text-foreground' : 'text-muted-foreground'}`}>{n.message}</p>
@@ -920,6 +930,28 @@ export function ParentPortal() {
 
       {/* MODALS */}
       <ParentBottomNav activeTab={activeTab} onNavigate={handleNavigate} unreadCount={unreadCount} />
+
+      {/* Several children: choose whose wallet to top up */}
+      <Dialog open={pickTopupChild} onOpenChange={setPickTopupChild}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader className="text-left">
+            <DialogTitle className="font-display text-2xl">Top up whose wallet?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {linkedChildren.map(child => (
+              <button key={child.id} type="button" data-testid={`topup-pick-${child.id}`}
+                onClick={() => { setPickTopupChild(false); setShowTopupModal(child.id); }}
+                className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-colors hover:bg-muted">
+                <ChildAvatar child={child} className="h-11 w-11 shrink-0 rounded-xl" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-extrabold text-foreground">{child.name}</span>
+                  <span className="block text-xs text-muted-foreground">Balance {naira(child.walletBalance)}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
       <PrivacyComplianceDialog
         open={showPrivacyReview}
         onOpenChange={setShowPrivacyReview}

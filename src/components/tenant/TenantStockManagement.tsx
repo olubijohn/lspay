@@ -1,3 +1,4 @@
+import { when } from "@/lib/datetime";
 import { useState } from "react";
 import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
 import { useStore } from "@/store";
@@ -108,7 +109,7 @@ export function TenantStockManagement({ tenantId }: { tenantId: string }) {
                 <TableBody>
                   {pg.pageItems.map(m => (
                     <TableRow key={m.id} className="border-border/50 hover:bg-muted/50 transition-colors">
-                      <TableCell className="text-muted-foreground text-sm whitespace-nowrap pl-6">{m.date}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm whitespace-nowrap pl-6">{when(m)}</TableCell>
                       <TableCell className="text-foreground">
                         <div className="font-medium text-base">{m.itemName}</div>
                         {m.note && <div className="text-xs text-muted-foreground mt-0.5">{m.note}</div>}
@@ -121,7 +122,7 @@ export function TenantStockManagement({ tenantId }: { tenantId: string }) {
                         )}
                       </TableCell>
                       <TableCell className={`text-right font-black text-xl pr-6 ${m.type === 'restock' ? 'text-primary' : 'text-amber-400'}`}>
-                        {m.type === 'restock' ? '+' : '−'}{m.quantity}
+                        {m.quantity}
                       </TableCell>
                     </TableRow>
                   ))}

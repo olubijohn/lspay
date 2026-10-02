@@ -1,3 +1,4 @@
+import { FitText } from "@/components/ui/fit-text";
 import { naira, nairaAxis } from "@/lib/money";
 import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
 import { useState, useMemo } from "react";
@@ -53,6 +54,8 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
 
   const periodTx = useMemo(() => {
     return transactions.filter(t => {
+      // Reports are about items bought: wallet top-ups (money in) never count as revenue here.
+      if (t.amount <= 0 || t.id.startsWith("ledger-")) return false;
       const matchesTenant = t.tenantId === tenantId;
       const matchesDate = t.date >= appliedStart && t.date <= appliedEnd;
       const matchesStudent = selectedStudent === "all" || t.studentId === selectedStudent;
@@ -258,11 +261,11 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
       <div className="bg-card p-5 rounded-xl border border-border shadow-xl flex flex-wrap items-end gap-5">
         <div className="space-y-2">
           <Label className="text-muted-foreground font-bold tracking-wider text-xs">Date Range</Label>
-          <div className="flex items-center gap-2">
-            <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-background border-border text-foreground h-10 w-[140px]" />
+          <div className="flex flex-wrap items-center gap-2">
+            <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-background border-border text-foreground h-10 min-w-0 flex-1 sm:w-[140px] sm:flex-none" />
             <span className="text-muted-foreground">to</span>
-            <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-background border-border text-foreground h-10 w-[140px]" />
-            <Button onClick={applyDates} className="bg-primary hover:bg-primary-hover text-primary-foreground h-10 px-6 font-bold shadow-lg shadow-primary/20">Apply Filters</Button>
+            <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-background border-border text-foreground h-10 min-w-0 flex-1 sm:w-[140px] sm:flex-none" />
+            <Button onClick={applyDates} className="bg-primary hover:bg-primary-hover text-primary-foreground h-10 px-6 font-bold shadow-lg shadow-primary/20 w-full sm:w-auto">Apply Filters</Button>
           </div>
         </div>
         
@@ -301,19 +304,19 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Total Revenue</div>
-            <div className="text-2xl font-display text-primary">{naira(stats.rev)}</div>
+            <FitText className="text-2xl font-display text-primary">{naira(stats.rev)}</FitText>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Total COGS</div>
-            <div className="text-2xl font-display text-amber-400">{naira(stats.cogs)}</div>
+            <FitText className="text-2xl font-display text-amber-400">{naira(stats.cogs)}</FitText>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Net Profit</div>
-            <div className="text-2xl font-display text-blue-400">{naira(stats.profit)}</div>
+            <FitText className="text-2xl font-display text-blue-400">{naira(stats.profit)}</FitText>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
@@ -337,7 +340,7 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
         <Card className="bg-card border-border shadow-lg">
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Avg Order Val</div>
-            <div className="text-2xl font-display text-foreground">{naira(stats.avgOrderVal)}</div>
+            <FitText className="text-2xl font-display text-foreground">{naira(stats.avgOrderVal)}</FitText>
           </CardContent>
         </Card>
       </div>
@@ -463,7 +466,7 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground font-bold tracking-wider">Revenue</div>
-                      <div className="text-2xl font-display text-primary">{naira(itemAnalysis.revenue)}</div>
+                      <FitText className="text-2xl font-display text-primary">{naira(itemAnalysis.revenue)}</FitText>
                     </div>
                   </div>
                 </div>

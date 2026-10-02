@@ -1,3 +1,5 @@
+import { when } from "@/lib/datetime";
+import { FitText } from "@/components/ui/fit-text";
 import { naira } from "@/lib/money";
 import { useState, useMemo } from "react";
 import { useStore } from "@/store";
@@ -305,7 +307,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
       if (txFilter === 'in') return tx.amount < 0;
       if (txFilter === 'out') return tx.amount > 0;
       return true;
-    }).reverse();
+    });   // newest first
 
     return (
       <div className="space-y-6 animate-in slide-in-from-right-8 duration-300">
@@ -342,7 +344,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
 
               <div className="bg-background p-6 rounded-xl border border-border text-center mb-6 shadow-inner">
                 <div className="text-sm text-muted-foreground mb-1 font-medium tracking-wide ">Wallet Balance</div>
-                <div className="text-4xl font-display text-primary">{naira(s.walletBalance)}</div>
+                <FitText className="text-4xl font-display text-primary">{naira(s.walletBalance)}</FitText>
               </div>
               <CashTopupButton student={s} className="-mt-4 mb-6" />
 
@@ -384,9 +386,9 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                   <TableBody>
                     {pg.pageItems.map(tx => (
                       <TableRow key={tx.id} className="border-border/50">
-                        <TableCell className="text-foreground text-sm">{tx.date}</TableCell>
+                        <TableCell className="text-foreground text-sm whitespace-nowrap">{when(tx)}</TableCell>
                         <TableCell className="text-foreground">{tx.itemsString}</TableCell>
-                        <TableCell className={`font-bold text-right pr-4 ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
+                        <TableCell className={`font-bold text-right pr-4 ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{naira(Math.abs(tx.amount))}</TableCell>
                       </TableRow>
                     ))}
                     {sTx.length === 0 && (

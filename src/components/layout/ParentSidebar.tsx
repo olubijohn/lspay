@@ -21,7 +21,7 @@ export function ParentSidebar({ activeTab, setActiveTab, onAddChild }: Props) {
 
   if (!parentSession) return null;
 
-  const unreadCount = notifications.filter(n => n.targetRole === 'parent' && n.targetParentEmail === parentSession.email && !n.isRead).length;
+  const unreadCount = notifications.filter(n => n.targetRole === 'parent' && (n.targetParentEmail ?? '').toLowerCase() === parentSession.email.toLowerCase() && !n.isRead).length;
   const linkedChildren = students.filter(s => parentSession.linkedStudentIds.includes(s.id));
 
   const handleLogout = () => {

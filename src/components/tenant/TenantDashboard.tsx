@@ -1,3 +1,5 @@
+import { when } from "@/lib/datetime";
+import { FitText } from "@/components/ui/fit-text";
 import { naira } from "@/lib/money";
 import { useState } from "react";
 import { useStore } from "@/store";
@@ -30,7 +32,7 @@ export function TenantDashboard({ tenantId }: { tenantId: string }) {
     if (txFilter === 'in') return tx.amount < 0;
     if (txFilter === 'out') return tx.amount > 0;
     return true;
-  }).reverse().slice(0, 10);
+  }).slice(0, 10);   // already newest first
   const unreadNotifs = notifications.filter(n => n.targetRole === 'tenant' && n.targetTenantId === tenantId && !n.isRead).slice(0, 3);
 
   const kpis = [
@@ -65,7 +67,7 @@ export function TenantDashboard({ tenantId }: { tenantId: string }) {
               {greeting()}{tenantName ? `, ${tenantName}` : ""}
             </div>
             <div className="mt-3 text-xs font-extrabold tracking-widest text-lilac/70">Revenue today</div>
-            <div className="mt-1 font-display text-4xl sm:text-5xl text-gold break-all">{naira(todayRev)}</div>
+            <FitText className="mt-1 font-display text-4xl sm:text-5xl text-gold">{naira(todayRev)}</FitText>
             <div className="mt-1 text-sm text-lilac/80">
               {new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
             </div>
@@ -90,7 +92,7 @@ export function TenantDashboard({ tenantId }: { tenantId: string }) {
             <CardContent className="p-4 md:p-6">
               <span className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${k.tint}`}><k.icon className="h-4 w-4" /></span>
               <div className="text-muted-foreground text-xs mb-1 font-extrabold tracking-wide ">{k.label}</div>
-              <div className={`text-2xl md:text-3xl font-display truncate ${k.tone}`}>{k.value}</div>
+              <FitText className={`text-2xl md:text-3xl font-display ${k.tone}`}>{k.value}</FitText>
               <div className="mt-1 text-xs text-muted-foreground truncate">{k.sub}</div>
             </CardContent>
           </Card>
@@ -130,12 +132,12 @@ export function TenantDashboard({ tenantId }: { tenantId: string }) {
                       <div className="min-w-0 flex-1">
                         <div className="font-extrabold text-foreground text-sm truncate">{tx.studentName}</div>
                         <div className="text-xs text-muted-foreground truncate">
-                          <span>{tx.date}</span>
+                          <span>{when(tx)}</span>
                           {tx.itemsString && <span> · {tx.itemsString}</span>}
                         </div>
                       </div>
                       <div className={`shrink-0 font-display text-base sm:text-lg ${isIn ? 'text-green-600' : 'text-foreground'}`}>
-                        {isIn ? '+' : '−'}{naira(Math.abs(tx.amount))}
+                        {naira(Math.abs(tx.amount))}
                       </div>
                     </li>
                   );

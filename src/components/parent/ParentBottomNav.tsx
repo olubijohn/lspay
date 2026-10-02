@@ -1,4 +1,4 @@
-import { Bell, Home, Plus, UserRound, Users } from "lucide-react";
+import { Bell, Home, Plus, UserPlus, UserRound, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -10,12 +10,13 @@ interface Props {
 const ITEMS = [
   { id: "overview", label: "Home", icon: Home },
   { id: "children", label: "Children", icon: Users },
-  { id: "link", label: "Link", icon: Plus },
+  { id: "action", label: "", icon: Plus },
   { id: "notifications", label: "Alerts", icon: Bell },
   { id: "settings", label: "Account", icon: UserRound },
 ] as const;
 
-/** Mobile bottom navigation for the parent portal, with a raised "Link a child" action in the middle. */
+/** Mobile bottom navigation for the parent portal. The raised middle button tops up a wallet; on the
+ * Children tab it links a child instead. */
 export function ParentBottomNav({ activeTab, onNavigate, unreadCount }: Props) {
   const isActive = (id: string) => activeTab === id || (id === "children" && activeTab.startsWith("child_"));
 
@@ -27,20 +28,23 @@ export function ParentBottomNav({ activeTab, onNavigate, unreadCount }: Props) {
       <ul className="mx-auto grid h-16 max-w-md grid-cols-5 items-center px-2">
         {ITEMS.map(({ id, label, icon: Icon }) => {
           const active = isActive(id);
-          if (id === "link") {
+          if (id === "action") {
+            const onChildren = isActive("children");
+            const ActionIcon = onChildren ? UserPlus : Plus;
             return (
               <li key={id} className="flex justify-center">
                 <button
                   type="button"
-                  onClick={() => onNavigate(id)}
-                  aria-label="Link a child"
-                  data-testid="bottom-nav-link"
+                  onClick={() => onNavigate(onChildren ? "link" : "topup")}
+                  aria-label={onChildren ? "Link a child" : "Top up wallet"}
+                  title={onChildren ? "Link a child" : "Top up wallet"}
+                  data-testid={onChildren ? "bottom-nav-link" : "bottom-nav-topup"}
                   className={cn(
                     "-mt-7 flex h-14 w-14 items-center justify-center rounded-2xl border-4 border-background bg-gold text-ink shadow-lg shadow-gold/40 transition-transform active:scale-95",
-                    active && "ring-2 ring-ink-2"
+                    activeTab === "link" && "ring-2 ring-ink-2"
                   )}
                 >
-                  <Plus className="h-6 w-6" strokeWidth={2.75} />
+                  <ActionIcon className="h-6 w-6" strokeWidth={2.75} />
                 </button>
               </li>
             );

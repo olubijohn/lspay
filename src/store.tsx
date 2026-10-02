@@ -5,6 +5,7 @@ import {
   LspayGuardian, LspayGuardianImportRow, LspayGuardianImportResult, GuardianRelationship, PrintStatus,
 } from "./lib/types";
 import { getSupabase, isSupabaseConfigured } from "./lib/supabaseClient";
+import { byNewest } from "./lib/datetime";
 
 // LSPay's roles are mapped onto LSA's shared profiles.role + permission matrix instead of
 // keeping a parallel role system. See LSA/supabase/migrations/0015_lspay_shared_tables.sql.
@@ -59,7 +60,7 @@ function mapInventoryRow(r: any): InventoryItem {
 function mapTransactionRow(r: any, studentName: string, schoolName: string): Transaction {
   return {
     id: r.id, tenantId: r.tenant_id, studentId: r.student_id, studentName, schoolName,
-    itemsString: r.items_string, amount: Number(r.amount), cost: Number(r.cost), date: r.txn_date,
+    itemsString: r.items_string, amount: Number(r.amount), cost: Number(r.cost), date: r.txn_date, createdAt: r.created_at ?? undefined,
   };
 }
 
@@ -75,6 +76,7 @@ function mapLedgerRowToTransaction(r: any, studentName: string, schoolName: stri
     studentName,
     schoolName,
     itemsString: `${prefix}${noteText}${refText}`,
+    createdAt: r.created_at ?? undefined,
     amount: isCredit ? -Math.abs(Number(r.amount)) : Math.abs(Number(r.amount)),
     cost: 0,
     date: r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
@@ -84,7 +86,7 @@ function mapLedgerRowToTransaction(r: any, studentName: string, schoolName: stri
 function mapStockRow(r: any, itemName: string): StockMovement {
   return {
     id: r.id, tenantId: r.tenant_id, itemId: r.item_id, itemName,
-    date: r.movement_date, type: r.movement, quantity: Math.abs(r.quantity), note: r.note ?? undefined,
+    date: r.movement_date, type: r.movement, quantity: Math.abs(r.quantity), note: r.note ?? undefined, createdAt: r.created_at ?? undefined,
   };
 }
 
@@ -201,7 +203,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       mapTransactionRow(r, studentsById.get(r.student_id)?.name ?? "", tenantsById.get(r.tenant_id)?.name ?? ""));
     const mappedLedger = (lData ?? []).map((r: any) =>
       mapLedgerRowToTransaction(r, studentsById.get(r.student_id)?.name ?? "", tenantsById.get(r.tenant_id)?.name ?? ""));
-    const allTxns = [...mappedTxns, ...mappedLedger].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    const allTxns = [...mappedTxns, ...mappedLedger].sort(byNewest);
 
     setStudents(studentsMapped);
     setTenants(tenantsMapped);
@@ -248,7 +250,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       mapTransactionRow(r, studentsById.get(r.student_id)?.name ?? "", tenantsById.get(r.tenant_id)?.name ?? ""));
     const mappedLedger = (lData ?? []).map((r: any) =>
       mapLedgerRowToTransaction(r, studentsById.get(r.student_id)?.name ?? "", tenantsById.get(r.tenant_id)?.name ?? ""));
-    const allTxns = [...mappedTxns, ...mappedLedger].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    const allTxns = [...mappedTxns, ...mappedLedger].sort(byNewest);
 
     setStudents(studentsMapped);
     setTenants(tenantsMapped);
@@ -328,6 +330,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
     return () => { sub.subscription.unsubscribe(); };
   }, [loadTenantScoped, loadForParent]);
+
+  // Parents: new purchase / top-up alerts (created in the database, 0094) show up without a page refresh.
+  useEffect(() => {
+    if (!parentSession) return;
+    let stop = false;
+    const pull = async () => {
+      const { data, error } = await getSupabase().from("lspay_notifications").select("*").eq("target_role", "parent").order("created_at", { ascending: false });
+      if (!stop && !error && data) setNotifications(data.map(mapNotificationRow));
+    };
+    const id = window.setInterval(pull, 60_000);
+    window.addEventListener("focus", pull);
+    return () => { stop = true; window.clearInterval(id); window.removeEventListener("focus", pull); };
+  }, [parentSession?.id]);
 
   // ------------------------------ auth ------------------------------
   // Why the last sign-in was refused (school suspended, LSPay switched off for the school, or no LSPay access).
@@ -965,7 +980,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         itemsString: `Wallet Top-up: Paystack (${paystackReference})`,
         amount: -credited,
         cost: 0,
-        date: new Date().toISOString().slice(0, 10),
+        date: new Date().toISOString().slice(0, 10), createdAt: new Date().toISOString(),
       };
       return [optimisticTx, ...prev.filter((t) => !t.itemsString.includes(paystackReference))];
     });

@@ -1,3 +1,5 @@
+import { when } from "@/lib/datetime";
+import { FitText } from "@/components/ui/fit-text";
 import { ForceChangePassword } from "@/components/parent/ForceChangePassword";
 import { DeleteUserButton } from "@/components/DeleteUserButton";
 import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
@@ -300,7 +302,7 @@ export function TenantConsole() {
                   <Card key={c.label} className="bg-card border-border">
                     <CardContent className="p-6">
                       <div className="text-muted-foreground text-xs tracking-wide mb-2">{c.label}</div>
-                      <div className={`text-3xl font-display ${c.color}`}>{c.value}</div>
+                      <FitText className={`text-3xl font-display ${c.color}`}>{c.value}</FitText>
                     </CardContent>
                   </Card>
                 ))}
@@ -331,7 +333,7 @@ export function TenantConsole() {
                         const student = students.find(s => s.id === tx.studentId);
                         return (
                           <TableRow key={tx.id} className="border-border/50 hover:bg-card/50">
-                            <TableCell className="text-muted-foreground px-6 py-4 text-sm">{tx.date}</TableCell>
+                            <TableCell className="text-muted-foreground px-6 py-4 text-sm">{when(tx)}</TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 {student && <img src={student.imageUrl} alt="" className="w-7 h-7 rounded-full bg-muted shrink-0" onError={e => { (e.target as HTMLImageElement).src = `https://placehold.co/28x28/1e293b/94a3b8?text=${tx.studentName[0]}`; }} />}
@@ -342,7 +344,7 @@ export function TenantConsole() {
                               </div>
                             </TableCell>
                             <TableCell className="text-muted-foreground text-sm max-w-xs truncate">{tx.itemsString}</TableCell>
-                            <TableCell className={`font-bold text-right ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
+                            <TableCell className={`font-bold text-right ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{naira(Math.abs(tx.amount))}</TableCell>
                             <TableCell className="text-right px-6">
                               <Button variant="ghost" size="sm" onClick={() => setCancelId(tx.id)} className="text-red-500 hover:text-red-400 hover:bg-red-950/30 h-8 px-3">
                                 <XCircle className="h-3.5 w-3.5 mr-1" /> Cancel
@@ -508,7 +510,7 @@ export function TenantConsole() {
                 <p className="text-foreground text-sm">Refund <span className="font-bold text-primary">{naira(tx.amount)}</span> to <span className="font-bold text-foreground">{tx.studentName}</span>'s wallet?</p>
                 <div className="bg-background rounded-lg p-3 text-sm text-muted-foreground space-y-1">
                   <div className="flex justify-between"><span>Items</span><span className="text-foreground">{tx.itemsString}</span></div>
-                  <div className="flex justify-between"><span>Date</span><span className="text-foreground">{tx.date}</span></div>
+                  <div className="flex justify-between"><span>Date</span><span className="text-foreground">{when(tx)}</span></div>
                 </div>
               </div>
             );

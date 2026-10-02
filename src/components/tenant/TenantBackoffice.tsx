@@ -1,3 +1,4 @@
+import { when } from "@/lib/datetime";
 import { naira } from "@/lib/money";
 import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
 import { useState } from "react";
@@ -192,7 +193,7 @@ export function TenantBackoffice({ tenantId }: { tenantId: string }) {
                   <TableBody>
                     {pg.pageItems.map(m => (
                       <TableRow key={m.id} className="border-b border-border/50 hover:bg-muted/30">
-                        <TableCell className="text-muted-foreground text-xs whitespace-nowrap">{m.date}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs whitespace-nowrap">{when(m)}</TableCell>
                         <TableCell className="text-foreground">
                           <div>{m.itemName}</div>
                           {m.note && <div className="text-xs text-muted-foreground">{m.note}</div>}
@@ -205,7 +206,7 @@ export function TenantBackoffice({ tenantId }: { tenantId: string }) {
                           )}
                         </TableCell>
                         <TableCell className={`text-right font-bold ${m.type === 'restock' ? 'text-primary' : 'text-amber-400'}`}>
-                          {m.type === 'restock' ? '+' : '−'}{m.quantity}
+                          {m.quantity}
                         </TableCell>
                       </TableRow>
                     ))}

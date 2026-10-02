@@ -1,3 +1,5 @@
+import { when } from "@/lib/datetime";
+import { FitText } from "@/components/ui/fit-text";
 import { DeleteUserButton } from "@/components/DeleteUserButton";
 import { PRINT_FILTER_OPTIONS, PrintFilter, PrintStatusButtons, PrintStatusPill, matchesPrintFilter } from "@/components/PrintReady";
 import { naira, nairaAxis } from "@/lib/money";
@@ -647,7 +649,7 @@ export function SuperAdmin() {
                     <div className="min-w-0">
                       <div className="text-sm font-extrabold text-lilac/80">{overviewGreeting}</div>
                       <div className="mt-3 text-xs font-extrabold tracking-widest text-lilac/70">Platform volume</div>
-                      <div className="mt-1 font-display text-4xl sm:text-5xl text-gold break-all">{naira(overviewVolume)}</div>
+                      <FitText className="mt-1 font-display text-4xl sm:text-5xl text-gold">{naira(overviewVolume)}</FitText>
                       <div className="mt-1 text-sm text-lilac/80">
                         {naira(overviewTopups)} top-ups · {naira(overviewSales)} sales · {filteredTx.length} operation{filteredTx.length === 1 ? "" : "s"}
                       </div>
@@ -679,7 +681,7 @@ export function SuperAdmin() {
                       <CardContent className="p-4 md:p-6">
                         <span className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${c.tint}`}><c.icon className="h-4 w-4" /></span>
                         <div className="text-muted-foreground text-xs font-extrabold tracking-wide mb-1">{c.label}</div>
-                        <div className={`text-2xl md:text-3xl font-display truncate ${c.color}`}>{c.value}</div>
+                        <FitText className={`text-2xl md:text-3xl font-display ${c.color}`}>{c.value}</FitText>
                       </CardContent>
                     </Card>
                   ))}
@@ -752,11 +754,11 @@ export function SuperAdmin() {
                               <TableBody>
                                 {pg.pageItems.map(tx => (
                                   <TableRow key={tx.id} className="border-border/50 hover:bg-muted/40">
-                                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{tx.date}</TableCell>
+                                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap">{when(tx)}</TableCell>
                                     <TableCell className="text-foreground">{tx.schoolName}</TableCell>
                                     <TableCell className="text-foreground font-extrabold">{tx.studentName}</TableCell>
                                     <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
-                                    <TableCell className={`font-display text-base text-right whitespace-nowrap ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
+                                    <TableCell className={`font-display text-base text-right whitespace-nowrap ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{naira(Math.abs(tx.amount))}</TableCell>
                                   </TableRow>
                                 ))}
                               </TableBody>
@@ -814,7 +816,7 @@ export function SuperAdmin() {
                   <CardContent className="p-4 md:p-6">
                     <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-mint text-green-700"><Wallet className="h-4 w-4" /></span>
                     <div className="text-muted-foreground text-xs font-extrabold tracking-wide mb-1">Total Volume</div>
-                    <div className="text-2xl md:text-3xl font-display text-primary truncate">{naira(txFiltered.reduce((s, t) => s + Math.abs(t.amount), 0))}</div>
+                    <FitText className="text-2xl md:text-3xl font-display text-primary">{naira(txFiltered.reduce((s, t) => s + Math.abs(t.amount), 0))}</FitText>
                     <div className="text-[11px] text-muted-foreground">top-ups + sales</div>
                   </CardContent>
                 </Card>
@@ -852,7 +854,7 @@ export function SuperAdmin() {
                               <span className="text-foreground font-bold text-lg">{date}</span>
                               <Badge variant="outline" className="text-muted-foreground border-border ml-2">{Object.values(schoolMap).reduce((s, v) => s + v.count, 0)} transactions</Badge>
                             </div>
-                            <span className="text-primary font-display text-xl">{naira(dayTotal)}</span>
+                            <FitText className="text-primary font-display text-xl">{naira(dayTotal)}</FitText>
                           </div>
                           <div className="divide-y divide-border">
                             {Object.entries(schoolMap).map(([tenantKey, data]) => {
@@ -889,7 +891,7 @@ export function SuperAdmin() {
                                               <TableRow key={tx.id} className="border-border/40">
                                                 <TableCell className="text-foreground pl-14 font-medium">{tx.studentName}</TableCell>
                                                 <TableCell className="text-muted-foreground text-sm">{tx.itemsString}</TableCell>
-                                                <TableCell className={`font-bold text-right pr-6 ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{tx.amount < 0 ? '+' : '−'}{naira(Math.abs(tx.amount))}</TableCell>
+                                                <TableCell className={`font-bold text-right pr-6 ${tx.amount < 0 ? 'text-green-600' : 'text-foreground'}`}>{naira(Math.abs(tx.amount))}</TableCell>
                                               </TableRow>
                                             ))}
                                           </TableBody>

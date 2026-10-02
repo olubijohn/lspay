@@ -1,3 +1,5 @@
+import { when } from "@/lib/datetime";
+import { FitText } from "@/components/ui/fit-text";
 import { naira } from "@/lib/money";
 import { useState } from "react";
 import { useStore } from "@/store";
@@ -68,7 +70,7 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
                   <Icon className={`h-4 w-4 ${c.color}`} />
                   <span className="text-muted-foreground text-xs tracking-wide">{c.label}</span>
                 </div>
-                <div className={`text-xl font-display ${c.color}`}>{c.value}</div>
+                <FitText className={`text-xl font-display ${c.color}`}>{c.value}</FitText>
               </div>
             );
           })}
@@ -113,7 +115,7 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
                   <TableRow><TableCell colSpan={3} className="text-center py-6 text-muted-foreground">No sales recorded.</TableCell></TableRow>
                 ) : pg.pageItems.map(m => (
                   <TableRow key={m.id} className="border-border/50">
-                    <TableCell className="text-foreground text-sm">{m.date}</TableCell>
+                    <TableCell className="text-foreground text-sm">{when(m)}</TableCell>
                     <TableCell className="text-foreground font-bold text-right">{m.quantity}</TableCell>
                     <TableCell className="text-primary font-bold text-right">{naira((m.quantity * item.sellingPrice))}</TableCell>
                   </TableRow>
@@ -147,7 +149,7 @@ function ItemReportDialog({ item, tenantId, onClose }: { item: InventoryItem; te
                   <TableRow><TableCell colSpan={3} className="text-center py-6 text-muted-foreground">No restocks recorded.</TableCell></TableRow>
                 ) : pg.pageItems.map(m => (
                   <TableRow key={m.id} className="border-border/50">
-                    <TableCell className="text-foreground text-sm">{m.date}</TableCell>
+                    <TableCell className="text-foreground text-sm">{when(m)}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{m.note || "—"}</TableCell>
                     <TableCell className="text-amber-400 font-bold text-right">+{m.quantity}</TableCell>
                   </TableRow>
