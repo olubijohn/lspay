@@ -9,34 +9,37 @@ import { downloadCsv, fileSlug } from "@/lib/guardians";
 import { cn } from "@/lib/utils";
 
 // ------------------------------ filter ------------------------------
-export type PrintFilter = "all" | "ready" | "not_ready" | "unchecked";
+// Every student is Ready by default; only students marked "not_ready" are held back from card printing.
+export type PrintFilter = "all" | "ready" | "not_ready";
 export const PRINT_FILTER_OPTIONS: { value: PrintFilter; label: string }[] = [
   { value: "all", label: "All card print statuses" },
   { value: "ready", label: "Ready to print" },
   { value: "not_ready", label: "Not ready (don't print)" },
-  { value: "unchecked", label: "Not checked yet" },
 ];
+export const isPrintReady = (s: Student) => s.printStatus !== "not_ready";
 export const matchesPrintFilter = (s: Student, f: PrintFilter) =>
-  f === "all" || (f === "unchecked" ? !s.printStatus : s.printStatus === f);
-export const printStatusLabel = (st: PrintStatus | undefined) => (st === "ready" ? "Ready" : st === "not_ready" ? "Not ready" : "Not checked");
+  f === "all" || (f === "ready" ? isPrintReady(s) : !isPrintReady(s));
+export const printStatusLabel = (st: PrintStatus | undefined) => (st === "not_ready" ? "Not ready" : "Ready");
 
 // ------------------------------ row buttons ------------------------------
-/** "Ready" / "Not ready" toggles for one student. Clicking the active one again clears it. */
+/** "Ready" / "Not ready" for one student. Ready is the default, so "Ready" just undoes "Not ready". */
 export function PrintStatusButtons({ student, className }: { student: Student; className?: string }) {
   const { setPrintStatus } = useStore();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const set = async (st: Exclude<PrintStatus, null>) => {
     setBusy(true); setError("");
-    const r = await setPrintStatus([student.id], student.printStatus === st ? null : st);
+    const ready = isPrintReady(student);
+    if ((st === "ready") === ready) { setBusy(false); return; }   // already in that state
+    const r = await setPrintStatus([student.id], st === "ready" ? null : "not_ready");
     setBusy(false);
     if (!r.success) setError(r.message ?? "Not saved. Please try again.");
   };
   const base = "inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-[11px] font-extrabold transition-colors disabled:opacity-60";
   return (
-    <div className={cn("flex items-center gap-1", className)} title={student.printStatusBy ? `${printStatusLabel(student.printStatus)} · ${student.printStatusBy}` : undefined}>
-      <button type="button" disabled={busy} onClick={() => set("ready")} aria-pressed={student.printStatus === "ready"}
-        className={cn(base, student.printStatus === "ready" ? "border-green-600 bg-green-600 text-white" : "border-border bg-background text-muted-foreground hover:border-green-600 hover:text-green-700")}
+    <div className={cn("flex items-center gap-1", className)} title={student.printStatus === "not_ready" && student.printStatusBy ? `Marked not ready by ${student.printStatusBy}` : undefined}>
+      <button type="button" disabled={busy} onClick={() => set("ready")} aria-pressed={isPrintReady(student)}
+        className={cn(base, isPrintReady(student) ? "border-green-600 bg-green-600 text-white" : "border-border bg-background text-muted-foreground hover:border-green-600 hover:text-green-700")}
         data-testid={`btn-ready-${student.id}`}>
         <CheckCircle2 className="h-3.5 w-3.5" /> Ready
       </button>
@@ -54,8 +57,8 @@ export function PrintStatusButtons({ student, className }: { student: Student; c
 export function PrintStatusPill({ status }: { status?: PrintStatus }) {
   return (
     <span className={cn("inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-extrabold",
-      status === "ready" ? "bg-mint text-green-700" : status === "not_ready" ? "bg-blush text-red-700" : "bg-muted text-muted-foreground")}>
-      {status === "ready" ? "Ready to print" : status === "not_ready" ? "Not ready" : "Not checked"}
+      status === "not_ready" ? "bg-blush text-red-700" : "bg-mint text-green-700")}>
+      {status === "not_ready" ? "Not ready" : "Ready to print"}
     </span>
   );
 }
@@ -107,7 +110,7 @@ export function PrintListMatchDialog({ open, onClose, students, scopeLabel, scho
     setBusy(true); setError("");
     let ready = 0, notReady = 0;
     if (markMatched && matchedIds.size) {
-      const r = await setPrintStatus([...matchedIds], "ready");
+      const r = await setPrintStatus([...matchedIds], null);   // back to the default: Ready
       if (!r.success) { setBusy(false); setError(r.message ?? "Could not save."); return; }
       ready = matchedIds.size;
     }

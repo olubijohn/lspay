@@ -522,7 +522,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" disabled={bulkBusy} className="font-bold text-green-700 border-green-600/40 hover:bg-mint"
-              onClick={async () => { setBulkBusy(true); await setPrintStatus(selectedIds, "ready"); setBulkBusy(false); }} data-testid="btn-bulk-ready">
+              onClick={async () => { setBulkBusy(true); await setPrintStatus(selectedIds, null); setBulkBusy(false); }} data-testid="btn-bulk-ready">
               <CheckCircle2 className="w-4 h-4 mr-1.5" /> Mark ready
             </Button>
             <Button variant="outline" size="sm" disabled={bulkBusy} className="font-bold text-red-700 border-red-500/40 hover:bg-blush"
