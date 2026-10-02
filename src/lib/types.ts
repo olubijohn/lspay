@@ -258,6 +258,10 @@ export interface AppState {
   verifyWalletPin: (studentId: string, pin: string) => Promise<boolean>;
   topupWallet: (studentId: string, paystackReference: string) => Promise<void>;
   /** School admin records cash brought to the school: credits the wallet in full and returns the receipt reference. */
+  /** Card limits through lspay_set_limits (parents and staff); saved in the database, not just on screen. */
+  setCardLimits: (studentId: string, daily: number, monthly: number) => Promise<{ success: boolean; message?: string }>;
+  /** Freeze (true) / unfreeze (false) an activated card through lspay_set_card_frozen. */
+  setCardFrozen: (studentId: string, frozen: boolean) => Promise<{ success: boolean; message?: string }>;
   cashTopup: (studentId: string, amount: number, paidBy: string, note: string) => Promise<{ success: boolean; message?: string; reference?: string; balance?: number }>;
   /** Staff: connect a student's guardian to the LSPay parent portal (temporary password), or reset that password. */
   /** guardianId: an extra LSPay guardian; omitted = the guardian on the student record. */

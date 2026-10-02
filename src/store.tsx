@@ -504,6 +504,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   // Removes a staff account completely (profile + login) through the delete-staff edge function.
+  // Limits and freeze go through database functions (0093): parents have no direct write access to the wallet
+  // table, so a plain update silently changed nothing and the old value came back on refresh.
+  const setCardLimits = async (studentId: string, daily: number, monthly: number) => {
+    const { data, error } = await getSupabase().rpc("lspay_set_limits", { p_student: studentId, p_daily: daily, p_monthly: monthly });
+    if (error) return { success: false, message: error.message };
+    setStudents((prev) => prev.map((s) => (s.id === studentId ? { ...s, dailyLimit: Number(data?.daily_limit ?? daily), monthlyLimit: Number(data?.monthly_limit ?? monthly) } : s)));
+    return { success: true };
+  };
+  const setCardFrozen = async (studentId: string, frozen: boolean) => {
+    const { data, error } = await getSupabase().rpc("lspay_set_card_frozen", { p_student: studentId, p_frozen: frozen });
+    if (error) return { success: false, message: error.message };
+    setStudents((prev) => prev.map((s) => (s.id === studentId ? { ...s, cardStatus: (data?.card_status ?? (frozen ? "Blocked" : "Active")) as CardStatus } : s)));
+    return { success: true };
+  };
+
   // Cash at the school (lspay_cash_topup, 0092): school admins only, enforced in the database.
   const cashTopup = async (studentId: string, amount: number, paidBy: string, note: string) => {
     const { data, error } = await getSupabase().rpc("lspay_cash_topup", { p_student: studentId, p_amount: amount, p_paid_by: paidBy, p_note: note });
@@ -1089,7 +1104,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addTenant, updateTenant, assignCard, replaceCard, removeCard, createStudent, updateStudent, bulkUpdateStudentAvatars, deleteStudent, deleteStudents, addInventory, updateInventory, deleteInventory, addTransaction, cancelTransaction, deductBalanceAndStock,
         addStockMovement, addParentChild, addNotification, markNotificationRead, markCardReady, markCardDelivered, activateCard,
         verifyStaffCode, verifyKioskExit, verifyWalletPin, topupWallet, connectLspayParent, lastAccessError,
-        deleteSystemUser, setPrintStatus, cashTopup, lspayGuardians, addLspayGuardian, updateLspayGuardian, removeLspayGuardian, importLspayGuardians, refreshLspayParents,
+        deleteSystemUser, setPrintStatus, cashTopup, setCardLimits, setCardFrozen, lspayGuardians, addLspayGuardian, updateLspayGuardian, removeLspayGuardian, importLspayGuardians, refreshLspayParents,
       }}
     >
       {children}

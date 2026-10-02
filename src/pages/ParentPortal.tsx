@@ -69,7 +69,7 @@ function MobileTxList({ txs, showChild }: { txs: Transaction[]; showChild?: bool
 
 export function ParentPortal() {
   const chartTheme = useChartTheme();
-  const { tenants, students, transactions, updateStudent, parentSession, updateParentUser, addParentChild, notifications, markNotificationRead, activateCard, addTransaction, topupWallet, logoutParent } = useStore();
+  const { tenants, students, transactions, updateStudent, parentSession, updateParentUser, addParentChild, notifications, markNotificationRead, activateCard, setCardLimits, setCardFrozen, addTransaction, topupWallet, logoutParent } = useStore();
   const [, setLocation] = useLocation();
 
   const [activeTab, setActiveTabState] = useState<string>("overview");
@@ -98,6 +98,8 @@ export function ParentPortal() {
   const [pin2, setPin2] = useState("");
 
   const [showLimitsModal, setShowLimitsModal] = useState<string | null>(null);
+  const [limitsBusy, setLimitsBusy] = useState(false);
+  const [limitsError, setLimitsError] = useState("");
   const [dailyLim, setDailyLim] = useState("");
   const [monthlyLim, setMonthlyLim] = useState("");
 
@@ -275,20 +277,21 @@ export function ParentPortal() {
     setShowPinModal(null);
   };
 
-  const handleChangeLimits = (e: React.FormEvent) => {
+  const handleChangeLimits = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dailyLim || !monthlyLim) return;
-    updateStudent(showLimitsModal!, {
-      dailyLimit: Number(dailyLim),
-      monthlyLimit: Number(monthlyLim)
-    });
+    setLimitsBusy(true); setLimitsError("");
+    const r = await setCardLimits(showLimitsModal!, Number(dailyLim), Number(monthlyLim));
+    setLimitsBusy(false);
+    if (!r.success) { setLimitsError(r.message ?? "Your limits were not saved. Please try again."); return; }
     setShowLimitsModal(null);
   };
 
   const handleToggleFreeze = (child: Student) => {
     if (child.cardStatus === "Issued" || child.cardStatus === "Unassigned") return;
-    const newStatus = child.cardStatus === "Active" ? "Blocked" : "Active";
-    updateStudent(child.id, { cardStatus: newStatus });
+    setCardFrozen(child.id, child.cardStatus === "Active").then((r) => {
+      if (!r.success) window.alert(r.message ?? "The card was not updated. Please try again.");
+    });
   };
 
   const handleActivate = (e: React.FormEvent) => {
@@ -616,7 +619,7 @@ export function ParentPortal() {
                       <div className="font-bold text-foreground text-sm">Change PIN</div>
                     </CardContent>
                   </Card>
-                  <Card className="bg-card border-border hover:bg-muted/50 transition-all cursor-pointer shadow-md hover:shadow-lg" onClick={() => { setDailyLim(child.dailyLimit.toString()); setMonthlyLim(child.monthlyLimit.toString()); setShowLimitsModal(child.id); }}>
+                  <Card className="bg-card border-border hover:bg-muted/50 transition-all cursor-pointer shadow-md hover:shadow-lg" onClick={() => { setDailyLim(child.dailyLimit.toString()); setMonthlyLim(child.monthlyLimit.toString()); setLimitsError(""); setShowLimitsModal(child.id); }}>
                     <CardContent className="p-5 flex flex-col items-center text-center gap-3">
                       <div className="w-14 h-14 rounded-2xl bg-lilac flex items-center justify-center text-purple-700"><Settings className="w-6 h-6" /></div>
                       <div className="font-bold text-foreground text-sm">Card Limits</div>
@@ -1001,7 +1004,8 @@ export function ParentPortal() {
               <Label className="text-foreground">Monthly Limit (₦)</Label>
               <Input type="number" min="0" value={monthlyLim} onChange={e => setMonthlyLim(e.target.value)} className="bg-background border-border text-foreground h-12" required />
             </div>
-            <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 text-white h-12 text-lg font-bold mt-2">Save Limits</Button>
+            {limitsError && <p className="rounded-xl bg-blush px-3 py-2 text-sm font-semibold text-red-700" role="alert">{limitsError}</p>}
+            <Button type="submit" disabled={limitsBusy} className="w-full bg-purple-600 hover:bg-purple-700 text-white h-12 text-lg font-bold mt-2">{limitsBusy ? "Saving…" : "Save Limits"}</Button>
           </form>
         </DialogContent>
       </Dialog>
