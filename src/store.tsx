@@ -268,7 +268,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!authSession) { setSession({ user: null, portal: null }); setParentSession(null); clearAll(); return; }
       const uid = authSession.user.id;
 
-      const { data: admin } = await supabase.from("platform_admins").select("*").eq("user_id", uid).maybeSingle();
+      // A read that FAILS (network blip, token refresh in flight) is not the same as "not found": in that case keep
+      // whatever is on screen instead of dropping a signed-in user back to the login page.
+      const { data: admin, error: adminErr } = await supabase.from("platform_admins").select("*").eq("user_id", uid).maybeSingle();
+      if (adminErr) { console.warn("[auth] could not check platform admin, keeping current view", adminErr); return; }
       if (admin) {
         if (loadToken.current !== myToken) return;
         setParentSession(null);
@@ -277,15 +280,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const { data: profile } = await supabase.from("profiles").select("*").eq("user_id", uid).eq("active", true).maybeSingle();
+      const { data: profile, error: profileErr } = await supabase.from("profiles").select("*").eq("user_id", uid).eq("active", true).maybeSingle();
+      if (profileErr) { console.warn("[auth] could not read profile, keeping current view", profileErr); return; }
       if (profile) {
-        const [{ data: hasLspay }, { data: staffAccess }] = await Promise.all([
+        const [{ data: hasLspay, error: e1 }, { data: staffAccess, error: e2 }] = await Promise.all([
           supabase.rpc("current_tenant_has_app", { p_app_code: "LSPAY" }),
           supabase.rpc("staff_has_app_access", { p_user: uid, p_app_code: "LSPAY" }),
         ]);
         if (loadToken.current !== myToken) return;
+        if (e1 || e2) { console.warn("[auth] could not check LSPay access, keeping current view", e1 ?? e2); return; }
         if (hasLspay && staffAccess) {
           const refusal = await lspayRefusal();
+          if (refusal === CHECK_FAILED) return;
           if (refusal) { setAccessError(refusal); await supabase.auth.signOut(); return; }
           setParentSession(null);
           setSession({ user: { id: profile.user_id, name: profile.full_name, email: profile.email ?? "", passwordHash: "", role: LSA_TO_ROLE[profile.role] ?? "kiosk_operator", tenantId: profile.tenant_id, isActive: profile.active, mustChangePassword: !!profile.must_change_password }, portal: "tenant" });
@@ -294,12 +300,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const { data: accounts } = await supabase.from("lspay_parent_accounts").select(LSPAY_PARENT_SELECT).eq("user_id", uid);
+      const { data: accounts, error: accountsErr } = await supabase.from("lspay_parent_accounts").select(LSPAY_PARENT_SELECT).eq("user_id", uid);
       if (loadToken.current !== myToken) return;
+      if (accountsErr) { console.warn("[auth] could not read parent account, keeping current view", accountsErr); return; }
       const pu = mergeParentAccounts(accounts ?? []);
       if (pu) {
         const refusal = await lspayRefusal();
         if (loadToken.current !== myToken) return;
+        if (refusal === CHECK_FAILED) return;
         if (refusal) { setAccessError(refusal); await supabase.auth.signOut(); return; }
         setSession({ user: null, portal: null });
         setParentSession(pu);
@@ -312,7 +320,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     resolve();
-    const { data: sub } = supabase.auth.onAuthStateChange(() => { resolve(); });
+    // Supabase holds its auth lock while this callback runs, so the re-check is deferred (calling auth from
+    // inside it can stall). A silent token refresh is not a new sign-in and must not re-run the whole check.
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") return;
+      window.setTimeout(() => { resolve(); }, 0);
+    });
     return () => { sub.subscription.unsubscribe(); };
   }, [loadTenantScoped, loadForParent]);
 
@@ -321,9 +334,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const accessErrorRef = useRef("");
   const setAccessError = (m: string) => { accessErrorRef.current = m; };
   const lastAccessError = () => accessErrorRef.current;
+  // CHECK_FAILED = the check itself could not run (offline, token refresh in flight): not a refusal.
+  const CHECK_FAILED = "__check_failed__";
   const lspayRefusal = async (): Promise<string | null> => {
     const { data, error } = await getSupabase().rpc("app_access");
-    if (error || !data) return "Could not check your access. Please try again.";
+    if (error || !data) return CHECK_FAILED;
     if (data.kind === "console") return null;
     if (data.blocked || !data.apps) return data.message ?? "Access is refused.";
     return data.apps.LSPAY?.ok ? null : (data.apps.LSPAY?.message ?? "Access is refused.");
@@ -376,7 +391,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const { data: profile } = await supabase.from("profiles").select("*").eq("user_id", uid).maybeSingle();
     if (!profile) { await supabase.auth.signOut(); return null; }
     const refusal = await lspayRefusal();
-    if (refusal) { setAccessError(refusal); await supabase.auth.signOut(); return null; }
+    if (refusal) { setAccessError(refusal === CHECK_FAILED ? "Could not check your access. Please try again." : refusal); await supabase.auth.signOut(); return null; }
     setAccessError("");
     const user: SystemUser = { id: profile.user_id, name: profile.full_name, email: profile.email ?? "", passwordHash: "", role: LSA_TO_ROLE[profile.role] ?? "kiosk_operator", tenantId: profile.tenant_id, isActive: profile.active, mustChangePassword: !!profile.must_change_password };
     setParentSession(null); setSession({ user, portal: "tenant" });
@@ -403,7 +418,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     const refusal = await lspayRefusal();
-    if (refusal) { setAccessError(refusal); await supabase.auth.signOut(); return null; }
+    if (refusal) { setAccessError(refusal === CHECK_FAILED ? "Could not check your access. Please try again." : refusal); await supabase.auth.signOut(); return null; }
     setAccessError("");
 
     setSession({ user: null, portal: null }); setParentSession(pu);

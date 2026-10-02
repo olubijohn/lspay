@@ -224,6 +224,17 @@ export function ParentPortal() {
     const creditedAmount = amount - fee;
 
     setTopupProcessing(true);
+    // Our Top Up dialog is modal: while it is open it blocks clicks on everything else on the page, including
+    // Paystack's checkout (which opens in its own layer). So close it first, let it release the page, then open
+    // Paystack. Cancel / errors reopen the dialog with the message; success shows the banner as before.
+    const reopenWith = (message: string) => {
+      setTopupProcessing(false);
+      setTopupError(message);
+      setShowTopupModal(child.id);
+    };
+    setShowTopupModal(null);
+    window.setTimeout(() => {
+    document.body.style.pointerEvents = "";
     launchPaystack({
       paystackPublicKey: tenant.paystackPublicKey,
       subaccount: tenant.paystackSubaccountCode,
@@ -241,8 +252,7 @@ export function ParentPortal() {
         try {
           await topupWallet(child.id, reference);
         } catch (err: any) {
-          setTopupProcessing(false);
-          setTopupError(err?.message ?? "Payment could not be confirmed. Please contact the school if you were charged.");
+          reopenWith(err?.message ?? "Payment could not be confirmed. Please contact the school if you were charged.");
           return;
         }
         setTopupProcessing(false);
@@ -251,15 +261,10 @@ export function ParentPortal() {
         setTopupSuccess({ name: child.name, amount: creditedAmount });
         window.setTimeout(() => setTopupSuccess(null), 5000);
       },
-      onCancel: () => {
-        setTopupProcessing(false);
-        setTopupError("Payment was cancelled. Your wallet was not charged.");
-      },
-      onError: (message) => {
-        setTopupProcessing(false);
-        setTopupError(message);
-      },
+      onCancel: () => reopenWith("Payment was cancelled. Your wallet was not charged."),
+      onError: (message) => reopenWith(message),
     });
+    }, 300);
   };
 
   const handleChangePin = (e: React.FormEvent) => {
