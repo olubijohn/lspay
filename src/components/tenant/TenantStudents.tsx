@@ -10,6 +10,7 @@ import { PhotoFilter, hasStudentPhoto, matchesPhotoFilter } from "@/lib/studentP
 import { PRINT_FILTER_OPTIONS, PrintFilter, PrintListMatchDialog, PrintStatusButtons, matchesPrintFilter, printStatusLabel } from "@/components/PrintReady";
 import { GUARDIAN_FILTER_OPTIONS, GuardianFilter, exportStudentsWithGuardians, fileSlug, guardiansByStudent, matchesGuardianFilter } from "@/lib/guardians";
 import { GuardianCell } from "@/components/guardians/GuardianCell";
+import { CashTopupButton } from "@/components/tenant/CashTopup";
 import { GuardianEditor, GuardianDraft, draftsFor, guardianDraftErrors } from "@/components/guardians/GuardianEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -343,6 +344,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                 <div className="text-sm text-muted-foreground mb-1 font-medium tracking-wide ">Wallet Balance</div>
                 <div className="text-4xl font-display text-primary">{naira(s.walletBalance)}</div>
               </div>
+              <CashTopupButton student={s} className="-mt-4 mb-6" />
 
               <div className="space-y-4 text-left border-t border-border pt-6">
                 <div>

@@ -257,6 +257,8 @@ export interface AppState {
   verifyKioskExit: (tenantId: string, password: string) => Promise<boolean>;
   verifyWalletPin: (studentId: string, pin: string) => Promise<boolean>;
   topupWallet: (studentId: string, paystackReference: string) => Promise<void>;
+  /** School admin records cash brought to the school: credits the wallet in full and returns the receipt reference. */
+  cashTopup: (studentId: string, amount: number, paidBy: string, note: string) => Promise<{ success: boolean; message?: string; reference?: string; balance?: number }>;
   /** Staff: connect a student's guardian to the LSPay parent portal (temporary password), or reset that password. */
   /** guardianId: an extra LSPay guardian; omitted = the guardian on the student record. */
   connectLspayParent: (studentId: string, action?: "connect" | "reset", guardianId?: string, opts?: { refresh?: boolean }) => Promise<{ success: boolean; message?: string; credentials?: LspayParentCredentials }>;

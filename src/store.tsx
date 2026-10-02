@@ -504,6 +504,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   // Removes a staff account completely (profile + login) through the delete-staff edge function.
+  // Cash at the school (lspay_cash_topup, 0092): school admins only, enforced in the database.
+  const cashTopup = async (studentId: string, amount: number, paidBy: string, note: string) => {
+    const { data, error } = await getSupabase().rpc("lspay_cash_topup", { p_student: studentId, p_amount: amount, p_paid_by: paidBy, p_note: note });
+    if (error) return { success: false, message: error.message };
+    const balance = Number(data?.balance ?? 0);
+    const ledger = data?.ledger;
+    const student = students.find((s) => s.id === studentId);
+    setStudents((prev) => prev.map((s) => (s.id === studentId ? { ...s, walletBalance: balance } : s)));
+    if (ledger && student) {
+      const school = tenants.find((t) => t.id === student.tenantId)?.name ?? "";
+      setTransactions((prev) => [mapLedgerRowToTransaction(ledger, student.name, school), ...prev]);
+    }
+    return { success: true, reference: ledger?.reference as string | undefined, balance };
+  };
+
   // Card print check, many students at once (lspay_set_print_status, 0090). Updated on screen straight away.
   const setPrintStatus = async (studentIds: string[], status: PrintStatus) => {
     if (!studentIds.length) return { success: true, changed: 0 };
@@ -1074,7 +1089,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addTenant, updateTenant, assignCard, replaceCard, removeCard, createStudent, updateStudent, bulkUpdateStudentAvatars, deleteStudent, deleteStudents, addInventory, updateInventory, deleteInventory, addTransaction, cancelTransaction, deductBalanceAndStock,
         addStockMovement, addParentChild, addNotification, markNotificationRead, markCardReady, markCardDelivered, activateCard,
         verifyStaffCode, verifyKioskExit, verifyWalletPin, topupWallet, connectLspayParent, lastAccessError,
-        deleteSystemUser, setPrintStatus, lspayGuardians, addLspayGuardian, updateLspayGuardian, removeLspayGuardian, importLspayGuardians, refreshLspayParents,
+        deleteSystemUser, setPrintStatus, cashTopup, lspayGuardians, addLspayGuardian, updateLspayGuardian, removeLspayGuardian, importLspayGuardians, refreshLspayParents,
       }}
     >
       {children}
