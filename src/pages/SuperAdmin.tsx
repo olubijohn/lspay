@@ -1,4 +1,5 @@
 import { DeleteUserButton } from "@/components/DeleteUserButton";
+import { PRINT_FILTER_OPTIONS, PrintFilter, PrintStatusButtons, PrintStatusPill, matchesPrintFilter } from "@/components/PrintReady";
 import { naira, nairaAxis } from "@/lib/money";
 import { useState, useMemo, useRef } from "react";
 import { useStore } from "@/store";
@@ -88,6 +89,7 @@ export function SuperAdmin() {
   const [schoolPhotoFilter, setSchoolPhotoFilter] = useState<PhotoFilter>("all");
   const [schoolGuardianFilter, setSchoolGuardianFilter] = useState<GuardianFilter>("all");
   const [cardFilterGuardian, setCardFilterGuardian] = useState<GuardianFilter>("all");
+  const [cardFilterPrint, setCardFilterPrint] = useState<PrintFilter>("all");
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [bulkPrintStudents, setBulkPrintStudents] = useState<any[] | null>(null);
 
@@ -528,11 +530,12 @@ export function SuperAdmin() {
       }
       if (!matchesPhotoFilter(s, cardFilterPhoto)) return false;
       if (!matchesGuardianFilter(guardianMap.get(s.id) ?? [], cardFilterGuardian)) return false;
+      if (!matchesPrintFilter(s, cardFilterPrint)) return false;
       if (cardFilterClasses.length > 0 && !cardFilterClasses.includes(classLabel(s.className))) return false;
       if (q && !s.name.toLowerCase().includes(q) && !s.studentId.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [students, cardFilterSchool, cardFilterStatus, cardActivatedStart, cardActivatedEnd, cardSearch, cardFilterPhoto, cardFilterClasses, cardFilterGuardian, guardianMap]);
+  }, [students, cardFilterSchool, cardFilterStatus, cardActivatedStart, cardActivatedEnd, cardSearch, cardFilterPhoto, cardFilterClasses, cardFilterGuardian, cardFilterPrint, guardianMap]);
 
   // Classes available in the current school scope (with student counts), naturally sorted: JSS 1, JSS 2, … JSS 10.
   const cardClassOptions = useMemo(() => {
@@ -546,7 +549,7 @@ export function SuperAdmin() {
       .sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true, sensitivity: "base" }));
   }, [students, cardFilterSchool]);
 
-  const cardPage = usePagination(cardFilteredStudents, `${cardFilterGuardian}|${cardFilterClasses.join(",")}|${cardFilterPhoto}`);
+  const cardPage = usePagination(cardFilteredStudents, `${cardFilterPrint}|${cardFilterGuardian}|${cardFilterClasses.join(",")}|${cardFilterPhoto}`);
 
   // Photo counts for the current school scope, so the photo filter can show "With photo (n)".
   const cardPhotoCounts = useMemo(() => {
@@ -1120,6 +1123,7 @@ export function SuperAdmin() {
                                     <TableHead className="text-muted-foreground py-4">Parent Details</TableHead>
                                     <TableHead className="text-muted-foreground py-4">Card Status</TableHead>
                                     <TableHead className="text-muted-foreground py-4 text-right">Wallet Balance</TableHead>
+                                    <TableHead className="text-muted-foreground py-4">Card print</TableHead>
                                     <TableHead className="text-muted-foreground py-4 text-right pr-6">Action</TableHead>
                                   </TableRow>
                                 </TableHeader>
@@ -1170,6 +1174,9 @@ export function SuperAdmin() {
                                           </Badge>
                                         </TableCell>
                                         <TableCell className="text-foreground font-bold text-right">{naira(s.walletBalance)}</TableCell>
+                                        <TableCell>
+                                          <PrintStatusButtons student={s} />
+                                        </TableCell>
                                         <TableCell className="text-right pr-6">
                                           <Button
                                             variant="ghost"
@@ -1188,14 +1195,14 @@ export function SuperAdmin() {
                                   })}
                                   {schoolStudents.length === 0 && (
                                     <TableRow>
-                                      <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                                      <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
                                         No students registered for this school yet. Click "Import Students" to bulk upload.
                                       </TableCell>
                                     </TableRow>
                                   )}
                                   {schoolStudents.length > 0 && visibleSchoolStudents.length === 0 && (
                                     <TableRow>
-                                      <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                                      <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
                                         No students match these filters.
                                       </TableCell>
                                     </TableRow>
@@ -1432,6 +1439,17 @@ export function SuperAdmin() {
                         </Select>
                       </div>
                       <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-muted-foreground tracking-wider mb-1">Card print</span>
+                        <Select value={cardFilterPrint} onValueChange={v => setCardFilterPrint(v as PrintFilter)}>
+                          <SelectTrigger className="w-full bg-background border-border text-foreground h-9" data-testid="select-card-print">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-card border-border text-foreground">
+                            {PRINT_FILTER_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex flex-col">
                         <span className="text-[10px] font-bold text-muted-foreground tracking-wider mb-1">Activated From</span>
                         <Input type="date" value={cardActivatedStart} onChange={e => setCardActivatedStart(e.target.value)} className="w-full bg-background border-border text-foreground h-9" data-testid="input-card-activated-start" />
                       </div>
@@ -1442,12 +1460,12 @@ export function SuperAdmin() {
                     </div>
                     <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/30 mt-2">
                       <span data-testid="text-card-result-count">{cardFilteredStudents.length} student{cardFilteredStudents.length === 1 ? "" : "s"} found</span>
-                      {(cardSearch || cardFilterSchool !== "all" || cardFilterStatus !== "all" || cardFilterPhoto !== "all" || cardFilterGuardian !== "all" || cardFilterClasses.length > 0 || cardActivatedStart || cardActivatedEnd) && (
+                      {(cardSearch || cardFilterSchool !== "all" || cardFilterStatus !== "all" || cardFilterPhoto !== "all" || cardFilterGuardian !== "all" || cardFilterPrint !== "all" || cardFilterClasses.length > 0 || cardActivatedStart || cardActivatedEnd) && (
                         <Button
                           type="button"
                           variant="ghost"
                           className="h-7 text-primary hover:text-primary/80 font-bold px-2 text-xs"
-                          onClick={() => { setCardSearch(""); setCardFilterSchool("all"); setCardFilterStatus("all"); setCardFilterPhoto("all"); setCardFilterGuardian("all"); setCardFilterClasses([]); setCardActivatedStart(""); setCardActivatedEnd(""); }}
+                          onClick={() => { setCardSearch(""); setCardFilterSchool("all"); setCardFilterStatus("all"); setCardFilterPhoto("all"); setCardFilterGuardian("all"); setCardFilterPrint("all"); setCardFilterClasses([]); setCardActivatedStart(""); setCardActivatedEnd(""); }}
                           data-testid="btn-clear-card-filters"
                         >
                           Clear Filters
@@ -1519,6 +1537,7 @@ export function SuperAdmin() {
                                   {cardLifecycleLabel(s.cardLifecycleStatus)}
                                 </Badge>
                                 <LspayParentBadge student={s} />
+                                <PrintStatusPill status={s.printStatus} />
                               </div>
                             </TableCell>
                             <TableCell className="text-muted-foreground text-sm font-mono">

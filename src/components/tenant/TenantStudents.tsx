@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
 import { usePagination } from "@/lib/usePagination";
 import { PhotoFilter, hasStudentPhoto, matchesPhotoFilter } from "@/lib/studentPhoto";
+import { PRINT_FILTER_OPTIONS, PrintFilter, PrintListMatchDialog, PrintStatusButtons, matchesPrintFilter, printStatusLabel } from "@/components/PrintReady";
 import { GUARDIAN_FILTER_OPTIONS, GuardianFilter, exportStudentsWithGuardians, fileSlug, guardiansByStudent, matchesGuardianFilter } from "@/lib/guardians";
 import { GuardianCell } from "@/components/guardians/GuardianCell";
 import { GuardianEditor, GuardianDraft, draftsFor, guardianDraftErrors } from "@/components/guardians/GuardianEditor";
@@ -19,11 +20,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { GraduationCap, ArrowLeft, Banknote, Trash2, AlertTriangle, Search, Filter, RotateCcw, X, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { GraduationCap, ArrowLeft, Banknote, Trash2, AlertTriangle, Search, Filter, RotateCcw, X, ChevronLeft, ChevronRight, Download, CheckCircle2, Ban, ClipboardList } from "lucide-react";
 import { cardLifecycleLabel, Student } from "@/lib/types";
 
 export function TenantStudents({ tenantId }: { tenantId: string }) {
-  const { students, parentUsers, lspayGuardians, addLspayGuardian, updateLspayGuardian, removeLspayGuardian, refreshLspayParents, createStudent, updateStudent, deleteStudent, deleteStudents, markCardDelivered, transactions, tenants } = useStore();
+  const { students, parentUsers, lspayGuardians, setPrintStatus, addLspayGuardian, updateLspayGuardian, removeLspayGuardian, refreshLspayParents, createStudent, updateStudent, deleteStudent, deleteStudents, markCardDelivered, transactions, tenants } = useStore();
   const tenantStudents = students.filter(s => s.tenantId === tenantId);
 
   const [isOpen, setIsOpen] = useState(false);
@@ -38,6 +39,9 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
   const [lifecycleFilter, setLifecycleFilter] = useState("all");
   const [parentStatusFilter, setParentStatusFilter] = useState<GuardianFilter>("all");
   const [photoFilter, setPhotoFilter] = useState<PhotoFilter>("all");
+  const [printFilter, setPrintFilter] = useState<PrintFilter>("all");
+  const [listCheckOpen, setListCheckOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   // Selection & Bulk Delete state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -158,12 +162,13 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
         if (!matchesGuardianFilter(guardiansFor(s.id), parentStatusFilter)) return false;
       }
       if (!matchesPhotoFilter(s, photoFilter)) return false;
+      if (!matchesPrintFilter(s, printFilter)) return false;
 
       return true;
     });
-  }, [tenantStudents, searchQuery, classFilter, cardStatusFilter, lifecycleFilter, parentStatusFilter, photoFilter, guardianMap]);
+  }, [tenantStudents, searchQuery, classFilter, cardStatusFilter, lifecycleFilter, parentStatusFilter, photoFilter, printFilter, guardianMap]);
 
-  const studentPage = usePagination(filteredStudents, `${searchQuery}|${classFilter}|${cardStatusFilter}|${lifecycleFilter}|${parentStatusFilter}|${photoFilter}`);
+  const studentPage = usePagination(filteredStudents, `${searchQuery}|${classFilter}|${cardStatusFilter}|${lifecycleFilter}|${parentStatusFilter}|${photoFilter}|${printFilter}`);
   const paginatedStudents = studentPage.pageItems;
 
   const resetFilters = () => {
@@ -173,9 +178,10 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
     setLifecycleFilter("all");
     setParentStatusFilter("all");
     setPhotoFilter("all");
+    setPrintFilter("all");
   };
 
-  const isFilterActive = searchQuery !== "" || classFilter !== "all" || cardStatusFilter !== "all" || lifecycleFilter !== "all" || parentStatusFilter !== "all" || photoFilter !== "all";
+  const isFilterActive = searchQuery !== "" || classFilter !== "all" || cardStatusFilter !== "all" || lifecycleFilter !== "all" || parentStatusFilter !== "all" || photoFilter !== "all" || printFilter !== "all";
 
   const toggleSelectAll = () => {
     if (selectedIds.length === filteredStudents.length && filteredStudents.length > 0) {
@@ -514,7 +520,15 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
               {selectedIds.length} {selectedIds.length === 1 ? "student" : "students"} selected
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" disabled={bulkBusy} className="font-bold text-green-700 border-green-600/40 hover:bg-mint"
+              onClick={async () => { setBulkBusy(true); await setPrintStatus(selectedIds, "ready"); setBulkBusy(false); }} data-testid="btn-bulk-ready">
+              <CheckCircle2 className="w-4 h-4 mr-1.5" /> Mark ready
+            </Button>
+            <Button variant="outline" size="sm" disabled={bulkBusy} className="font-bold text-red-700 border-red-500/40 hover:bg-blush"
+              onClick={async () => { setBulkBusy(true); await setPrintStatus(selectedIds, "not_ready"); setBulkBusy(false); }} data-testid="btn-bulk-not-ready">
+              <Ban className="w-4 h-4 mr-1.5" /> Mark not ready
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -638,6 +652,23 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
               </Select>
             </div>
 
+            <div className="w-56">
+              <Select value={printFilter} onValueChange={v => setPrintFilter(v as PrintFilter)}>
+                <SelectTrigger className="bg-background border-border text-foreground h-8 text-xs" data-testid="select-print-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border text-foreground">
+                  {PRINT_FILTER_OPTIONS.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label} ({tenantStudents.filter(st => matchesPrintFilter(st, o.value)).length})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button variant="outline" size="sm" className="h-8 text-xs font-bold" onClick={() => setListCheckOpen(true)} data-testid="btn-check-list">
+              <ClipboardList className="w-3.5 h-3.5 mr-1.5" /> Check against my list
+            </Button>
+
             {isFilterActive && (
               <Button
                 variant="ghost"
@@ -661,7 +692,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
             onClick={() => exportStudentsWithGuardians(
               `${fileSlug(tenants.find(t => t.id === tenantId)?.name ?? "school")}-students${isFilterActive ? "-filtered" : ""}`,
               filteredStudents, guardianMap,
-              [{ header: "Photo", value: st => (hasStudentPhoto(st) ? "Yes" : "No") }, { header: "Card status", value: st => st.cardStatus }, { header: "Wallet balance", value: st => st.walletBalance }],
+              [{ header: "Card print", value: st => printStatusLabel(st.printStatus) }, { header: "Photo", value: st => (hasStudentPhoto(st) ? "Yes" : "No") }, { header: "Card status", value: st => st.cardStatus }, { header: "Wallet balance", value: st => st.walletBalance }],
             )}
             data-testid="btn-export-students"
           >
@@ -688,6 +719,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                 <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Class</TableHead>
                 <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Parent Details</TableHead>
                 <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Statuses</TableHead>
+                <TableHead className="text-muted-foreground font-bold tracking-wider text-xs">Card print</TableHead>
                 <TableHead className="text-right text-muted-foreground font-bold tracking-wider text-xs pr-6">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -738,6 +770,9 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
                         </Badge>
                       </div>
                     </TableCell>
+                    <TableCell>
+                      <PrintStatusButtons student={s} />
+                    </TableCell>
                     <TableCell className="text-right pr-4">
                       <div className="flex justify-end items-center gap-2">
                         {s.cardLifecycleStatus === 'ready' && (
@@ -760,14 +795,14 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
 
               {tenantStudents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-16">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-16">
                     <GraduationCap className="w-12 h-12 mx-auto mb-4 opacity-20" />
                     No students found. Add one to get started.
                   </TableCell>
                 </TableRow>
               ) : filteredStudents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-16">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-16">
                     <Filter className="w-10 h-10 mx-auto mb-3 opacity-25" />
                     <p className="text-base font-semibold text-foreground mb-1">No students match your filter criteria</p>
                     <p className="text-sm text-muted-foreground mb-4">Try clearing one or more filters to view students.</p>
@@ -783,6 +818,14 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
         </CardContent>
         <PaginationBar p={studentPage} label="students" />
       </Card>
+
+      <PrintListMatchDialog
+        open={listCheckOpen}
+        onClose={() => setListCheckOpen(false)}
+        students={classFilter !== "all" ? tenantStudents.filter(st => (st.className || "") === classFilter) : tenantStudents}
+        scopeLabel={classFilter !== "all" ? `class ${classFilter}` : "the whole school"}
+        schoolName={tenants.find(t => t.id === tenantId)?.name ?? "school"}
+      />
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>

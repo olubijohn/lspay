@@ -151,8 +151,12 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
   const [printLayout, setPrintLayout] = useState<"pair" | "front_only" | "grid_a4">("pair");
   const { tenants } = useStore();
 
+  // Bulk printing never includes students marked "Not ready" (left the school / wrong class). Printing one
+  // student on purpose still works, with a warning.
+  const skippedNotReady = useMemo(() => (students ?? []).filter((s) => s.printStatus === "not_ready"), [students]);
   const printList = useMemo(() => {
-    return students && students.length > 0 ? students : student ? [student] : [];
+    if (students && students.length > 0) return students.filter((s) => s.printStatus !== "not_ready");
+    return student ? [student] : [];
   }, [students, student]);
 
   const chunkedGrid = useMemo(() => {
@@ -681,6 +685,16 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
         </DialogHeader>
 
         <div className="flex flex-col items-center pt-1 pb-1 space-y-4">
+          {skippedNotReady.length > 0 && (
+            <p className="w-full max-w-md rounded-xl bg-peach px-3 py-2 text-center text-xs font-bold text-amber-700" role="status" data-testid="print-skipped-not-ready">
+              {skippedNotReady.length} student{skippedNotReady.length === 1 ? " is" : "s are"} marked Not ready and {skippedNotReady.length === 1 ? "was" : "were"} left out: {skippedNotReady.slice(0, 5).map((s) => s.name).join(", ")}{skippedNotReady.length > 5 ? ` and ${skippedNotReady.length - 5} more` : ""}.
+            </p>
+          )}
+          {!students?.length && student?.printStatus === "not_ready" && (
+            <p className="w-full max-w-md rounded-xl bg-blush px-3 py-2 text-center text-xs font-bold text-red-700" role="alert">
+              {student.name} is marked Not ready for card printing. Check they are still in this class before printing.
+            </p>
+          )}
           <p className="text-center text-xs text-muted-foreground max-w-sm">
             Standard CR80 card (85.6mm × 54mm). Tap the card to see the back — the QR code is printed on the back.
           </p>

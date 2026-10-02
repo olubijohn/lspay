@@ -51,6 +51,10 @@ export interface Student {
   parentEmail: string;
   /** Phone of the guardian on the student record. */
   parentPhone?: string;
+  /** Card print check: "ready" (confirmed), "not_ready" (left / wrong class: never bulk-printed), null = not checked. */
+  printStatus?: PrintStatus;
+  printStatusAt?: string;
+  printStatusBy?: string;
 }
 
 export type CardLifecycleStatus =
@@ -132,6 +136,8 @@ export interface ParentUser {
 }
 
 /** What the school sees after connecting a guardian to the LSPay parent portal (like LSA's "Portal access is ready"). */
+export type PrintStatus = "ready" | "not_ready" | null;
+
 export interface LspayParentCredentials {
   email: string;
   username: string;
@@ -216,6 +222,8 @@ export interface AppState {
   updateSystemUser: (id: string, data: Partial<SystemUser>) => void;
   /** Deletes a staff account and its login (no more access anywhere). */
   deleteSystemUser: (id: string) => Promise<{ success: boolean; message?: string }>;
+  /** Mark students ready / not ready for card printing (null clears). */
+  setPrintStatus: (studentIds: string[], status: PrintStatus) => Promise<{ success: boolean; message?: string; changed?: number }>;
 
   addTenant: (t: Omit<Tenant, "id">) => Promise<Tenant>;
   updateTenant: (id: string, updates: Partial<Tenant>) => void;

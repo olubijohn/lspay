@@ -2,7 +2,7 @@ import { createContext, useContext, useState, ReactNode, useEffect, useCallback,
 import {
   AppState, Tenant, Student, InventoryItem, Transaction, SystemUser, ParentUser, StockMovement,
   AuthSession, AppNotification, CardStatus, CardLifecycleStatus, TenantUserRole, LspayParentCredentials,
-  LspayGuardian, LspayGuardianImportRow, LspayGuardianImportResult, GuardianRelationship,
+  LspayGuardian, LspayGuardianImportRow, LspayGuardianImportResult, GuardianRelationship, PrintStatus,
 } from "./lib/types";
 import { getSupabase, isSupabaseConfigured } from "./lib/supabaseClient";
 
@@ -45,6 +45,7 @@ function mapStudentRow(r: any): Student {
     activatedAt: w.activated_at ?? undefined,
     homeAddress: r.address ?? "", billingAddress: r.address ?? "",
     parentName: r.guardian_name ?? "", parentEmail: r.guardian_email ?? "", parentPhone: r.guardian_phone ?? "",
+    printStatus: (w.print_status ?? null) as PrintStatus, printStatusAt: w.print_status_at ?? undefined, printStatusBy: w.print_status_by ?? undefined,
   };
 }
 
@@ -488,6 +489,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   // Removes a staff account completely (profile + login) through the delete-staff edge function.
+  // Card print check, many students at once (lspay_set_print_status, 0090). Updated on screen straight away.
+  const setPrintStatus = async (studentIds: string[], status: PrintStatus) => {
+    if (!studentIds.length) return { success: true, changed: 0 };
+    const before = new Map(students.filter((s) => studentIds.includes(s.id)).map((s) => [s.id, s.printStatus ?? null]));
+    const ids = new Set(studentIds);
+    const at = new Date().toISOString();
+    setStudents((prev) => prev.map((s) => (ids.has(s.id) ? { ...s, printStatus: status, printStatusAt: status ? at : undefined, printStatusBy: status ? session.user?.name : undefined } : s)));
+    let changed = 0;
+    for (let i = 0; i < studentIds.length; i += 500) {
+      const { data, error } = await getSupabase().rpc("lspay_set_print_status", { p_students: studentIds.slice(i, i + 500), p_status: status });
+      if (error) {
+        setStudents((prev) => prev.map((s) => (before.has(s.id) ? { ...s, printStatus: before.get(s.id) ?? null } : s)));
+        return { success: false, message: error.message };
+      }
+      changed += Number(data ?? 0);
+    }
+    return { success: true, changed };
+  };
+
   // Platform (Super Admin) users go through delete-platform-user; school staff through delete-staff.
   const deleteSystemUser = async (id: string) => {
     const isPlatform = systemUsers.find((u) => u.id === id)?.role === "super_admin";
@@ -1039,7 +1059,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addTenant, updateTenant, assignCard, replaceCard, removeCard, createStudent, updateStudent, bulkUpdateStudentAvatars, deleteStudent, deleteStudents, addInventory, updateInventory, deleteInventory, addTransaction, cancelTransaction, deductBalanceAndStock,
         addStockMovement, addParentChild, addNotification, markNotificationRead, markCardReady, markCardDelivered, activateCard,
         verifyStaffCode, verifyKioskExit, verifyWalletPin, topupWallet, connectLspayParent, lastAccessError,
-        deleteSystemUser, lspayGuardians, addLspayGuardian, updateLspayGuardian, removeLspayGuardian, importLspayGuardians, refreshLspayParents,
+        deleteSystemUser, setPrintStatus, lspayGuardians, addLspayGuardian, updateLspayGuardian, removeLspayGuardian, importLspayGuardians, refreshLspayParents,
       }}
     >
       {children}
