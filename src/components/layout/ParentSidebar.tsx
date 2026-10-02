@@ -41,10 +41,6 @@ export function ParentSidebar({ activeTab, setActiveTab, onAddChild }: Props) {
       </div>
 
       <div className="flex-1 py-5 px-3 space-y-6 overflow-y-auto">
-        <Button onClick={onAddChild} variant="highlight" className="w-full h-11 rounded-xl" data-testid="add-child-btn">
-          <Plus /> Link a child
-        </Button>
-
         <div className="space-y-1">
           <button onClick={() => setActiveTab('overview')} className={navClass(activeTab === 'overview')}>
             <LayoutDashboard className="h-5 w-5" />

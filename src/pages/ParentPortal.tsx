@@ -390,8 +390,8 @@ export function ParentPortal() {
                 <div className="text-center px-6 py-14 sm:py-20 bg-card rounded-3xl border-2 border-border border-dashed">
                   <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-lilac text-ink-2"><LinkIcon className="h-7 w-7" /></span>
                   <h3 className="font-display text-2xl text-foreground mb-2">No children linked</h3>
-                  <p className="text-muted-foreground max-w-md mx-auto mb-6">Link your child's account using the Authorization Code and Student ID provided by their school.</p>
-                  <Button onClick={handleOpenAddChild} className="h-11 rounded-2xl px-6">Link account now</Button>
+                  <p className="text-muted-foreground max-w-md mx-auto mb-6">Go to <b className="text-foreground">My Children</b> and tap <b className="text-foreground">+</b> to link your child with the Authorization Code and Student ID from their school.</p>
+                  <Button onClick={() => setActiveTab("children")} variant="outline" className="h-11 rounded-2xl px-6"><Users /> Go to My Children</Button>
                 </div>
               ) : (() => {
                 const allTx = transactions.filter(t => linkedChildren.some(c => c.id === t.studentId));
@@ -752,18 +752,21 @@ export function ParentPortal() {
           {/* CHILDREN LIST */}
           {activeTab === "children" && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-end gap-3 sm:justify-between">
                 <h1 className="text-3xl font-bold text-foreground hidden sm:flex items-center gap-3">
                   <Users className="text-primary" /> My Children
                 </h1>
-                <Button onClick={handleOpenAddChild} className="hidden sm:inline-flex h-10 rounded-xl"><Plus /> Link a child</Button>
+                {/* The only "add child" button in the parent app */}
+                <Button onClick={handleOpenAddChild} variant="highlight" aria-label="Link a child" title="Link a child"
+                  className="h-12 w-12 rounded-2xl p-0 shadow-md shadow-gold/30 sm:h-10 sm:w-auto sm:rounded-xl sm:px-4" data-testid="btn-link-child">
+                  <Plus className="h-6 w-6 sm:h-4 sm:w-4" strokeWidth={2.75} /><span className="hidden sm:inline">Link a child</span>
+                </Button>
               </div>
               {linkedChildren.length === 0 ? (
                 <div className="text-center px-6 py-14 bg-card rounded-3xl border-2 border-border border-dashed">
                   <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-lilac text-ink-2"><Users className="h-7 w-7" /></span>
                   <h3 className="font-display text-2xl mb-2">No children yet</h3>
-                  <p className="text-muted-foreground max-w-sm mx-auto mb-6">Link your first child to start managing their school wallet.</p>
-                  <Button onClick={handleOpenAddChild} variant="highlight" className="h-11 rounded-2xl px-6"><Plus /> Link a child</Button>
+                  <p className="text-muted-foreground max-w-sm mx-auto">Tap <b className="text-foreground">+</b> above to link your first child and start managing their school wallet.</p>
                 </div>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
