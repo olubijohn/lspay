@@ -423,15 +423,7 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {tenantStudents.length > 0 && (
-            <Button
-              variant="outline"
-              className="border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-400 font-semibold"
-              onClick={triggerDeleteAll}
-            >
-              <Trash2 className="w-4 h-4 mr-2" /> Bulk Delete All
-            </Button>
-          )}
+          {/* schools cannot bulk delete students; only the platform console can */}
           <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary-hover text-primary-foreground font-bold h-10 px-6 rounded-lg shadow-lg shadow-primary/20">Add Student</Button>
@@ -532,14 +524,6 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
             <Button variant="outline" size="sm" disabled={bulkBusy} className="font-bold text-red-700 border-red-500/40 hover:bg-blush"
               onClick={async () => { setBulkBusy(true); await setPrintStatus(selectedIds, "not_ready"); setBulkBusy(false); }} data-testid="btn-bulk-not-ready">
               <Ban className="w-4 h-4 mr-1.5" /> Mark not ready
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={triggerDeleteSelected}
-              className="border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-400 font-semibold"
-            >
-              <Trash2 className="w-4 h-4 mr-2" /> Delete Selected ({selectedIds.length})
             </Button>
             <Button
               variant="ghost"

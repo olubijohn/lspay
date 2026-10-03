@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useRef, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { usePagination, type Pagination } from "@/lib/usePagination";
+import { usePagination, PAGE_SIZES, type Pagination } from "@/lib/usePagination";
 import { cn } from "@/lib/utils";
 
 /**
@@ -49,8 +49,15 @@ export function PaginationBar({ p, label = "", className }: { p: Pagination<unkn
   const btn = "inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-xs font-bold transition-colors disabled:pointer-events-none disabled:opacity-40";
   return (
     <div className={cn("flex flex-wrap items-center justify-between gap-2 border-t border-border bg-card px-4 py-2.5 text-xs text-muted-foreground", className)} data-testid="pagination-bar">
-      <span>
-        Showing <b className="text-foreground">{p.from}–{p.to}</b> of <b className="text-foreground">{p.total.toLocaleString("en-NG")}</b>{label && ` ${label}`}
+      <span className="flex flex-wrap items-center gap-2">
+        {p.total > PAGE_SIZES[0] && (
+          <label className="flex items-center gap-1.5">Show
+            <select className="h-8 rounded-md border border-border bg-card px-2 text-xs font-bold text-foreground" value={p.pageSize} onChange={(e) => p.setPageSize(Number(e.target.value))} aria-label="Rows per page" data-testid="select-page-size">
+              {PAGE_SIZES.map((n) => <option key={n} value={n}>{n || "All"}</option>)}
+            </select>
+          </label>
+        )}
+        <span>{p.pageSize ? <>Showing <b className="text-foreground">{p.from}–{p.to}</b> of </> : <>Showing all </>}<b className="text-foreground">{p.total.toLocaleString("en-NG")}</b>{label && ` ${label}`}</span>
       </span>
       {p.pageCount > 1 && (
         <nav className="flex items-center gap-1" aria-label="Pages">
