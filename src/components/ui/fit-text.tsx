@@ -16,14 +16,22 @@ export function FitText({ children, className, min = 0.45, title }: { children: 
       el.style.fontSize = "";
       base = parseFloat(getComputedStyle(el).fontSize) || base;
       if (!base || !el.clientWidth) return;
-      const ratio = el.clientWidth / el.scrollWidth;
-      if (ratio < 1) el.style.fontSize = `${Math.max(base * min, Math.floor(base * ratio * 0.97 * 10) / 10)}px`;
+      // shrink until it fits (a few passes: glyph widths do not scale exactly with font size)
+      let size = base;
+      for (let i = 0; i < 4 && el.scrollWidth > el.clientWidth && size > base * min; i++) {
+        size = Math.max(base * min, Math.floor(size * (el.clientWidth / el.scrollWidth) * 0.97 * 10) / 10);
+        el.style.fontSize = `${size}px`;
+      }
     };
     fit();
     const ro = new ResizeObserver(() => fit());
     ro.observe(el);
-    document.fonts?.ready.then(fit).catch(() => {});
-    return () => ro.disconnect();
+    if (el.parentElement) ro.observe(el.parentElement);
+    // a web font that finishes loading after the first measurement makes the text wider, so measure again
+    const fonts = document.fonts;
+    fonts?.ready.then(fit).catch(() => {});
+    fonts?.addEventListener?.("loadingdone", fit);
+    return () => { ro.disconnect(); fonts?.removeEventListener?.("loadingdone", fit); };
   }, [children, min]);
   return (
     <span ref={ref} title={title ?? (typeof children === "string" ? children : undefined)}

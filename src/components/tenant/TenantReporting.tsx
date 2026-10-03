@@ -300,46 +300,46 @@ export function TenantReporting({ tenantId }: { tenantId: string }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7 gap-3 sm:gap-4">
         <Card className="bg-card border-border shadow-lg">
-          <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Total Revenue</div>
+          <CardContent className="p-4 min-w-0">
+            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider truncate">Total Revenue</div>
             <FitText className="text-2xl font-display text-primary">{naira(stats.rev)}</FitText>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
-          <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Total COGS</div>
+          <CardContent className="p-4 min-w-0">
+            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider truncate">Total COGS</div>
             <FitText className="text-2xl font-display text-amber-400">{naira(stats.cogs)}</FitText>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
-          <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Net Profit</div>
+          <CardContent className="p-4 min-w-0">
+            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider truncate">Net Profit</div>
             <FitText className="text-2xl font-display text-blue-400">{naira(stats.profit)}</FitText>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
-          <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Profit Margin</div>
+          <CardContent className="p-4 min-w-0">
+            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider truncate">Profit Margin</div>
             <div className="text-2xl font-display text-foreground">{stats.margin.toFixed(1)}%</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
-          <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Items Sold</div>
+          <CardContent className="p-4 min-w-0">
+            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider truncate">Items Sold</div>
             <div className="text-2xl font-display text-violet-400">{stats.itemsSold}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
-          <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Transactions</div>
+          <CardContent className="p-4 min-w-0">
+            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider truncate">Transactions</div>
             <div className="text-2xl font-display text-foreground">{stats.txCount}</div>
           </CardContent>
         </Card>
         <Card className="bg-card border-border shadow-lg">
-          <CardContent className="p-5">
-            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider">Avg Order Val</div>
+          <CardContent className="p-4 min-w-0">
+            <div className="text-xs text-muted-foreground mb-1 font-bold tracking-wider truncate">Avg Order Val</div>
             <FitText className="text-2xl font-display text-foreground">{naira(stats.avgOrderVal)}</FitText>
           </CardContent>
         </Card>
