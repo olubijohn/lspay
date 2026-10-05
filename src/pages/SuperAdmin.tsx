@@ -1,3 +1,4 @@
+import { useFitScreen } from "@/lib/fitScreen";
 import { when } from "@/lib/datetime";
 import { FitText } from "@/components/ui/fit-text";
 import { DeleteUserButton } from "@/components/DeleteUserButton";
@@ -48,6 +49,8 @@ export function SuperAdmin() {
   const chartTheme = useChartTheme();
   const { tenants, students, transactions, parentUsers, lspayGuardians, addTenant, updateTenant, createStudent, updateStudent, deleteStudent, deleteStudents, assignCard, replaceCard, removeCard, systemUsers, createSystemUser, updateSystemUser, notifications, markNotificationRead, markCardReady } = useStore();
   const [activeTab, setActiveTab] = useState("overview");
+  const mainRef = useRef<HTMLElement>(null);
+  useFitScreen(mainRef, activeTab);   // header fixed, lists scroll inside the page
   const [successMsg, setSuccessMsg] = useState("");
   const [mobileNav, setMobileNav] = useState(false);
   const [showPrintStudio, setShowPrintStudio] = useState(false);
@@ -598,7 +601,7 @@ export function SuperAdmin() {
         }
       />
 
-      <main className="flex-1 lg:ml-64 overflow-y-auto bg-background px-4 pb-8 pt-20 sm:px-6 lg:px-8 lg:pb-10 lg:pt-24">
+      <main ref={mainRef} className="flex-1 lg:ml-64 overflow-y-auto bg-background px-4 pb-8 pt-20 sm:px-6 lg:px-8 lg:pb-10 lg:pt-24">
         <div className="w-full max-w-[1700px] mx-auto space-y-8">
           {successMsg && (
             <Alert className="bg-primary/30 border border-primary text-primary">

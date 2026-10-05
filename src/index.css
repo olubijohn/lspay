@@ -488,3 +488,9 @@
   background-color: var(--color-card);
   box-shadow: inset 0 -1px 0 var(--color-border);
 }
+
+/* fixed screens (lib/fitScreen.ts): the window never scrolls; lists scroll inside themselves with their headings in view */
+html.fit-lock, html.fit-lock body { overflow: hidden; height: 100%; }
+.fit-list { overscroll-behavior: contain; }
+.fit-list thead th { position: sticky; top: 0; z-index: 2; background: hsl(var(--card)); }
+@media print { html.fit-lock, html.fit-lock body { overflow: visible !important; height: auto !important; } main { height: auto !important; overflow: visible !important; } .fit-list { max-height: none !important; overflow: visible !important; } }

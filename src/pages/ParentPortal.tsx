@@ -1,8 +1,9 @@
+import { useFitScreen } from "@/lib/fitScreen";
 import { when } from "@/lib/datetime";
 import { FitText } from "@/components/ui/fit-text";
 import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
 import { naira, nairaAxis } from "@/lib/money";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useStore } from "@/store";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -75,6 +76,8 @@ export function ParentPortal() {
   const [, setLocation] = useLocation();
 
   const [activeTab, setActiveTabState] = useState<string>("overview");
+  const mainRef = useRef<HTMLElement>(null);
+  useFitScreen(mainRef, activeTab);   // header fixed, lists scroll inside the page
   const setActiveTab = (tab: string) => {
     setActiveTabState(tab);
     document.getElementById("parent-main")?.scrollTo({ top: 0 });
@@ -337,7 +340,7 @@ export function ParentPortal() {
         }
       />
 
-      <main id="parent-main" className="flex-1 lg:ml-64 overflow-y-auto bg-background px-4 pt-20 pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] sm:px-6 lg:px-8 lg:pb-10 lg:pt-24">
+      <main ref={mainRef} id="parent-main" className="flex-1 lg:ml-64 overflow-y-auto bg-background px-4 pt-20 pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] sm:px-6 lg:px-8 lg:pb-10 lg:pt-24">
         <div key={activeTab} className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
 
           {/* OVERVIEW DASHBOARD */}

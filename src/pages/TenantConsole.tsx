@@ -1,10 +1,11 @@
+import { useFitScreen } from "@/lib/fitScreen";
 import { when } from "@/lib/datetime";
 import { FitText } from "@/components/ui/fit-text";
 import { ForceChangePassword } from "@/components/parent/ForceChangePassword";
 import { DeleteUserButton } from "@/components/DeleteUserButton";
 import { ListScroll, Paged, PaginationBar } from "@/components/ui/paginated-list";
 import { naira } from "@/lib/money";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useStore } from "@/store";
 import { useLocation } from "wouter";
 import { TenantSidebar } from "@/components/layout/TenantSidebar";
@@ -46,6 +47,8 @@ export function TenantConsole() {
   } = useStore();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<string>("dashboard");
+  const mainRef = useRef<HTMLElement>(null);
+  useFitScreen(mainRef, activeTab);   // header fixed, lists scroll inside the page
 
   // Kiosk confirmation
   const [showKioskConfirm, setShowKioskConfirm] = useState(false);
@@ -245,7 +248,7 @@ export function TenantConsole() {
         ) : undefined}
       />
 
-      <main className="flex-1 lg:ml-64 overflow-y-auto bg-background px-4 pb-8 pt-20 sm:px-6 lg:px-8 lg:pb-10 lg:pt-24">
+      <main ref={mainRef} className="flex-1 lg:ml-64 overflow-y-auto bg-background px-4 pb-8 pt-20 sm:px-6 lg:px-8 lg:pb-10 lg:pt-24">
         <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
           {cancelSuccessMsg && (
