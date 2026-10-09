@@ -545,12 +545,22 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
             boxShadow: "0 0 0 1px #D9DDE3, 0 3px 10px rgba(17,24,39,0.18)",
           }}
         >
-          <img
-            src={stud.imageUrl || initialsAvatar(stud.name)}
-            alt=""
-            style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", objectPosition: "center top", display: "block", background: "#E5E7EB" }}
-            onError={(e) => { (e.target as HTMLImageElement).src = initialsAvatar(stud.name); }}
-          />
+          {/* Headshot only: studio portraits (lib/portraitStudio) put the head top at 14% and the head at ~52% of
+              the square, so zooming 1.6× and shifting up centres the head and fills the circle edge to edge. */}
+          <div style={{ position: "relative", width: "100%", height: "100%", borderRadius: "50%", overflow: "hidden", background: "#E5E7EB" }}>
+            <img
+              src={stud.imageUrl || initialsAvatar(stud.name)}
+              alt=""
+              style={stud.imageUrl
+                ? { position: "absolute", width: "160%", height: "160%", left: "-30%", top: "-14%", maxWidth: "none", objectFit: "cover", objectPosition: "center top", display: "block" }
+                : { width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              onError={(e) => {
+                const img = e.target as HTMLImageElement;
+                img.src = initialsAvatar(stud.name);
+                img.style.cssText = "width:100%;height:100%;object-fit:cover;display:block";
+              }}
+            />
+          </div>
         </div>
 
         {/* Student number + name */}
