@@ -247,7 +247,6 @@ export function TenantInventory({ tenantId }: { tenantId: string }) {
                       <Input type="file" accept="image/*" onChange={handleFileChange} className="bg-card border-border text-foreground text-sm flex-1" />
                       <CameraCaptureButton size="icon" label="Take item photo" onCapture={f => handleFileChange(asFileEvent(f))} />
                     </div>
-                    <Input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="Or paste URL..." className="bg-card border-border text-foreground text-sm h-9" />
                   </div>
                 </div>
               </div>
