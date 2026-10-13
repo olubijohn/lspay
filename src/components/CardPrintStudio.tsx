@@ -57,73 +57,41 @@ const titleCase = (s: string) => s.replace(/\b([a-z])/g, (c) => c.toUpperCase())
 // The cards are drawn with inline styles only (no Tailwind classes) because the same markup is copied into
 // the print iframe and the exported HTML file, where the app's stylesheet isn't available.
 // Physical size: CR80 portrait, drawn at 204 × 324 px.
+// Design: a deep indigo header with a circle pattern and the school name in an outlined box, a round photo
+// sitting on the line between the header and a mint body, then name, "Student", class, session and ID.
+// Back: mint, QR code on a white tile (the kiosk scans it), emergency contact, school contacts, indigo footer.
 const CARD_W = 204;
 const CARD_H = 324;
-const PHOTO_CX = 102;
-const PHOTO_CY = 100;
-const PHOTO_R = 52; // outer radius including the white border
+const HEADER_H = 138;           // indigo band
+const PHOTO_R = 47;             // outer radius including the ring
+const PHOTO_CY = HEADER_H;      // the photo straddles the band's edge
 
-// LSPay theme fonts: Fredoka (600) for headline text, Nunito for everything else. They are loaded by the app,
-// and by the print window / exported file via CARD_FONTS_LINK.
-const DISPLAY = "'Fredoka', 'Nunito', Arial, sans-serif";
-const BODY = "'Nunito', Arial, Helvetica, sans-serif";
-const CARD_FONTS_LINK = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">`;
+const INDIGO = "#2B2668";
+const INDIGO_DOT = "#352F7A";
+const MINT = "#A8E3D3";
+const INK = "#1C1A47";
 
-type BubbleColor = "blue" | "green" | "red" | "yellow" | "purple";
-// light highlight → body → shaded edge, for a glossy bubble
-const BUBBLE_STOPS: Record<BubbleColor, [string, string, string]> = {
-  blue: ["#8DB8FF", "#1F6FE5", "#1049A8"],
-  green: ["#8EE0A6", "#2FA84F", "#1C7535"],
-  red: ["#FF9C92", "#E8453C", "#B02A22"],
-  yellow: ["#FFE68A", "#F9BC15", "#C98A00"],
-  purple: ["#D6A6FF", "#9B4DE8", "#6C27B3"],
-};
+// Montserrat for the card. Loaded by the print window / exported file via CARD_FONTS_LINK.
+const DISPLAY = "'Montserrat', 'Nunito', Arial, sans-serif";
+const BODY = "'Montserrat', 'Nunito', Arial, Helvetica, sans-serif";
+const CARD_FONTS_LINK = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">`;
 
-// Ring around the photo: [angle°, radius, colour]. Every bubble is tucked under the photo so that 30% of its
-// diameter sits behind the photo frame (the photo is drawn on top of the bubbles).
-const TUCK = 0.3;
-const RING: [number, number, BubbleColor][] = [
-  [150, 15, "blue"], [131, 4, "green"], [116, 6, "red"], [101, 3, "purple"], [88, 5, "blue"],
-  [70, 12, "yellow"], [52, 5, "purple"], [37, 9, "blue"], [22, 4, "red"], [9, 7, "green"],
-  [-8, 11, "red"], [-25, 5, "blue"], [-39, 8, "green"], [-53, 4, "yellow"], [-65, 9, "blue"],
-  [-81, 4, "red"], [-95, 10, "purple"], [-111, 4, "yellow"], [-124, 6, "red"], [-142, 16, "blue"],
-  [-162, 4, "purple"], [-178, 13, "green"], [166, 5, "red"],
-];
-// Loose bubbles near the bottom corners: [x, y, radius, colour]
-const CORNERS: [number, number, number, BubbleColor][] = [
-  [0, 270, 21, "blue"], [207, 262, 17, "red"], [180, 252, 6, "green"], [189, 279, 3, "blue"],
-  [10, 214, 2.5, "purple"], [24, 236, 2.5, "yellow"],
-];
+/** Current school session: a new one starts in September (e.g. October 2026 -> "2026/2027"). */
+const currentSession = (d = new Date()) => { const y = d.getFullYear(); return d.getMonth() >= 8 ? `${y}/${y + 1}` : `${y - 1}/${y}`; };
 
-function Bubbles({ uid }: { uid: string }) {
-  const colors = Object.keys(BUBBLE_STOPS) as BubbleColor[];
-  const ring = RING.map(([deg, r, c]) => {
-    // centre sits so that 2r·TUCK of the bubble overlaps the photo's outer edge
-    const d = PHOTO_R + r - 2 * r * TUCK;
-    const a = (deg * Math.PI) / 180;
-    return [PHOTO_CX + d * Math.cos(a), PHOTO_CY - d * Math.sin(a), r, c] as const;
-  });
+/** Indigo header pattern: rows of soft circles, like the reference design. */
+function HeaderPattern({ uid }: { uid: string }) {
   return (
-    <svg
-      width={CARD_W}
-      height={CARD_H}
-      viewBox={`0 0 ${CARD_W} ${CARD_H}`}
-      xmlns="http://www.w3.org/2000/svg"
-      style={{ position: "absolute", left: 0, top: 0 }}
-      aria-hidden="true"
-    >
+    <svg width={CARD_W} height={HEADER_H} viewBox={`0 0 ${CARD_W} ${HEADER_H}`} xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", left: 0, top: 0 }} aria-hidden="true">
       <defs>
-        {colors.map((c) => (
-          <radialGradient key={c} id={`${uid}-${c}`} cx="35%" cy="30%" r="75%">
-            <stop offset="0" stopColor={BUBBLE_STOPS[c][0]} />
-            <stop offset="0.55" stopColor={BUBBLE_STOPS[c][1]} />
-            <stop offset="1" stopColor={BUBBLE_STOPS[c][2]} />
-          </radialGradient>
-        ))}
+        <pattern id={`${uid}-dots`} width="34" height="34" patternUnits="userSpaceOnUse">
+          <circle cx="17" cy="17" r="14" fill={INDIGO_DOT} />
+          <circle cx="0" cy="0" r="7" fill={INDIGO_DOT} /><circle cx="34" cy="0" r="7" fill={INDIGO_DOT} />
+          <circle cx="0" cy="34" r="7" fill={INDIGO_DOT} /><circle cx="34" cy="34" r="7" fill={INDIGO_DOT} />
+        </pattern>
       </defs>
-      {[...ring, ...CORNERS].map(([x, y, r, c], i) => (
-        <circle key={i} cx={x} cy={y} r={r} fill={`url(#${uid}-${c})`} />
-      ))}
+      <rect width={CARD_W} height={HEADER_H} fill={INDIGO} />
+      <rect width={CARD_W} height={HEADER_H} fill={`url(#${uid}-dots)`} />
     </svg>
   );
 }
@@ -281,7 +249,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
     doc.write(contentHtml);
     doc.close();
 
-    // Print once the card fonts (Fredoka / Nunito) have loaded, so the printout matches the preview;
+    // Print once the card fonts (Montserrat / Nunito) have loaded, so the printout matches the preview;
     // give up waiting after 4 s so printing still works offline (fallback fonts).
     const printNow = () => {
       iframe.contentWindow?.focus();
@@ -294,7 +262,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
       const fonts = iframe.contentWindow?.document.fonts;
       if (!fonts) { printNow(); return; }
       Promise.race([
-        Promise.all([fonts.load("600 12px Fredoka"), fonts.load("800 12px Nunito")]).then(() => fonts.ready),
+        Promise.all([fonts.load("800 12px Montserrat"), fonts.load("500 12px Montserrat")]).then(() => fonts.ready),
         new Promise((r) => setTimeout(r, 4000)),
       ]).then(printNow, printNow);
     }, 200);
@@ -520,34 +488,36 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
   const tenantFor = (stud: Student) =>
     (stud.tenantId ? tenants.find(t => t.id === stud.tenantId) : null) || tenant || (tenants.length === 1 ? tenants[0] : undefined);
 
-  // FRONT — photo in a ring of bubbles, student number, name, school footer. No QR code on the front.
+  // FRONT — indigo header with the school name, round photo on the edge, mint body with the student's details.
   const renderFrontCard = (stud: Student, uid: string) => {
     const studTenant = tenantFor(stud);
     const studSchoolName = titleCase(studTenant?.name || schoolName);
     const studSchoolLogo = studTenant?.logoUrl || schoolLogo;
+    const line = (extra: React.CSSProperties = {}): React.CSSProperties => ({ fontFamily: BODY, color: INK, lineHeight: 1.25, maxWidth: "180px", ...extra });
 
     return (
-      <div className="id-card" style={cardShell({ background: "linear-gradient(180deg, #FFFFFF 0%, #FAFBFC 100%)", border: "1px solid #d1d5db" })}>
-        <Bubbles uid={uid} />
+      <div className="id-card" style={cardShell({ background: MINT })}>
+        <HeaderPattern uid={uid} />
 
-        {/* Photo */}
-        <div
-          style={{
-            position: "absolute",
-            left: `${PHOTO_CX - PHOTO_R}px`,
-            top: `${PHOTO_CY - PHOTO_R}px`,
-            width: `${PHOTO_R * 2}px`,
-            height: `${PHOTO_R * 2}px`,
-            borderRadius: "50%",
-            background: "#FFFFFF",
-            padding: "4px",
-            boxSizing: "border-box",
-            boxShadow: "0 0 0 1px #D9DDE3, 0 3px 10px rgba(17,24,39,0.18)",
-          }}
-        >
+        {/* School name in an outlined box (with the crest when the school has one) */}
+        <div style={{ position: "absolute", left: 0, right: 0, top: "16px", display: "flex", justifyContent: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "7px", maxWidth: "176px", border: "1.5px solid rgba(255,255,255,0.85)", padding: "6px 10px", boxSizing: "border-box" }}>
+            {studSchoolLogo ? (
+              <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+                <img src={studSchoolLogo} alt="" style={{ width: "19px", height: "19px", objectFit: "contain" }} />
+              </div>
+            ) : null}
+            <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: studSchoolName.length > 34 ? "8px" : "9.5px", lineHeight: 1.2, letterSpacing: "0.08em", textTransform: "uppercase", color: "#FFFFFF", textAlign: studSchoolLogo ? "left" : "center", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
+              {studSchoolName}
+            </span>
+          </div>
+        </div>
+
+        {/* Photo, sitting on the line between the header and the body */}
+        <div style={{ position: "absolute", left: `${CARD_W / 2 - PHOTO_R}px`, top: `${PHOTO_CY - PHOTO_R}px`, width: `${PHOTO_R * 2}px`, height: `${PHOTO_R * 2}px`, borderRadius: "50%", background: "#E6E8EE", padding: "4px", boxSizing: "border-box", boxShadow: "0 3px 10px rgba(20,18,60,0.25)" }}>
           {/* Headshot only: studio portraits (lib/portraitStudio) put the head top at 14% and the head at ~52% of
               the square, so zooming 1.6× and shifting up centres the head and fills the circle edge to edge. */}
-          <div style={{ position: "relative", width: "100%", height: "100%", borderRadius: "50%", overflow: "hidden", background: "#E5E7EB" }}>
+          <div style={{ position: "relative", width: "100%", height: "100%", borderRadius: "50%", overflow: "hidden", background: "#D9DCE4" }}>
             <img
               src={stud.imageUrl || initialsAvatar(stud.name)}
               alt=""
@@ -563,112 +533,54 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
           </div>
         </div>
 
-        {/* Student number + name */}
-        <div style={{ position: "absolute", left: "16px", right: "16px", top: "186px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "4px" }}>
-          <span style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: "12px", color: "#374151", letterSpacing: "0.04em", lineHeight: 1 }}>{stud.studentId}</span>
-          <span
-            style={{
-              fontFamily: DISPLAY,
-              fontWeight: 600,
-              fontSize: "15px",
-              lineHeight: 1.2,
-              color: "#111111",
-              maxWidth: "172px",
-              overflow: "hidden",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-            }}
-          >
-            {stud.name}
-          </span>
-        </div>
-
-        {/* School footer */}
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: "40px",
-            background: "#F3F4F6",
-            borderTop: "1px solid #E5E7EB",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            padding: "0 10px",
-            boxSizing: "border-box",
-          }}
-        >
-          <div style={{ width: "26px", height: "26px", borderRadius: "50%", background: "#FFFFFF", border: "1px solid #E5E7EB", boxShadow: "0 1px 3px rgba(0,0,0,0.12)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-            {studSchoolLogo ? (
-              <img src={studSchoolLogo} alt="" style={{ width: "20px", height: "20px", objectFit: "contain" }} />
-            ) : (
-              <span style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: "9px", color: "#2B2863" }}>
-                {studSchoolName.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase()}
-              </span>
-            )}
-          </div>
-          <span style={{ flex: 1, minWidth: 0, fontFamily: BODY, fontWeight: 800, fontSize: "9.5px", lineHeight: 1.2, color: "#111111", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-            {studSchoolName}
-          </span>
+        {/* Name, role, class, session, ID */}
+        <div style={{ position: "absolute", left: "12px", right: "12px", top: `${PHOTO_CY + PHOTO_R + 8}px`, bottom: "10px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "3px" }}>
+          <span style={line({ fontFamily: DISPLAY, fontWeight: 800, fontSize: stud.name.length > 22 ? "13px" : "15px", lineHeight: 1.15, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" })}>{stud.name}</span>
+          <span style={line({ fontWeight: 500, fontSize: "11.5px", marginBottom: "4px" })}>Student</span>
+          {stud.className ? <span style={line({ fontWeight: 500, fontSize: "9.5px", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" })}>{stud.className}</span> : null}
+          <span style={line({ fontWeight: 500, fontSize: "9.5px" })}>{currentSession()}</span>
+          <span style={line({ fontWeight: 500, fontSize: "9.5px", marginTop: "4px" })}>Student ID: <b style={{ fontWeight: 800 }}>{stud.studentId}</b></span>
         </div>
       </div>
     );
   };
 
-  // BACK — plain white: QR code, school name, address, phone numbers, umusa.cloud footer.
+  // BACK — mint: QR code, emergency contact, school email / phone / address, indigo footer with the card rules.
   const renderBackCard = (stud: Student) => {
     const studTenant = tenantFor(stud);
     const studSchoolName = titleCase(studTenant?.name || schoolName);
     const studSchoolAddress = studTenant?.address || schoolAddress;
     const studSchoolPhone = studTenant?.phone || "";
+    const studSchoolEmail = studTenant?.contactEmail || "";
+    const emergency = (stud.parentPhone || "").trim() || studSchoolPhone;
+    const small: React.CSSProperties = { fontFamily: BODY, fontWeight: 500, fontSize: "8px", lineHeight: 1.35, color: INK, maxWidth: "176px", overflowWrap: "anywhere" };
 
     return (
-      <div className="id-card" style={cardShell({ border: "1px solid #d1d5db" })}>
-        {/* QR code */}
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            top: "20px",
-            transform: "translateX(-50%)",
-            width: "136px",
-            height: "136px",
-            borderRadius: "16px",
-            background: "#FFFFFF",
-            border: "1.5px solid #D1D5DB",
-            boxShadow: "0 2px 8px rgba(17,24,39,0.10)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxSizing: "border-box",
-          }}
-        >
-          <QRCodeSVG value={stud.cardHardwareId || stud.studentId} size={114} level="M" />
+      <div className="id-card" style={cardShell({ background: MINT })}>
+        {/* QR code on a white tile: high contrast and a clear margin so the kiosk scanner reads it reliably */}
+        <div style={{ position: "absolute", left: "50%", top: "16px", transform: "translateX(-50%)", width: "112px", height: "112px", borderRadius: "10px", background: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box" }}>
+          <QRCodeSVG value={stud.cardHardwareId || stud.studentId} size={96} level="M" fgColor={INK} bgColor="#FFFFFF" />
         </div>
 
-        {/* School details */}
-        <div style={{ position: "absolute", left: "12px", right: "12px", top: "176px", bottom: "40px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: "7px" }}>
-          <span style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: "15px", lineHeight: 1.15, color: "#111111", maxWidth: "180px", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-            {studSchoolName}
-          </span>
-          <span style={{ fontFamily: BODY, fontWeight: 800, fontSize: "8.5px", lineHeight: 1.35, color: "#111111", maxWidth: "170px" }}>{studSchoolAddress}</span>
-          {studSchoolPhone ? (
-            <span style={{ fontFamily: BODY, fontWeight: 800, fontSize: "8.5px", lineHeight: 1.35, color: "#111111", maxWidth: "180px", letterSpacing: "0.02em" }}>{studSchoolPhone}</span>
-          ) : null}
-        </div>
-
-        {/* Footer */}
-        <div style={{ position: "absolute", left: "10px", right: "10px", bottom: 0, height: "38px", borderTop: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-            <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#FFFFFF", border: "1px solid #E5E7EB", boxShadow: "0 1px 3px rgba(0,0,0,0.10)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-              <img src="/logo-new.png" alt="" style={{ width: "16px", height: "16px", objectFit: "contain" }} />
+        {/* Emergency contact + school contacts */}
+        <div style={{ position: "absolute", left: "12px", right: "12px", top: "138px", bottom: "64px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "5px" }}>
+          {emergency ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "4px" }}>
+              <span style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: "11px", lineHeight: 1.2, color: INK }}>Emergency Contact:</span>
+              <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "12.5px", lineHeight: 1.25, color: INK, letterSpacing: "0.02em" }}>{emergency}</span>
             </div>
-            {/* same style as the school name in the front footer */}
-            <span style={{ fontFamily: BODY, fontWeight: 800, fontSize: "9.5px", lineHeight: 1.2, color: "#111111" }}>umusa.cloud</span>
-          </div>
+          ) : null}
+          {studSchoolEmail ? <span style={small}>Email: {studSchoolEmail}</span> : null}
+          {studSchoolPhone ? <span style={small}>Phone: {studSchoolPhone}</span> : null}
+          {studSchoolAddress ? <span style={{ ...small, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>Address: {studSchoolAddress}</span> : null}
+        </div>
+
+        {/* Indigo footer: card rules + platform */}
+        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "58px", background: INDIGO, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "3px", padding: "0 12px", boxSizing: "border-box", textAlign: "center" }}>
+          <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: "7px", lineHeight: 1.35, color: "#FFFFFF" }}>
+            This card is the property of {studSchoolName}. It must be presented for school entry, payments and events. If lost, report immediately to the school office.
+          </span>
+          <span style={{ fontFamily: BODY, fontWeight: 700, fontSize: "6.5px", letterSpacing: "0.04em", color: "rgba(255,255,255,0.7)" }}>umusa.cloud</span>
         </div>
       </div>
     );
