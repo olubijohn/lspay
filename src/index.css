@@ -494,3 +494,17 @@ html.fit-lock, html.fit-lock body { overflow: hidden; height: 100%; }
 .fit-list { overscroll-behavior: contain; }
 .fit-list thead th { position: sticky; top: 0; z-index: 2; background: hsl(var(--card)); }
 @media print { html.fit-lock, html.fit-lock body { overflow: visible !important; height: auto !important; } main { height: auto !important; overflow: visible !important; } .fit-list { max-height: none !important; overflow: visible !important; } }
+
+/* offline mode (same look as the other apps) */
+.lp-offline{position:sticky;top:0;z-index:1000;display:flex;align-items:flex-start;gap:14px;padding:14px 18px;background:#FFF3F3;color:#5C1A1F;border-top:4px solid #D7263D;border-bottom:4px solid #D7263D;font-size:15px;line-height:1.45;box-shadow:0 6px 18px rgba(215,38,61,.12)}
+.lp-offline svg{color:#D7263D;flex:none;margin-top:2px}.lp-offline .ob-text{flex:1;min-width:0}.lp-offline .ob-text b{font-size:17px}
+.lp-offline .ob-dirty{display:flex;align-items:center;gap:6px;margin-top:8px;padding:8px 10px;border:2px dashed #D7263D;border-radius:10px;background:#fff;font-weight:700;color:#A0152A}
+.lp-offline button{border:2px solid #D7263D;background:#fff;color:#A0152A;font-weight:700;padding:8px 14px;font-size:13.5px;border-radius:12px;align-self:center}
+.lp-offline.dirty{animation:lp-nudge .35s ease}@keyframes lp-nudge{0%,100%{transform:none}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.lp-offline.ok{background:#E8F6EF;color:#14513B;border-color:#2E9E7E}.lp-offline.ok svg{color:#2E9E7E}
+.lp-gate{position:fixed;inset:0;z-index:10050;display:grid;place-items:center;padding:20px;background:rgba(15,20,30,.62);backdrop-filter:blur(3px)}
+.lp-card{width:100%;max-width:440px;background:#fff;color:#1f2937;border:4px solid #D7263D;border-radius:22px;padding:28px 26px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.lp-card svg{color:#D7263D;margin:0 auto}.lp-card h2{margin:12px 0 8px;font-size:24px;font-weight:800}.lp-card p{margin:0 0 18px;font-size:15px;line-height:1.5}
+.lp-btn{width:100%;height:52px;border:0;border-radius:14px;background:#D7263D;color:#fff;font-size:17px;font-weight:800}.lp-btn:disabled{opacity:.7}
+.lp-note{font-size:13px;margin:12px 0 0}.lp-note.err{color:#A0152A;font-weight:700}
+.lp-spin{animation:lp-spin 1s linear infinite}@keyframes lp-spin{to{transform:rotate(360deg)}}

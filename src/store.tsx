@@ -5,6 +5,7 @@ import {
   LspayGuardian, LspayGuardianImportRow, LspayGuardianImportResult, GuardianRelationship, PrintStatus,
 } from "./lib/types";
 import { getSupabase, isSupabaseConfigured } from "./lib/supabaseClient";
+import { writeCopy, readCopy, deleteCopy, addSale, listSales, removeSale, addProblem, listProblems, clearProblems, isNetError, newKey, DEFAULT_OFFLINE_CAP, type SaleProblem } from "./lib/offline";
 import { byNewest } from "./lib/datetime";
 
 // LSPay's roles are mapped onto LSA's shared profiles.role + permission matrix instead of
@@ -156,6 +157,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Guards against a stale async load clobbering state after a newer login/logout.
   const loadToken = useRef(0);
 
+  // ------------------------------ offline mode ------------------------------
+  const [offline, setOffline] = useState(false);
+  const [dataAt, setDataAt] = useState<string | null>(null);
+  const [pendingSales, setPendingSales] = useState(0);
+  const [saleProblems, setSaleProblems] = useState<SaleProblem[]>([]);
+  const offlineCap = useRef<Record<string, number>>({});        // tenantId -> offline spend cap per student per day
+  const resolveRef = useRef<() => Promise<void>>(async () => {});
+  const myId = () => session.user?.id ?? null;
+  const refreshPending = useCallback(async (uid?: string | null) => { setPendingSales((await listSales(uid ?? null)).length); setSaleProblems(await listProblems()); }, []);
+  /** Opens the copy kept on this device. */
+  const openCopy = useCallback(async () => {
+    const c = await readCopy();
+    if (!c || (!c.session?.user && !c.parentSession)) return false;
+    setSession(c.session); setParentSession(c.parentSession ?? null); setTenants(c.tenants ?? []); setStudents(c.students ?? []); setInventory(c.inventory ?? []);
+    setTransactions(c.transactions ?? []); setStockMovements(c.stockMovements ?? []); setNotifications(c.notifications ?? []); setSystemUsers(c.systemUsers ?? []);
+    setParentUsers(c.parentUsers ?? []); setLspayGuardians(c.lspayGuardians ?? []); offlineCap.current = c.caps ?? {};
+    setDataAt(c.at ?? null); setOffline(true); refreshPending(c.session?.user?.id ?? null);
+    return true;
+  }, [refreshPending]);
+
   const clearAll = () => {
     setTenants([]); setStudents([]); setInventory([]); setTransactions([]);
     setSystemUsers([]); setParentUsers([]); setStockMovements([]); setNotifications([]); setLspayGuardians([]);
@@ -165,7 +186,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadTenantScoped = useCallback(async (tenantId: string | null, myToken: number) => {
     const supabase = getSupabase();
     let sq = supabase.from("students").select(STUDENT_SELECT);
-    let tq = supabase.from("tenants").select("*, tenant_settings(paystack_subaccount_code, paystack_enabled)");
+    let tq = supabase.from("tenants").select("*, tenant_settings(paystack_subaccount_code, paystack_enabled, lspay_offline_cap)");
     let iq = supabase.from("lspay_inventory_items").select("*");
     let txq = supabase.from("lspay_transactions").select("*");
     let lq = supabase.from("lspay_wallet_ledger").select("*").eq("kind", "TOPUP").order("created_at", { ascending: false });
@@ -195,6 +216,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const studentsMapped = (sData ?? []).map(mapStudentRow);
     const studentsById = new Map(studentsMapped.map((s) => [s.id, s]));
     const tenantsMapped = (tData ?? []).map(mapTenantRow);
+    offlineCap.current = Object.fromEntries((tData ?? []).map((t: any) => { const ts = Array.isArray(t.tenant_settings) ? t.tenant_settings[0] : t.tenant_settings; return [t.id, Number(ts?.lspay_offline_cap ?? DEFAULT_OFFLINE_CAP)]; }));
     const tenantsById = new Map(tenantsMapped.map((t) => [t.id, t]));
     const inventoryMapped = (iData ?? []).map(mapInventoryRow);
     const inventoryById = new Map(inventoryMapped.map((i) => [i.id, i]));
@@ -265,6 +287,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const resolve = async () => {
       const myToken = ++loadToken.current;
+      if (typeof navigator !== "undefined" && navigator.onLine === false) { await openCopy(); return; }   // no internet: open the device copy
       const { data: { session: authSession } } = await supabase.auth.getSession();
       if (loadToken.current !== myToken) return;
       if (!authSession) { setSession({ user: null, portal: null }); setParentSession(null); clearAll(); return; }
@@ -273,7 +296,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // A read that FAILS (network blip, token refresh in flight) is not the same as "not found": in that case keep
       // whatever is on screen instead of dropping a signed-in user back to the login page.
       const { data: admin, error: adminErr } = await supabase.from("platform_admins").select("*").eq("user_id", uid).maybeSingle();
-      if (adminErr) { console.warn("[auth] could not check platform admin, keeping current view", adminErr); return; }
+      if (adminErr) { if (isNetError(adminErr) && await openCopy()) return; console.warn("[auth] could not check platform admin, keeping current view", adminErr); return; }
       if (admin) {
         if (loadToken.current !== myToken) return;
         setParentSession(null);
@@ -321,6 +344,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSession({ user: null, portal: null }); setParentSession(null); clearAll();
     };
 
+    resolveRef.current = async () => { setOffline(false); await resolve(); };
     resolve();
     // Supabase holds its auth lock while this callback runs, so the re-check is deferred (calling auth from
     // inside it can stall). A silent token refresh is not a new sign-in and must not re-run the whole check.
@@ -329,7 +353,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       window.setTimeout(() => { resolve(); }, 0);
     });
     return () => { sub.subscription.unsubscribe(); };
-  }, [loadTenantScoped, loadForParent]);
+  }, [loadTenantScoped, loadForParent, openCopy]);
+
+  // keep a copy of what's on screen on the device (offline it also holds sales made since)
+  useEffect(() => {
+    if (!session.user && !parentSession) return;
+    const at = offline ? dataAt : new Date().toISOString();
+    if (!offline) setDataAt(at);
+    const id = window.setTimeout(() => writeCopy({ session, parentSession, tenants, students, inventory, transactions, stockMovements, notifications, systemUsers, parentUsers, lspayGuardians, caps: offlineCap.current, at }), 800);
+    return () => window.clearTimeout(id);
+  }, [session, parentSession, tenants, students, inventory, transactions, stockMovements, notifications, systemUsers, parentUsers, lspayGuardians, offline]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { refreshPending(session.user?.id ?? null); }, [session.user?.id, refreshPending]);
+  useEffect(() => { const off = () => setOffline(true); window.addEventListener("offline", off); return () => window.removeEventListener("offline", off); }, []);
 
   // Parents: new purchase / top-up alerts (created in the database, 0094) show up without a page refresh.
   useEffect(() => {
@@ -463,8 +498,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return { success: true };
   };
 
-  const logout = async () => { await getSupabase().auth.signOut(); ++loadToken.current; setSession({ user: null, portal: null }); clearAll(); };
-  const logoutParent = async () => { await getSupabase().auth.signOut(); ++loadToken.current; setParentSession(null); clearAll(); };
+  const logout = async () => { await deleteCopy(); try { await getSupabase().auth.signOut(); } catch { /* offline */ } ++loadToken.current; setOffline(false); setSession({ user: null, portal: null }); clearAll(); };
+  const logoutParent = async () => { await deleteCopy(); try { await getSupabase().auth.signOut(); } catch { /* offline */ } ++loadToken.current; setOffline(false); setParentSession(null); clearAll(); };
 
   // ------------------------------ staff / platform users ------------------------------
   const updateParentUser = (id: string, data: Partial<Pick<ParentUser, "phone">>) => {
@@ -850,7 +885,45 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  /** A kiosk sale with no internet: allowed within the balance this device last saw and the school's offline cap. */
+  const sellOffline = async (studentId: string, amount: number, items: { id: string; qty: number }[]) => {
+    const student = students.find((s) => s.id === studentId);
+    if (!student) throw new Error("Student not found on this device.");
+    const cap = offlineCap.current[student.tenantId] ?? DEFAULT_OFFLINE_CAP;
+    const today = new Date().toISOString().slice(0, 10);
+    const spent = (await listSales()).filter((s) => s.studentId === studentId && s.at.slice(0, 10) === today).reduce((t, s) => t + s.amount, 0);
+    if (amount > student.walletBalance) throw new Error(`Offline: not enough balance (N${student.walletBalance.toLocaleString()} left on this device's copy).`);
+    if (spent + amount > cap) throw new Error(`Offline limit reached: N${Math.max(cap - spent, 0).toLocaleString()} left for ${student.name} today while there is no internet.`);
+    const lines = items.map((it) => { const inv = inventory.find((i) => i.id === it.id); return { item_id: it.id, name: inv?.name ?? "", qty: it.qty, amount: (inv?.sellingPrice ?? 0) * it.qty }; });
+    const sale = { key: newKey(), userId: myId() ?? "", tenantId: student.tenantId, studentId, studentName: student.name, amount,
+      cost: items.reduce((sum, it) => sum + (inventory.find((i) => i.id === it.id)?.costPrice ?? 0) * it.qty, 0), items: lines, at: new Date().toISOString() };
+    await addSale(sale);
+    setOffline(true);
+    setStudents((prev) => prev.map((s) => (s.id === studentId ? { ...s, walletBalance: s.walletBalance - amount } : s)));
+    setInventory((prev) => prev.map((inv) => { const p = items.find((i) => i.id === inv.id); return p ? { ...inv, stock: inv.stock - p.qty } : inv; }));
+    const tenant = tenants.find((t) => t.id === student.tenantId);
+    setTransactions((prev) => [...prev, mapTransactionRow({ id: sale.key, tenant_id: student.tenantId, student_id: studentId, items_string: lines.map((l) => `${l.name} x${l.qty}`).join(", ") + " (offline, pending sync)", amount, cost: sale.cost, txn_date: today, created_at: sale.at }, student.name, tenant?.name ?? "")]);
+    refreshPending(myId());
+  };
+
+  /** "Sync now": records every sale made offline, exactly once, then loads fresh data. */
+  const syncNow = async (): Promise<string | null> => {
+    const sales = await listSales(myId());
+    for (const s of sales) {
+      const { error } = await getSupabase().rpc("lspay_wallet_checkout_offline", { p_key: s.key, p_student: s.studentId, p_items: s.items, p_amount: s.amount, p_cost: s.cost, p_sold_at: s.at });
+      if (error) {
+        if (isNetError(error)) { await refreshPending(myId()); return "Still offline. Check the internet connection and try again."; }
+        await addProblem({ key: s.key, studentName: s.studentName, amount: s.amount, at: s.at, error: error.message });
+      }
+      await removeSale(s.key);
+    }
+    await refreshPending(myId());
+    await resolveRef.current();
+    return null;
+  };
+
   const deductBalanceAndStock = async (studentId: string, amount: number, items: { id: string; qty: number }[]) => {
+    if (offline || (typeof navigator !== "undefined" && navigator.onLine === false)) return sellOffline(studentId, amount, items);
     const supabase = getSupabase();
     const { data: txn, error } = await supabase.rpc("lspay_wallet_checkout", {
       p_student: studentId, p_amount: amount,
@@ -860,7 +933,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }),
       p_cost: items.reduce((sum, it) => sum + (inventory.find((i) => i.id === it.id)?.costPrice ?? 0) * it.qty, 0),
     });
-    if (error) throw error;
+    if (error) { if (isNetError(error)) return sellOffline(studentId, amount, items); throw error; }
 
     setStudents((prev) => prev.map((s) => (s.id === studentId ? { ...s, walletBalance: s.walletBalance - amount } : s)));
     setInventory((prev) => prev.map((inv) => {
@@ -1105,6 +1178,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const verifyWalletPin = async (studentId: string, pin: string): Promise<boolean> => {
+    // offline the PIN can't be checked; the sale is limited by the offline cap instead (0134)
+    if (offline || (typeof navigator !== "undefined" && navigator.onLine === false)) return true;
     const { data, error } = await getSupabase().rpc("lspay_verify_wallet_pin", { p_student: studentId, p_pin: pin });
     if (error) { console.error(error); return false; }
     return Boolean(data);
@@ -1119,6 +1194,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addTenant, updateTenant, assignCard, replaceCard, removeCard, createStudent, updateStudent, bulkUpdateStudentAvatars, deleteStudent, deleteStudents, addInventory, updateInventory, deleteInventory, addTransaction, cancelTransaction, deductBalanceAndStock,
         addStockMovement, addParentChild, addNotification, markNotificationRead, markCardReady, markCardDelivered, activateCard,
         verifyStaffCode, verifyKioskExit, verifyWalletPin, topupWallet, connectLspayParent, lastAccessError,
+        offline, dataAt, pendingSales, syncNow, saleProblems, clearSaleProblems: () => { clearProblems().then(() => setSaleProblems([])); },
         deleteSystemUser, setPrintStatus, cashTopup, setCardLimits, setCardFrozen, lspayGuardians, addLspayGuardian, updateLspayGuardian, removeLspayGuardian, importLspayGuardians, refreshLspayParents,
       }}
     >

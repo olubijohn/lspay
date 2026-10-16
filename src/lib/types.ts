@@ -259,6 +259,17 @@ export interface AppState {
   verifyStaffCode: (code: string) => Promise<boolean>;
   verifyKioskExit: (tenantId: string, password: string) => Promise<boolean>;
   verifyWalletPin: (studentId: string, pin: string) => Promise<boolean>;
+  /** Offline mode: true while LSPay shows the copy kept on this device (no connection to the server). */
+  offline: boolean;
+  /** When the data on screen was last loaded from the server (ISO). */
+  dataAt: string | null;
+  /** Kiosk sales made offline on this device, waiting for "Sync now". */
+  pendingSales: number;
+  /** Sends the offline sales; resolves to an error message, or null when all were recorded. */
+  syncNow: () => Promise<string | null>;
+  /** Offline sales the server refused at sync. */
+  saleProblems: { key: string; studentName: string; amount: number; at: string; error: string }[];
+  clearSaleProblems: () => void;
   topupWallet: (studentId: string, paystackReference: string) => Promise<void>;
   /** School admin records cash brought to the school: credits the wallet in full and returns the receipt reference. */
   /** Card limits through lspay_set_limits (parents and staff); saved in the database, not just on screen. */
