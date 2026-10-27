@@ -57,19 +57,20 @@ const titleCase = (s: string) => s.replace(/\b([a-z])/g, (c) => c.toUpperCase())
 // The cards are drawn with inline styles only (no Tailwind classes) because the same markup is copied into
 // the print iframe and the exported HTML file, where the app's stylesheet isn't available.
 // Physical size: CR80 portrait, drawn at 204 × 324 px.
-// Design: a deep indigo header with a circle pattern and the school name in an outlined box, a round photo
-// sitting on the line between the header and a mint body, then name, "Student", class, session and ID.
-// Back: mint, QR code on a white tile (the kiosk scans it), emergency contact, school contacts, indigo footer.
+// Design: white card. Front: a light grey photo panel with blue, green and red circles behind a round photo
+// with a grey ring; the student ID, the name, a few coloured dots and balls, and a grey footer with the school
+// crest and name. Back: the QR code on a white tile (the kiosk scans it), school name, address and phone, and
+// a footer with the Nova mark and umusa.cloud.
 const CARD_W = 204;
 const CARD_H = 324;
-const HEADER_H = 138;           // indigo band
-const PHOTO_R = 47;             // outer radius including the ring
-const PHOTO_CY = HEADER_H;      // the photo straddles the band's edge
+const PANEL = { left: 15, top: 16, width: 174, height: 150 };   // front photo panel
+const PHOTO = { cx: 102, cy: 96, r: 50 };                        // centre of the round photo, card coordinates
 
-const INDIGO = "#2B2668";
-const INDIGO_DOT = "#352F7A";
-const MINT = "#A8E3D3";
-const INK = "#1C1A47";
+const INK = "#111111";
+const LINE = "#D9DCE3";
+const BLUE = "#0EA5E9";
+const GREEN = "#22B14C";
+const RED = "#ED1C24";
 
 // Montserrat for the card. Loaded by the print window / exported file via CARD_FONTS_LINK.
 const DISPLAY = "'Montserrat', 'Nunito', Arial, sans-serif";
@@ -79,22 +80,11 @@ const CARD_FONTS_LINK = `<link rel="preconnect" href="https://fonts.googleapis.c
 /** Current school session: a new one starts in September (e.g. October 2026 -> "2026/2027"). */
 const currentSession = (d = new Date()) => { const y = d.getFullYear(); return d.getMonth() >= 8 ? `${y}/${y + 1}` : `${y - 1}/${y}`; };
 
-/** Indigo header pattern: rows of soft circles, like the reference design. */
-function HeaderPattern({ uid }: { uid: string }) {
-  return (
-    <svg width={CARD_W} height={HEADER_H} viewBox={`0 0 ${CARD_W} ${HEADER_H}`} xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", left: 0, top: 0 }} aria-hidden="true">
-      <defs>
-        <pattern id={`${uid}-dots`} width="34" height="34" patternUnits="userSpaceOnUse">
-          <circle cx="17" cy="17" r="14" fill={INDIGO_DOT} />
-          <circle cx="0" cy="0" r="7" fill={INDIGO_DOT} /><circle cx="34" cy="0" r="7" fill={INDIGO_DOT} />
-          <circle cx="0" cy="34" r="7" fill={INDIGO_DOT} /><circle cx="34" cy="34" r="7" fill={INDIGO_DOT} />
-        </pattern>
-      </defs>
-      <rect width={CARD_W} height={HEADER_H} fill={INDIGO} />
-      <rect width={CARD_W} height={HEADER_H} fill={`url(#${uid}-dots)`} />
-    </svg>
-  );
-}
+/** A flat circle (dot) or a shiny ball, placed by its centre in card coordinates. */
+const blob = (cx: number, cy: number, r: number, color: string, ball = false): React.CSSProperties => ({
+  position: "absolute", left: `${cx - r}px`, top: `${cy - r}px`, width: `${r * 2}px`, height: `${r * 2}px`, borderRadius: "50%",
+  background: ball ? `radial-gradient(circle at 32% 30%, rgba(255,255,255,0.85) 0, rgba(255,255,255,0) 22%), radial-gradient(circle at 50% 50%, ${color} 55%, rgba(0,0,0,0.28) 100%)` : color,
+});
 
 const cardShell = (extra: React.CSSProperties = {}): React.CSSProperties => ({
   width: `${CARD_W}px`,
@@ -488,99 +478,98 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
   const tenantFor = (stud: Student) =>
     (stud.tenantId ? tenants.find(t => t.id === stud.tenantId) : null) || tenant || (tenants.length === 1 ? tenants[0] : undefined);
 
-  // FRONT — indigo header with the school name, round photo on the edge, mint body with the student's details.
-  const renderFrontCard = (stud: Student, uid: string) => {
+  // FRONT — grey photo panel with coloured circles and the round photo, student ID, name, footer with the school.
+  // (uid is kept for callers; the design no longer needs per-card SVG ids.)
+  const renderFrontCard = (stud: Student, _uid: string) => {
     const studTenant = tenantFor(stud);
     const studSchoolName = titleCase(studTenant?.name || schoolName);
     const studSchoolLogo = studTenant?.logoUrl || schoolLogo;
-    const line = (extra: React.CSSProperties = {}): React.CSSProperties => ({ fontFamily: BODY, color: INK, lineHeight: 1.25, maxWidth: "180px", ...extra });
+    const P = PANEL;
 
     return (
-      <div className="id-card" style={cardShell({ background: MINT })}>
-        <HeaderPattern uid={uid} />
-
-        {/* School name in an outlined box (with the crest when the school has one) */}
-        <div style={{ position: "absolute", left: 0, right: 0, top: "16px", display: "flex", justifyContent: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "7px", maxWidth: "176px", border: "1.5px solid rgba(255,255,255,0.85)", padding: "6px 10px", boxSizing: "border-box" }}>
-            {studSchoolLogo ? (
-              <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-                <img src={studSchoolLogo} alt="" style={{ width: "19px", height: "19px", objectFit: "contain" }} />
-              </div>
-            ) : null}
-            <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: studSchoolName.length > 34 ? "8px" : "9.5px", lineHeight: 1.2, letterSpacing: "0.08em", textTransform: "uppercase", color: "#FFFFFF", textAlign: studSchoolLogo ? "left" : "center", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
-              {studSchoolName}
-            </span>
-          </div>
+      <div className="id-card" style={cardShell({ background: "#FFFFFF", border: `1px solid ${LINE}` })}>
+        {/* Photo panel: the circles are clipped to the panel */}
+        <div style={{ position: "absolute", left: `${P.left}px`, top: `${P.top}px`, width: `${P.width}px`, height: `${P.height}px`, background: "#F2F2F3", overflow: "hidden" }}>
+          <div style={blob(56 - P.left, 58 - P.top, 34, BLUE)} />
+          <div style={blob(158 - P.left, 92 - P.top, 17, GREEN)} />
+          <div style={blob(112 - P.left, 150 - P.top, 30, RED)} />
         </div>
 
-        {/* Photo, sitting on the line between the header and the body */}
-        <div style={{ position: "absolute", left: `${CARD_W / 2 - PHOTO_R}px`, top: `${PHOTO_CY - PHOTO_R}px`, width: `${PHOTO_R * 2}px`, height: `${PHOTO_R * 2}px`, borderRadius: "50%", background: "#E6E8EE", padding: "4px", boxSizing: "border-box", boxShadow: "0 3px 10px rgba(20,18,60,0.25)" }}>
+        {/* Round photo with a grey ring */}
+        <div style={{ position: "absolute", left: `${PHOTO.cx - PHOTO.r}px`, top: `${PHOTO.cy - PHOTO.r}px`, width: `${PHOTO.r * 2}px`, height: `${PHOTO.r * 2}px`, borderRadius: "50%", background: "#FFFFFF", border: "4px solid #BDBDBD", boxSizing: "border-box", overflow: "hidden" }}>
           {/* Headshot only: studio portraits (lib/portraitStudio) put the head top at 14% and the head at ~52% of
               the square, so zooming 1.6× and shifting up centres the head and fills the circle edge to edge. */}
-          <div style={{ position: "relative", width: "100%", height: "100%", borderRadius: "50%", overflow: "hidden", background: "#D9DCE4" }}>
-            <img
-              src={stud.imageUrl || initialsAvatar(stud.name)}
-              alt=""
-              style={stud.imageUrl
-                ? { position: "absolute", width: "160%", height: "160%", left: "-30%", top: "-14%", maxWidth: "none", objectFit: "cover", objectPosition: "center top", display: "block" }
-                : { width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-              onError={(e) => {
-                const img = e.target as HTMLImageElement;
-                img.src = initialsAvatar(stud.name);
-                img.style.cssText = "width:100%;height:100%;object-fit:cover;display:block";
-              }}
-            />
-          </div>
+          <img
+            src={stud.imageUrl || initialsAvatar(stud.name)}
+            alt=""
+            style={stud.imageUrl
+              ? { position: "absolute", width: "160%", height: "160%", left: "-30%", top: "-14%", maxWidth: "none", objectFit: "cover", objectPosition: "center top", display: "block" }
+              : { width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            onError={(e) => {
+              const img = e.target as HTMLImageElement;
+              img.src = initialsAvatar(stud.name);
+              img.style.cssText = "width:100%;height:100%;object-fit:cover;display:block";
+            }}
+          />
         </div>
 
-        {/* Name, role, class, session, ID */}
-        <div style={{ position: "absolute", left: "12px", right: "12px", top: `${PHOTO_CY + PHOTO_R + 8}px`, bottom: "10px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "3px" }}>
-          <span style={line({ fontFamily: DISPLAY, fontWeight: 800, fontSize: stud.name.length > 22 ? "13px" : "15px", lineHeight: 1.15, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" })}>{stud.name}</span>
-          <span style={line({ fontWeight: 500, fontSize: "11.5px", marginBottom: "4px" })}>Student</span>
-          {stud.className ? <span style={line({ fontWeight: 500, fontSize: "9.5px", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" })}>{stud.className}</span> : null}
-          <span style={line({ fontWeight: 500, fontSize: "9.5px" })}>{currentSession()}</span>
-          <span style={line({ fontWeight: 500, fontSize: "9.5px", marginTop: "4px" })}>Student ID: <b style={{ fontWeight: 800 }}>{stud.studentId}</b></span>
+        {/* Dots and balls around the name */}
+        <div style={blob(10, 214, 3, "#9B59D0")} />
+        <div style={blob(24, 236, 2.6, "#E8B91E")} />
+        <div style={blob(4, 270, 19, "#2F6FE4", true)} />
+        <div style={blob(180, 252, 6.5, "#2E9E4F", true)} />
+        <div style={blob(203, 262, 17, "#F05A4F", true)} />
+        <div style={blob(190, 280, 3, "#2F6FE4", true)} />
+
+        {/* Student ID and name */}
+        <div style={{ position: "absolute", left: "26px", right: "26px", top: `${P.top + P.height + 18}px`, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "4px" }}>
+          <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.03em", color: "#555555" }}>{stud.studentId}</span>
+          <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: stud.name.length > 26 ? "12.5px" : "14px", lineHeight: 1.22, color: INK, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{stud.name}</span>
+        </div>
+
+        {/* Footer: school crest and name */}
+        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "42px", background: "#F4F5F8", borderTop: `1px solid ${LINE}`, display: "flex", alignItems: "center", gap: "8px", padding: "0 10px", boxSizing: "border-box" }}>
+          {studSchoolLogo ? (
+            <div style={{ width: "26px", height: "26px", borderRadius: "50%", background: "#FFFFFF", border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+              <img src={studSchoolLogo} alt="" style={{ width: "21px", height: "21px", objectFit: "contain" }} />
+            </div>
+          ) : null}
+          <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: studSchoolName.length > 34 ? "7.5px" : "8.5px", lineHeight: 1.25, color: INK, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+            {studSchoolName}
+          </span>
         </div>
       </div>
     );
   };
 
-  // BACK — mint: QR code, emergency contact, school email / phone / address, indigo footer with the card rules.
+  // BACK — QR code on a white tile, school name, address and phone, footer with the Nova mark and umusa.cloud.
   const renderBackCard = (stud: Student) => {
     const studTenant = tenantFor(stud);
     const studSchoolName = titleCase(studTenant?.name || schoolName);
     const studSchoolAddress = studTenant?.address || schoolAddress;
     const studSchoolPhone = studTenant?.phone || "";
-    const studSchoolEmail = studTenant?.contactEmail || "";
-    const emergency = (stud.parentPhone || "").trim() || studSchoolPhone;
-    const small: React.CSSProperties = { fontFamily: BODY, fontWeight: 500, fontSize: "8px", lineHeight: 1.35, color: INK, maxWidth: "176px", overflowWrap: "anywhere" };
+    const small: React.CSSProperties = { fontFamily: DISPLAY, fontWeight: 700, fontSize: "8.5px", lineHeight: 1.35, color: INK, maxWidth: "176px", overflowWrap: "anywhere" };
 
     return (
-      <div className="id-card" style={cardShell({ background: MINT })}>
+      <div className="id-card" style={cardShell({ background: "#FFFFFF", border: `1px solid ${LINE}` })}>
         {/* QR code on a white tile: high contrast and a clear margin so the kiosk scanner reads it reliably */}
-        <div style={{ position: "absolute", left: "50%", top: "16px", transform: "translateX(-50%)", width: "112px", height: "112px", borderRadius: "10px", background: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box" }}>
-          <QRCodeSVG value={stud.cardHardwareId || stud.studentId} size={96} level="M" fgColor={INK} bgColor="#FFFFFF" />
+        <div style={{ position: "absolute", left: "50%", top: "18px", transform: "translateX(-50%)", width: "134px", height: "134px", borderRadius: "16px", background: "#FFFFFF", border: "1px solid #E3E5EA", boxShadow: "0 4px 12px rgba(17,17,17,0.10)", display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box" }}>
+          <QRCodeSVG value={stud.cardHardwareId || stud.studentId} size={112} level="M" fgColor="#000000" bgColor="#FFFFFF" />
         </div>
 
-        {/* Emergency contact + school contacts */}
-        <div style={{ position: "absolute", left: "12px", right: "12px", top: "138px", bottom: "64px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "5px" }}>
-          {emergency ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "4px" }}>
-              <span style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: "11px", lineHeight: 1.2, color: INK }}>Emergency Contact:</span>
-              <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: "12.5px", lineHeight: 1.25, color: INK, letterSpacing: "0.02em" }}>{emergency}</span>
-            </div>
-          ) : null}
-          {studSchoolEmail ? <span style={small}>Email: {studSchoolEmail}</span> : null}
-          {studSchoolPhone ? <span style={small}>Phone: {studSchoolPhone}</span> : null}
-          {studSchoolAddress ? <span style={{ ...small, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>Address: {studSchoolAddress}</span> : null}
+        {/* School name, address, phone */}
+        <div style={{ position: "absolute", left: "12px", right: "12px", top: "176px", bottom: "46px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "6px" }}>
+          <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: studSchoolName.length > 34 ? "12px" : "13.5px", lineHeight: 1.25, color: INK, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", marginBottom: "4px" }}>{studSchoolName}</span>
+          {studSchoolAddress ? <span style={{ ...small, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{studSchoolAddress}</span> : null}
+          {studSchoolPhone ? <span style={small}>{studSchoolPhone}</span> : null}
         </div>
 
-        {/* Indigo footer: card rules + platform */}
-        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "58px", background: INDIGO, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "3px", padding: "0 12px", boxSizing: "border-box", textAlign: "center" }}>
-          <span style={{ fontFamily: BODY, fontWeight: 500, fontSize: "7px", lineHeight: 1.35, color: "#FFFFFF" }}>
-            This card is the property of {studSchoolName}. It must be presented for school entry, payments and events. If lost, report immediately to the school office.
-          </span>
-          <span style={{ fontFamily: BODY, fontWeight: 700, fontSize: "6.5px", letterSpacing: "0.04em", color: "rgba(255,255,255,0.7)" }}>umusa.cloud</span>
+        {/* Footer: Nova mark + umusa.cloud */}
+        <div style={{ position: "absolute", left: "10px", right: "10px", bottom: 0, height: "40px", borderTop: `1px solid ${LINE}`, display: "flex", alignItems: "center", gap: "8px", padding: "0 2px", boxSizing: "border-box" }}>
+          <div style={{ width: "22px", height: "22px", borderRadius: "50%", background: "#FFFFFF", border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 L9 4 H12 L15 13 L17 4 H20 L15 20 H12 L9 11 L7 20 Z" fill="#1E3A8A" /></svg>
+          </div>
+          <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "9px", color: INK }}>umusa.cloud</span>
         </div>
       </div>
     );
