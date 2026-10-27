@@ -478,7 +478,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
   const tenantFor = (stud: Student) =>
     (stud.tenantId ? tenants.find(t => t.id === stud.tenantId) : null) || tenant || (tenants.length === 1 ? tenants[0] : undefined);
 
-  // FRONT — grey photo panel with coloured circles and the round photo, student ID, name, footer with the school.
+  // FRONT — photo panel (no background) with coloured circles and the round photo, student ID, name, footer with the school.
   // (uid is kept for callers; the design no longer needs per-card SVG ids.)
   const renderFrontCard = (stud: Student, _uid: string) => {
     const studTenant = tenantFor(stud);
@@ -489,7 +489,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
     return (
       <div className="id-card" style={cardShell({ background: "#FFFFFF", border: `1px solid ${LINE}` })}>
         {/* Photo panel: the circles are clipped to the panel */}
-        <div style={{ position: "absolute", left: `${P.left}px`, top: `${P.top}px`, width: `${P.width}px`, height: `${P.height}px`, background: "#F2F2F3", overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: `${P.left}px`, top: `${P.top}px`, width: `${P.width}px`, height: `${P.height}px`, overflow: "hidden" }}>
           <div style={blob(56 - P.left, 58 - P.top, 34, BLUE)} />
           <div style={blob(158 - P.left, 92 - P.top, 17, GREEN)} />
           <div style={blob(112 - P.left, 150 - P.top, 30, RED)} />
