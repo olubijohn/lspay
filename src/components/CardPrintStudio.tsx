@@ -492,7 +492,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
         <div style={{ position: "absolute", left: `${P.left}px`, top: `${P.top}px`, width: `${P.width}px`, height: `${P.height}px`, overflow: "hidden" }}>
           <div style={blob(56 - P.left, 58 - P.top, 34, BLUE)} />
           <div style={blob(158 - P.left, 92 - P.top, 17, GREEN)} />
-          <div style={blob(166 - P.left, 136 - P.top, 14, RED)} />
+          <div style={blob(148 - P.left, 146 - P.top, 16, RED)} />
         </div>
 
         {/* Round photo with a grey ring */}
