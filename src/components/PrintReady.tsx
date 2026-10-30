@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Ban, CheckCircle2, ClipboardList, Download, Loader2 } from "lucide-react";
+import { Ban, CheckCircle2, ClipboardList, Download, Loader2, Printer } from "lucide-react";
 import { useStore } from "@/store";
 import type { PrintStatus, Student } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -9,39 +9,48 @@ import { downloadCsv, fileSlug } from "@/lib/guardians";
 import { cn } from "@/lib/utils";
 
 // ------------------------------ filter ------------------------------
-// Every student is Ready by default; only students marked "not_ready" are held back from card printing.
-export type PrintFilter = "all" | "ready" | "not_ready";
+// Every student is Ready by default. "printed" records a card that has been printed (bulk printing leaves it out,
+// so nobody gets a second card by mistake); "not_ready" holds a student back from printing.
+export type PrintFilter = "all" | "ready" | "printed" | "not_ready";
 export const PRINT_FILTER_OPTIONS: { value: PrintFilter; label: string }[] = [
   { value: "all", label: "All card print statuses" },
-  { value: "ready", label: "Ready to print" },
+  { value: "ready", label: "Ready, not printed yet" },
+  { value: "printed", label: "Card printed" },
   { value: "not_ready", label: "Not ready (don't print)" },
 ];
-export const isPrintReady = (s: Student) => s.printStatus !== "not_ready";
+export const isPrinted = (s: Student) => s.printStatus === "printed";
+export const isPrintReady = (s: Student) => s.printStatus !== "not_ready" && s.printStatus !== "printed";
 export const matchesPrintFilter = (s: Student, f: PrintFilter) =>
-  f === "all" || (f === "ready" ? isPrintReady(s) : !isPrintReady(s));
-export const printStatusLabel = (st: PrintStatus | undefined) => (st === "not_ready" ? "Not ready" : "Ready");
+  f === "all" || (f === "ready" ? isPrintReady(s) : f === "printed" ? isPrinted(s) : s.printStatus === "not_ready");
+export const printStatusLabel = (st: PrintStatus | undefined) => (st === "not_ready" ? "Not ready" : st === "printed" ? "Printed" : "Ready");
+const shortDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "");
 
 // ------------------------------ row buttons ------------------------------
-/** "Ready" / "Not ready" for one student. Ready is the default, so "Ready" just undoes "Not ready". */
+/** "Ready" / "Printed" / "Not ready" for one student. Ready is the default, so "Ready" undoes the other two. */
 export function PrintStatusButtons({ student, className }: { student: Student; className?: string }) {
   const { setPrintStatus } = useStore();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const set = async (st: Exclude<PrintStatus, null>) => {
     setBusy(true); setError("");
-    const ready = isPrintReady(student);
-    if ((st === "ready") === ready) { setBusy(false); return; }   // already in that state
-    const r = await setPrintStatus([student.id], st === "ready" ? null : "not_ready");
+    const cur = isPrintReady(student) ? "ready" : student.printStatus;
+    if (st === cur) { setBusy(false); return; }   // already in that state
+    const r = await setPrintStatus([student.id], st === "ready" ? null : st);
     setBusy(false);
     if (!r.success) setError(r.message ?? "Not saved. Please try again.");
   };
   const base = "inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-[11px] font-extrabold transition-colors disabled:opacity-60";
   return (
-    <div className={cn("flex items-center gap-1", className)} title={student.printStatus === "not_ready" && student.printStatusBy ? `Marked not ready by ${student.printStatusBy}` : undefined}>
+    <div className={cn("flex items-center gap-1", className)} title={student.printStatus === "not_ready" && student.printStatusBy ? `Marked not ready by ${student.printStatusBy}` : isPrinted(student) ? `Printed ${shortDate(student.printStatusAt)}${student.printStatusBy ? ` · ${student.printStatusBy}` : ""}` : undefined}>
       <button type="button" disabled={busy} onClick={() => set("ready")} aria-pressed={isPrintReady(student)}
         className={cn(base, isPrintReady(student) ? "border-green-600 bg-green-600 text-white" : "border-border bg-background text-muted-foreground hover:border-green-600 hover:text-green-700")}
         data-testid={`btn-ready-${student.id}`}>
         <CheckCircle2 className="h-3.5 w-3.5" /> Ready
+      </button>
+      <button type="button" disabled={busy} onClick={() => set("printed")} aria-pressed={isPrinted(student)}
+        className={cn(base, isPrinted(student) ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary")}
+        data-testid={`btn-printed-${student.id}`}>
+        <Printer className="h-3.5 w-3.5" /> {isPrinted(student) ? `Printed${student.printStatusAt ? " " + shortDate(student.printStatusAt) : ""}` : "Printed"}
       </button>
       <button type="button" disabled={busy} onClick={() => set("not_ready")} aria-pressed={student.printStatus === "not_ready"}
         className={cn(base, student.printStatus === "not_ready" ? "border-red-600 bg-red-600 text-white" : "border-border bg-background text-muted-foreground hover:border-red-500 hover:text-red-600")}
@@ -57,8 +66,8 @@ export function PrintStatusButtons({ student, className }: { student: Student; c
 export function PrintStatusPill({ status }: { status?: PrintStatus }) {
   return (
     <span className={cn("inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-extrabold",
-      status === "not_ready" ? "bg-blush text-red-700" : "bg-mint text-green-700")}>
-      {status === "not_ready" ? "Not ready" : "Ready to print"}
+      status === "not_ready" ? "bg-blush text-red-700" : status === "printed" ? "bg-lilac text-primary" : "bg-mint text-green-700")}>
+      {status === "not_ready" ? "Not ready" : status === "printed" ? "Card printed" : "Ready to print"}
     </span>
   );
 }
@@ -96,7 +105,8 @@ export function PrintListMatchDialog({ open, onClose, students, scopeLabel, scho
   const pick = (key: string, studentId: string | null) => setMatches((m) => m && m.map((x) => (x.key === key ? { ...x, studentId } : x)));
 
   const matchedIds = useMemo(() => new Set((matches ?? []).map((m) => m.studentId).filter(Boolean) as string[]), [matches]);
-  const notOnList = useMemo(() => students.filter((s) => !matchedIds.has(s.id)), [students, matchedIds]);
+  const notOnList = useMemo(() => students.filter((s) => !matchedIds.has(s.id) && !isPrinted(s)), [students, matchedIds]);
+  const printedIds = useMemo(() => new Set(students.filter(isPrinted).map((s) => s.id)), [students]);
   const counts = useMemo(() => {
     const m = matches ?? [];
     return {
@@ -110,9 +120,10 @@ export function PrintListMatchDialog({ open, onClose, students, scopeLabel, scho
     setBusy(true); setError("");
     let ready = 0, notReady = 0;
     if (markMatched && matchedIds.size) {
-      const r = await setPrintStatus([...matchedIds], null);   // back to the default: Ready
-      if (!r.success) { setBusy(false); setError(r.message ?? "Could not save."); return; }
-      ready = matchedIds.size;
+      const ids = [...matchedIds].filter((id) => !printedIds.has(id));   // cards already printed stay "printed"
+      const r = ids.length ? await setPrintStatus(ids, null) : { success: true };   // back to the default: Ready
+      if (!r.success) { setBusy(false); setError((r as any).message ?? "Could not save."); return; }
+      ready = ids.length;
     }
     if (markOthers && notOnList.length) {
       const r = await setPrintStatus(notOnList.map((s) => s.id), "not_ready");

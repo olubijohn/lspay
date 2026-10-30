@@ -138,7 +138,7 @@ export interface ParentUser {
 }
 
 /** What the school sees after connecting a guardian to the LSPay parent portal (like LSA's "Portal access is ready"). */
-export type PrintStatus = "ready" | "not_ready" | null;
+export type PrintStatus = "ready" | "not_ready" | "printed" | null;
 
 export interface LspayParentCredentials {
   email: string;

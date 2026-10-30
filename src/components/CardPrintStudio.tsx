@@ -107,15 +107,23 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
   const [isFlipped, setIsFlipped] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [printLayout, setPrintLayout] = useState<"pair" | "front_only" | "grid_a4">("pair");
-  const { tenants } = useStore();
+  const { tenants, setPrintStatus } = useStore();
+  const [marked, setMarked] = useState<"idle" | "busy" | "done" | "error">("idle");
 
-  // Bulk printing never includes students marked "Not ready" (left the school / wrong class). Printing one
-  // student on purpose still works, with a warning.
+  // Bulk printing never includes students marked "Not ready" (left the school / wrong class) or cards already
+  // printed (no second card by mistake). Printing one student on purpose still works, with a warning.
   const skippedNotReady = useMemo(() => (students ?? []).filter((s) => s.printStatus === "not_ready"), [students]);
+  const skippedPrinted = useMemo(() => (students ?? []).filter((s) => s.printStatus === "printed"), [students]);
   const printList = useMemo(() => {
-    if (students && students.length > 0) return students.filter((s) => s.printStatus !== "not_ready");
+    if (students && students.length > 0) return students.filter((s) => s.printStatus !== "not_ready" && s.printStatus !== "printed");
     return student ? [student] : [];
   }, [students, student]);
+  // after printing: record these cards as printed, so the school always knows which ones are done
+  const markPrinted = async () => {
+    setMarked("busy");
+    const r = await setPrintStatus(printList.map((s) => s.id), "printed");
+    setMarked(r.success ? "done" : "error");
+  };
 
   const chunkedGrid = useMemo(() => {
     const chunks: Student[][] = [];
@@ -601,6 +609,16 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
               {skippedNotReady.length} student{skippedNotReady.length === 1 ? " is" : "s are"} marked Not ready and {skippedNotReady.length === 1 ? "was" : "were"} left out: {skippedNotReady.slice(0, 5).map((s) => s.name).join(", ")}{skippedNotReady.length > 5 ? ` and ${skippedNotReady.length - 5} more` : ""}.
             </p>
           )}
+          {skippedPrinted.length > 0 && (
+            <p className="w-full max-w-md rounded-xl bg-lilac px-3 py-2 text-center text-xs font-bold text-primary" role="status" data-testid="print-skipped-printed">
+              {skippedPrinted.length} card{skippedPrinted.length === 1 ? " was" : "s were"} already printed and {skippedPrinted.length === 1 ? "is" : "are"} left out. To reprint one, open that student and print it on its own.
+            </p>
+          )}
+          {!students?.length && student?.printStatus === "printed" && (
+            <p className="w-full max-w-md rounded-xl bg-peach px-3 py-2 text-center text-xs font-bold text-amber-700" role="alert">
+              {student.name}'s card was already printed{student.printStatusAt ? ` on ${new Date(student.printStatusAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}. Printing again makes a second card.
+            </p>
+          )}
           {!students?.length && student?.printStatus === "not_ready" && (
             <p className="w-full max-w-md rounded-xl bg-blush px-3 py-2 text-center text-xs font-bold text-red-700" role="alert">
               {student.name} is marked Not ready for card printing. Check they are still in this class before printing.
@@ -710,6 +728,18 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
               >
                 <Printer className="mr-1 h-4 w-4" /> Print / Save PDF ({printList.length})
               </Button>
+              {printList.length > 0 && (
+                <Button
+                  onClick={markPrinted}
+                  variant="outline"
+                  disabled={marked === "busy" || marked === "done"}
+                  className="flex items-center justify-center gap-1.5 text-xs sm:text-sm h-10 px-4 font-bold"
+                  title="After the cards come out of the printer, record them as printed"
+                  data-testid="btn-mark-printed"
+                >
+                  {marked === "done" ? <>✓ Marked as printed</> : marked === "busy" ? <>Saving…</> : marked === "error" ? <>Not saved, try again</> : <>Mark these {printList.length} as printed</>}
+                </Button>
+              )}
             </div>
           </div>
         </div>

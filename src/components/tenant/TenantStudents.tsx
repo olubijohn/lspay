@@ -23,7 +23,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { GraduationCap, ArrowLeft, Banknote, Trash2, AlertTriangle, Search, Filter, RotateCcw, X, ChevronLeft, ChevronRight, Download, CheckCircle2, Ban, ClipboardList } from "lucide-react";
+import { Printer, GraduationCap, ArrowLeft, Banknote, Trash2, AlertTriangle, Search, Filter, RotateCcw, X, ChevronLeft, ChevronRight, Download, CheckCircle2, Ban, ClipboardList } from "lucide-react";
 import { cardLifecycleLabel, Student } from "@/lib/types";
 
 export function TenantStudents({ tenantId }: { tenantId: string }) {
@@ -523,6 +523,10 @@ export function TenantStudents({ tenantId }: { tenantId: string }) {
             <Button variant="outline" size="sm" disabled={bulkBusy} className="font-bold text-red-700 border-red-500/40 hover:bg-blush"
               onClick={async () => { setBulkBusy(true); await setPrintStatus(selectedIds, "not_ready"); setBulkBusy(false); }} data-testid="btn-bulk-not-ready">
               <Ban className="w-4 h-4 mr-1.5" /> Mark not ready
+            </Button>
+            <Button variant="outline" size="sm" disabled={bulkBusy} className="font-bold text-primary border-primary/40 hover:bg-lilac"
+              onClick={async () => { setBulkBusy(true); await setPrintStatus(selectedIds, "printed"); setBulkBusy(false); }} data-testid="btn-bulk-printed">
+              <Printer className="w-4 h-4 mr-1.5" /> Mark printed
             </Button>
             <Button
               variant="ghost"

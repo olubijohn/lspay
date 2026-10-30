@@ -138,6 +138,17 @@ function mapGuardianRow(r: any): LspayGuardian {
 // (added later for LSA's roster-import "next class" field) - PostgREST can't guess which one we mean.
 const STUDENT_SELECT = "*, lspay_student_wallets(*), levels!students_level_id_fkey(name)";
 
+/** Reads every page of a query (Supabase returns at most 1,000 rows per request). `make` builds the query afresh. */
+async function allRows(make: () => any, page = 1000): Promise<{ data: any[] | null; error: any }> {
+  const rows: any[] = [];
+  for (let from = 0; ; from += page) {
+    const { data, error } = await make().range(from, from + page - 1);
+    if (error) return { data: rows.length ? rows : null, error };
+    rows.push(...(data ?? []));
+    if (!data || data.length < page) return { data: rows, error: null };
+  }
+}
+
 const StoreContext = createContext<AppState | undefined>(undefined);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -185,31 +196,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // ------------------------------ data loading ------------------------------
   const loadTenantScoped = useCallback(async (tenantId: string | null, myToken: number) => {
     const supabase = getSupabase();
-    let sq = supabase.from("students").select(STUDENT_SELECT);
-    let tq = supabase.from("tenants").select("*, tenant_settings(paystack_subaccount_code, paystack_enabled, lspay_offline_cap)");
-    let iq = supabase.from("lspay_inventory_items").select("*");
-    let txq = supabase.from("lspay_transactions").select("*");
-    let lq = supabase.from("lspay_wallet_ledger").select("*").eq("kind", "TOPUP").order("created_at", { ascending: false });
-    let smq = supabase.from("lspay_stock_movements").select("*");
-    let nq = supabase.from("lspay_notifications").select("*").order("created_at", { ascending: false });
-    let puq = supabase.from("profiles").select("*");
-    let paq = supabase.from("lspay_parent_accounts").select(LSPAY_PARENT_SELECT);
-    let gq = supabase.from("lspay_student_guardians").select("*");
-
-    if (tenantId) {
-      sq = sq.eq("tenant_id", tenantId); tq = tq.eq("id", tenantId); iq = iq.eq("tenant_id", tenantId);
-      txq = txq.eq("tenant_id", tenantId); lq = lq.eq("tenant_id", tenantId); smq = smq.eq("tenant_id", tenantId);
-      nq = nq.eq("target_role", "tenant").eq("target_tenant_id", tenantId);
-      puq = puq.eq("tenant_id", tenantId); paq = paq.eq("tenant_id", tenantId); gq = gq.eq("tenant_id", tenantId);
-    } else {
-      nq = nq.eq("target_role", "super_admin");
-    }
+    // Each query is built fresh per page: Supabase returns at most 1,000 rows per request, and the super admin
+    // loads every school at once (5,000+ students), so a single request silently dropped most of them.
+    const own = (q: any, col = "tenant_id") => (tenantId ? q.eq(col, tenantId) : q);
+    const sq = () => own(supabase.from("students").select(STUDENT_SELECT)).order("id");
+    const tq = () => own(supabase.from("tenants").select("*, tenant_settings(paystack_subaccount_code, paystack_enabled, lspay_offline_cap)"), "id").order("id");
+    const iq = () => own(supabase.from("lspay_inventory_items").select("*")).order("id");
+    const txq = () => own(supabase.from("lspay_transactions").select("*")).order("id");
+    const lq = () => own(supabase.from("lspay_wallet_ledger").select("*").eq("kind", "TOPUP")).order("created_at", { ascending: false }).order("id");
+    const smq = () => own(supabase.from("lspay_stock_movements").select("*")).order("id");
+    const nq = () => (tenantId ? supabase.from("lspay_notifications").select("*").eq("target_role", "tenant").eq("target_tenant_id", tenantId) : supabase.from("lspay_notifications").select("*").eq("target_role", "super_admin")).order("created_at", { ascending: false }).order("id");
+    const puq = () => own(supabase.from("profiles").select("*")).order("user_id");
+    const paq = () => own(supabase.from("lspay_parent_accounts").select(LSPAY_PARENT_SELECT)).order("id");
+    const gq = () => own(supabase.from("lspay_student_guardians").select("*")).order("id");
 
     const [{ data: sData }, { data: tData }, { data: iData }, { data: txData }, { data: lData }, { data: smData }, { data: nData }, { data: puData }, { data: paData }, { data: paAdmins }, { data: gData }] =
       await Promise.all([
-        sq, tq, iq, txq, lq, smq, nq, puq, paq,
-        tenantId ? Promise.resolve({ data: [] as any[] }) : supabase.from("platform_admins").select("*"),
-        gq,
+        allRows(sq), allRows(tq), allRows(iq), allRows(txq), allRows(lq), allRows(smq), allRows(nq), allRows(puq), allRows(paq),
+        tenantId ? Promise.resolve({ data: [] as any[] }) : allRows(() => supabase.from("platform_admins").select("*").order("user_id")),
+        allRows(gq),
       ]);
     if (loadToken.current !== myToken) return;
 
