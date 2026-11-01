@@ -90,9 +90,18 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
     setScanError("");
     const id = rawId.trim();
     if (!id) return;
-    const student = tenantStudents.find(s => s.cardHardwareId === id);
+    // Cards are QR only. The QR holds the card id; on cards printed before a card id existed that is the reg number,
+    // so a printed card is also found by its reg number. Compared without case or spaces (scanners differ).
+    const norm = (v?: string) => (v ?? "").replace(/\s+/g, "").toUpperCase();
+    const key = norm(id);
+    let student = tenantStudents.find(s => s.cardHardwareId === id) ?? tenantStudents.find(s => norm(s.cardHardwareId) === key);
     if (!student) {
-      setScanError(`Card not recognised (${id}). Link this card to a student first.`);
+      const byReg = tenantStudents.filter(s => norm(s.studentId) === key && (s.printStatus === "printed" || s.printStatus === "ready"));
+      if (byReg.length > 1) { setScanError(`Two students share the number ${id}. Please contact administration.`); return; }
+      student = byReg[0];
+    }
+    if (!student) {
+      setScanError(`Card not recognised (${id}). Please contact administration.`);
       return;
     }
     if (student.cardStatus === "Blocked") {
@@ -100,10 +109,8 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
       return;
     }
 
-    if (student.cardStatus === "Unassigned") {
-      setScanError("Card is unassigned.");
-      return;
-    }
+    // an Unassigned card that was found by its printed reg number still shows the child; the verify screen
+    // explains that the card isn't activated (no PIN) yet
     setPosStudent(student);
     setCheckoutStage("verify");
   };
@@ -514,8 +521,14 @@ export function TenantKiosk({ tenantId, onExit }: { tenantId: string, onExit: ()
                         <FitText className="text-xl sm:text-2xl font-display text-foreground tabular-nums">{naira(cartTotal)}</FitText>
                       </div>
                     </div>
-                    <Button variant="highlight" onClick={() => setCheckoutStage("pin")} disabled={posStudent.walletBalance < cartTotal} className="w-full h-16 text-xl rounded-2xl shadow-md active:scale-[.98] transition-transform disabled:opacity-60" data-testid="btn-pay">
-                      {posStudent.walletBalance < cartTotal ? "Insufficient Balance" : `Pay ${naira(cartTotal)}`}
+                    {posStudent.cardStatus !== "Active" && (
+                      <div className="rounded-2xl bg-peach dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 p-4 mb-4 text-left" data-testid="card-not-activated">
+                        <div className="font-extrabold text-base mb-1">Card not activated yet</div>
+                        <div className="text-sm">No PIN has been set for {posStudent.name.split(" ")[0]}. A parent sets the PIN in the LSPay parent portal (Activate Card), then the card can pay.</div>
+                      </div>
+                    )}
+                    <Button variant="highlight" onClick={() => setCheckoutStage("pin")} disabled={posStudent.walletBalance < cartTotal || posStudent.cardStatus !== "Active"} className="w-full h-16 text-xl rounded-2xl shadow-md active:scale-[.98] transition-transform disabled:opacity-60" data-testid="btn-pay">
+                      {posStudent.cardStatus !== "Active" ? "Waiting for PIN" : posStudent.walletBalance < cartTotal ? "Insufficient Balance" : `Pay ${naira(cartTotal)}`}
                     </Button>
                   </div>
                 </div>
