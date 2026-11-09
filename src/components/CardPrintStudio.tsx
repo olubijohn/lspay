@@ -57,14 +57,16 @@ const titleCase = (s: string) => s.replace(/\b([a-z])/g, (c) => c.toUpperCase())
 // The cards are drawn with inline styles only (no Tailwind classes) because the same markup is copied into
 // the print iframe and the exported HTML file, where the app's stylesheet isn't available.
 // Physical size: CR80 portrait, drawn at 204 × 324 px.
-// Design: white card. Front: a light grey photo panel with blue, green and red circles behind a round photo
-// with a grey ring; the student ID, the name, a few coloured dots and balls, and a grey footer with the school
-// crest and name. Back: the QR code on a white tile (the kiosk scans it), school name, address and phone, and
+// Design: white card. Front: a light grey photo panel with big blue, green and red circles behind a large round
+// photo with a grey ring (about two-thirds of the card's width), the school crest in a white circle at the top right,
+// the student ID, the name, a few coloured dots and balls, and a grey footer filled by the school name in large
+// type. Back: the QR code on a white tile (the kiosk scans it), school name, address and phone, and
 // a footer with the Nova mark and umusa.cloud.
 const CARD_W = 204;
 const CARD_H = 324;
-const PANEL = { left: 15, top: 16, width: 174, height: 150 };   // front photo panel
-const PHOTO = { cx: 102, cy: 96, r: 50 };                        // centre of the round photo, card coordinates
+const PANEL = { left: 12, top: 12, width: 180, height: 198 };   // front photo panel
+const PHOTO = { cx: 104, cy: 102, r: 68 };                       // centre of the round photo, card coordinates
+const CREST = { cx: 176, cy: 28, r: 19 };                        // school crest, top right
 
 const INK = "#111111";
 const LINE = "#D9DCE3";
@@ -102,6 +104,67 @@ const cardShell = (extra: React.CSSProperties = {}): React.CSSProperties => ({
 });
 
 const initialsAvatar = (name: string) => `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`;
+
+/** FRONT: photo panel with coloured circles and a large round photo, the school crest at the top right, the student
+ *  ID and name, and a footer filled by the school name. Inline styles only (copied into the print window and file). */
+export function FrontCardArt({ stud, schoolName, logo }: { stud: Pick<Student, "name" | "studentId" | "imageUrl">; schoolName: string; logo?: string | null }) {
+  const P = PANEL;
+  return (
+    <div className="id-card" style={cardShell({ background: "#FFFFFF", border: `1px solid ${LINE}` })}>
+      {/* Photo panel: the circles are clipped to the panel */}
+      <div style={{ position: "absolute", left: `${P.left}px`, top: `${P.top}px`, width: `${P.width}px`, height: `${P.height}px`, overflow: "hidden", borderRadius: "8px" }}>
+        <div style={blob(46 - P.left, 50 - P.top, 38, BLUE)} />
+        <div style={blob(182 - P.left, 94 - P.top, 20, GREEN)} />
+        <div style={blob(126 - P.left, 170 - P.top, 37, RED)} />   {/* whole: ends inside the panel */}
+      </div>
+
+      {/* Large round photo with a grey ring */}
+      <div style={{ position: "absolute", left: `${PHOTO.cx - PHOTO.r}px`, top: `${PHOTO.cy - PHOTO.r}px`, width: `${PHOTO.r * 2}px`, height: `${PHOTO.r * 2}px`, borderRadius: "50%", background: "#FFFFFF", border: "5px solid #BDBDBD", boxSizing: "border-box", overflow: "hidden" }}>
+        {/* Headshot only: studio portraits (lib/portraitStudio) put the head top at 14% and the head at ~52% of
+            the square, so zooming 1.6× and shifting up centres the head and fills the circle edge to edge. */}
+        <img
+          src={stud.imageUrl || initialsAvatar(stud.name)}
+          alt=""
+          style={stud.imageUrl
+            ? { position: "absolute", width: "160%", height: "160%", left: "-30%", top: "-14%", maxWidth: "none", objectFit: "cover", objectPosition: "center top", display: "block" }
+            : { width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          onError={(e) => {
+            const img = e.target as HTMLImageElement;
+            img.src = initialsAvatar(stud.name);
+            img.style.cssText = "width:100%;height:100%;object-fit:cover;display:block";
+          }}
+        />
+      </div>
+
+      {/* School crest, top right */}
+      {logo ? (
+        <div style={{ position: "absolute", left: `${CREST.cx - CREST.r}px`, top: `${CREST.cy - CREST.r}px`, width: `${CREST.r * 2}px`, height: `${CREST.r * 2}px`, borderRadius: "50%", background: "#FFFFFF", border: `1px solid ${LINE}`, boxShadow: "0 1px 3px rgba(0,0,0,0.12)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+          <img src={logo} alt="" style={{ width: `${CREST.r * 2 - 8}px`, height: `${CREST.r * 2 - 8}px`, objectFit: "contain" }} />
+        </div>
+      ) : null}
+
+      {/* Dots and balls around the name */}
+      <div style={blob(10, 218, 3, "#9B59D0")} />
+      <div style={blob(4, 270, 19, "#2F6FE4", true)} />
+      <div style={blob(182, 254, 6.5, "#2E9E4F", true)} />
+      <div style={blob(204, 262, 17, "#F05A4F", true)} />
+      <div style={blob(189, 280, 3, "#2F6FE4", true)} />
+
+      {/* Student ID and name */}
+      <div style={{ position: "absolute", left: "24px", right: "24px", top: `${P.top + P.height + 6}px`, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "3px" }}>
+        <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.03em", color: "#555555" }}>{stud.studentId}</span>
+        <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: stud.name.length > 26 ? "12.5px" : "14px", lineHeight: 1.2, color: INK, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{stud.name}</span>
+      </div>
+
+      {/* Footer: the school name, large, filling the footer */}
+      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "42px", background: "#F4F5F8", borderTop: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 10px", boxSizing: "border-box" }}>
+        <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: schoolName.length > 44 ? "10px" : schoolName.length > 30 ? "11.5px" : "12.5px", lineHeight: 1.2, color: INK, textAlign: "center", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+          {schoolName}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: CardPrintStudioProps) {
   const [isFlipped, setIsFlipped] = useState(false);
@@ -486,68 +549,11 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
   const tenantFor = (stud: Student) =>
     (stud.tenantId ? tenants.find(t => t.id === stud.tenantId) : null) || tenant || (tenants.length === 1 ? tenants[0] : undefined);
 
-  // FRONT — photo panel (no background) with coloured circles and the round photo, student ID, name, footer with the school.
+  // FRONT — drawn by FrontCardArt (module level, so it can also be rendered on its own for previews).
   // (uid is kept for callers; the design no longer needs per-card SVG ids.)
   const renderFrontCard = (stud: Student, _uid: string) => {
     const studTenant = tenantFor(stud);
-    const studSchoolName = titleCase(studTenant?.name || schoolName);
-    const studSchoolLogo = studTenant?.logoUrl || schoolLogo;
-    const P = PANEL;
-
-    return (
-      <div className="id-card" style={cardShell({ background: "#FFFFFF", border: `1px solid ${LINE}` })}>
-        {/* Photo panel: the circles are clipped to the panel */}
-        <div style={{ position: "absolute", left: `${P.left}px`, top: `${P.top}px`, width: `${P.width}px`, height: `${P.height}px`, overflow: "hidden" }}>
-          <div style={blob(56 - P.left, 58 - P.top, 34, BLUE)} />
-          <div style={blob(158 - P.left, 92 - P.top, 17, GREEN)} />
-          <div style={blob(148 - P.left, 146 - P.top, 16, RED)} />
-        </div>
-
-        {/* Round photo with a grey ring */}
-        <div style={{ position: "absolute", left: `${PHOTO.cx - PHOTO.r}px`, top: `${PHOTO.cy - PHOTO.r}px`, width: `${PHOTO.r * 2}px`, height: `${PHOTO.r * 2}px`, borderRadius: "50%", background: "#FFFFFF", border: "4px solid #BDBDBD", boxSizing: "border-box", overflow: "hidden" }}>
-          {/* Headshot only: studio portraits (lib/portraitStudio) put the head top at 14% and the head at ~52% of
-              the square, so zooming 1.6× and shifting up centres the head and fills the circle edge to edge. */}
-          <img
-            src={stud.imageUrl || initialsAvatar(stud.name)}
-            alt=""
-            style={stud.imageUrl
-              ? { position: "absolute", width: "160%", height: "160%", left: "-30%", top: "-14%", maxWidth: "none", objectFit: "cover", objectPosition: "center top", display: "block" }
-              : { width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            onError={(e) => {
-              const img = e.target as HTMLImageElement;
-              img.src = initialsAvatar(stud.name);
-              img.style.cssText = "width:100%;height:100%;object-fit:cover;display:block";
-            }}
-          />
-        </div>
-
-        {/* Dots and balls around the name */}
-        <div style={blob(10, 214, 3, "#9B59D0")} />
-        <div style={blob(24, 236, 2.6, "#E8B91E")} />
-        <div style={blob(4, 270, 19, "#2F6FE4", true)} />
-        <div style={blob(180, 252, 6.5, "#2E9E4F", true)} />
-        <div style={blob(203, 262, 17, "#F05A4F", true)} />
-        <div style={blob(190, 280, 3, "#2F6FE4", true)} />
-
-        {/* Student ID and name */}
-        <div style={{ position: "absolute", left: "26px", right: "26px", top: `${P.top + P.height + 18}px`, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "4px" }}>
-          <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.03em", color: "#555555" }}>{stud.studentId}</span>
-          <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: stud.name.length > 26 ? "12.5px" : "14px", lineHeight: 1.22, color: INK, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{stud.name}</span>
-        </div>
-
-        {/* Footer: school crest and name */}
-        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "42px", background: "#F4F5F8", borderTop: `1px solid ${LINE}`, display: "flex", alignItems: "center", gap: "8px", padding: "0 10px", boxSizing: "border-box" }}>
-          {studSchoolLogo ? (
-            <div style={{ width: "26px", height: "26px", borderRadius: "50%", background: "#FFFFFF", border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-              <img src={studSchoolLogo} alt="" style={{ width: "21px", height: "21px", objectFit: "contain" }} />
-            </div>
-          ) : null}
-          <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: studSchoolName.length > 34 ? "7.5px" : "8.5px", lineHeight: 1.25, color: INK, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-            {studSchoolName}
-          </span>
-        </div>
-      </div>
-    );
+    return <FrontCardArt stud={stud} schoolName={titleCase(studTenant?.name || schoolName)} logo={studTenant?.logoUrl || schoolLogo} />;
   };
 
   // BACK — QR code on a white tile, school name, address and phone, footer with the Nova mark and umusa.cloud.
