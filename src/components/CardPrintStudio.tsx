@@ -1,4 +1,6 @@
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, useEffect, Fragment } from "react";
+import type { FaceBox } from "@/lib/portraitStudio";
+import { hasStudentPhoto } from "@/lib/studentPhoto";
 import { Student, Tenant } from "@/lib/types";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
@@ -103,12 +105,24 @@ const cardShell = (extra: React.CSSProperties = {}): React.CSSProperties => ({
   ...extra,
 });
 
+/** Places a photo in the round frame so the face is centred and a set size, whatever the photo's framing.
+ *  D is the inside of the ring in px. The image keeps its shape and always covers the whole circle. */
+function faceFraming(face: FaceBox, D: number): React.CSSProperties {
+  let w = (0.42 * D) / Math.max(face.w, 0.05);        // the face box takes 42% of the circle's width
+  let h = w / face.ar;
+  const grow = Math.max(1, D / w, D / h); w *= grow; h *= grow;
+  const clampV = (v: number, lo: number) => Math.min(0, Math.max(lo, v));
+  const left = clampV(D / 2 - face.cx * w, D - w);
+  const top = clampV(0.46 * D - face.cy * h, D - h);    // face a little above the middle: shoulders show below
+  return { position: "absolute", width: `${w}px`, height: `${h}px`, left: `${left}px`, top: `${top}px`, maxWidth: "none", display: "block" };
+}
+
 const initialsAvatar = (name: string) => `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`;
 
 /** FRONT: photo panel with coloured circles and a large round photo, the school crest at the top right, the student
  *  ID and name, and a footer filled by the school name. Inline styles only (copied into the print window and file). */
-export function FrontCardArt({ stud, schoolName, logo }: { stud: Pick<Student, "name" | "studentId" | "imageUrl">; schoolName: string; logo?: string | null }) {
-  const P = PANEL;
+export function FrontCardArt({ stud, schoolName, logo, face }: { stud: Pick<Student, "name" | "studentId" | "imageUrl">; schoolName: string; logo?: string | null; face?: FaceBox | null }) {
+  const P = PANEL; const RING = 5; const D = PHOTO.r * 2 - RING * 2;
   return (
     <div className="id-card" style={cardShell({ background: "#FFFFFF", border: `1px solid ${LINE}` })}>
       {/* Photo panel: the circles are clipped to the panel */}
@@ -119,13 +133,15 @@ export function FrontCardArt({ stud, schoolName, logo }: { stud: Pick<Student, "
       </div>
 
       {/* Large round photo with a grey ring */}
-      <div style={{ position: "absolute", left: `${PHOTO.cx - PHOTO.r}px`, top: `${PHOTO.cy - PHOTO.r}px`, width: `${PHOTO.r * 2}px`, height: `${PHOTO.r * 2}px`, borderRadius: "50%", background: "#FFFFFF", border: "5px solid #BDBDBD", boxSizing: "border-box", overflow: "hidden" }}>
-        {/* Headshot only: studio portraits (lib/portraitStudio) put the head top at 14% and the head at ~52% of
-            the square, so zooming 1.6× and shifting up centres the head and fills the circle edge to edge. */}
+      <div style={{ position: "absolute", left: `${PHOTO.cx - PHOTO.r}px`, top: `${PHOTO.cy - PHOTO.r}px`, width: `${PHOTO.r * 2}px`, height: `${PHOTO.r * 2}px`, borderRadius: "50%", background: "#FFFFFF", border: `${RING}px solid #BDBDBD`, boxSizing: "border-box", overflow: "hidden" }}>
+        {/* Centred on the face found in the photo (faceFraming). Without one: studio portraits (lib/portraitStudio)
+            put the head top at 14% and the head at ~52% of the square, so zooming 1.6× and shifting up centres it. */}
         <img
           src={stud.imageUrl || initialsAvatar(stud.name)}
           alt=""
-          style={stud.imageUrl
+          style={stud.imageUrl && face
+            ? faceFraming(face, D)
+            : stud.imageUrl
             ? { position: "absolute", width: "160%", height: "160%", left: "-30%", top: "-14%", maxWidth: "none", objectFit: "cover", objectPosition: "center top", display: "block" }
             : { width: "100%", height: "100%", objectFit: "cover", display: "block" }}
           onError={(e) => {
@@ -195,6 +211,31 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
     }
     return chunks;
   }, [printList]);
+
+  // Find each photo's face so the card can centre it (photos come from studio portraits, phones and old imports,
+  // framed in many ways). Printing and exporting wait until every face is checked.
+  const [faces, setFaces] = useState<Record<string, FaceBox | null>>({});
+  const [faceRun, setFaceRun] = useState<{ done: number; total: number; failed?: boolean }>({ done: 0, total: 0 });
+  useEffect(() => {
+    if (!isOpen) return;
+    const list = printList.filter((s) => hasStudentPhoto(s) && !(s.id in faces));
+    if (!list.length) { setFaceRun({ done: 0, total: 0 }); return; }
+    let cancelled = false;
+    (async () => {
+      setFaceRun({ done: 0, total: list.length });
+      let mod: typeof import("@/lib/portraitStudio");
+      try { mod = await import("@/lib/portraitStudio"); await mod.loadFaceFinder(); }
+      catch { if (!cancelled) setFaceRun({ done: list.length, total: list.length, failed: true }); return; }
+      const found: Record<string, FaceBox | null> = {};
+      for (let i = 0; i < list.length && !cancelled; i++) {
+        found[list[i].id] = await mod.findFace(list[i].imageUrl);
+        if (i % 10 === 9 || i === list.length - 1) { const part = { ...found }; setFaces((f) => ({ ...f, ...part })); setFaceRun({ done: i + 1, total: list.length }); }
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, printList]);
+  const facesBusy = faceRun.total > 0 && faceRun.done < faceRun.total;
 
   const activeStudent = (printList.length > 0 ? printList[Math.min(previewIndex, printList.length - 1)] : student) || null;
 
@@ -553,7 +594,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
   // (uid is kept for callers; the design no longer needs per-card SVG ids.)
   const renderFrontCard = (stud: Student, _uid: string) => {
     const studTenant = tenantFor(stud);
-    return <FrontCardArt stud={stud} schoolName={titleCase(studTenant?.name || schoolName)} logo={studTenant?.logoUrl || schoolLogo} />;
+    return <FrontCardArt stud={stud} schoolName={titleCase(studTenant?.name || schoolName)} logo={studTenant?.logoUrl || schoolLogo} face={faces[stud.id]} />;
   };
 
   // BACK — QR code on a white tile, school name, address and phone, footer with the Nova mark and umusa.cloud.
@@ -594,7 +635,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[620px] w-full bg-card border-border text-foreground p-5 sm:p-6">
+      <DialogContent className="sm:max-w-[660px] w-full max-h-[94vh] overflow-y-auto overflow-x-hidden bg-card border-border text-foreground p-5 sm:p-6">
         <DialogHeader className="border-b border-border pb-4 pr-10 text-left">
           <div className="flex items-center justify-between gap-4">
             <DialogTitle className="text-xl flex items-center gap-2.5">
@@ -713,15 +754,18 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
             </Button>
           </div>
 
+          {facesBusy && <p className="w-full text-center text-xs font-bold text-muted-foreground" role="status">Centring faces on the photos… {faceRun.done} of {faceRun.total}. Printing opens when this finishes.</p>}
+          {faceRun.failed && <p className="w-full text-center text-xs font-bold text-amber-700" role="status">The face finder couldn't load, so photos use the standard framing. Check the internet connection and open the studio again.</p>}
           {/* Actions */}
           <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between w-full gap-2 border-t border-border pt-4">
             <Button variant="ghost" onClick={onClose} className="text-xs sm:text-sm">
               Close
             </Button>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-end sm:items-center gap-2 min-w-0 sm:flex-1">
               <Button
                 variant="outline"
                 onClick={handleExportHTML}
+                disabled={facesBusy}
                 className="font-bold flex items-center justify-center gap-1.5 text-xs sm:text-sm h-10 px-4"
                 title="Download single self-contained HTML file ready for printing on any machine"
               >
@@ -729,6 +773,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
               </Button>
               <Button
                 onClick={handlePrint}
+                disabled={facesBusy}
                 variant="highlight"
                 className="flex items-center justify-center gap-1.5 text-xs sm:text-sm h-10 px-5"
               >

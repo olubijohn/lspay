@@ -111,6 +111,55 @@ export function loadPortraitEngine(): Promise<Engine> {
   return enginePromise;
 }
 
+/* ---------- Face finder for ID cards ----------
+   The card centres each photo on the face, whatever way the photo was added (studio portrait, phone upload, old
+   import). Only the small face model is loaded here (no background remover), and each photo is checked once. */
+let facePromise: Promise<FaceDetector> | null = null;
+export function loadFaceFinder(): Promise<FaceDetector> {
+  if (enginePromise) return enginePromise.then((e) => e.face);
+  if (!facePromise) {
+    facePromise = (async () => {
+      const vision = await import("@mediapipe/tasks-vision");
+      const errors: string[] = [];
+      for (const src of SOURCES) {
+        try {
+          const fileset = await withTimeout(vision.FilesetResolver.forVisionTasks(src.wasm), LOAD_TIMEOUT_MS, "Loading the AI runtime");
+          return await withTimeout(vision.FaceDetector.createFromOptions(fileset, {
+            baseOptions: { modelAssetPath: src.face, delegate: "CPU" }, runningMode: "IMAGE", minDetectionConfidence: 0.4,
+          }), LOAD_TIMEOUT_MS, "Loading the face model");
+        } catch (e: any) { errors.push(`${src.name}: ${e?.message ?? String(e)}`); }
+      }
+      throw new Error(errors.join(" · "));
+    })().catch((e) => { facePromise = null; throw e; });
+  }
+  return facePromise;
+}
+
+/** Where the face is in a photo, as fractions of the photo: centre (cx, cy), size (w, h), and the photo's width/height (ar). */
+export interface FaceBox { cx: number; cy: number; w: number; h: number; ar: number }
+const faceCache = new Map<string, FaceBox | null>();
+/** Finds the biggest face in a photo (null if none). Results are kept for the session. */
+export async function findFace(url: string): Promise<FaceBox | null> {
+  if (faceCache.has(url)) return faceCache.get(url)!;
+  let box: FaceBox | null = null;
+  try {
+    const det = await loadFaceFinder();
+    const img = new Image(); img.crossOrigin = "anonymous"; img.src = url; await img.decode();
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    if (iw && ih) {
+      // tiny photos are scaled up first: the face model works best on faces of 60 px or more
+      const k = Math.max(1, 320 / Math.max(iw, ih));
+      const c = document.createElement("canvas"); c.width = Math.round(iw * k); c.height = Math.round(ih * k);
+      c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
+      const best = det.detect(c).detections.map((d) => d.boundingBox).filter(Boolean)
+        .sort((a, b) => b!.width * b!.height - a!.width * a!.height)[0];
+      if (best) box = { cx: (best.originX + best.width / 2) / c.width, cy: (best.originY + best.height / 2) / c.height, w: best.width / c.width, h: best.height / c.height, ar: iw / ih };
+    }
+  } catch { box = null; }
+  faceCache.set(url, box);
+  return box;
+}
+
 export interface PortraitOptions {
   /** Output is a square of this many pixels. */
   size?: number;
