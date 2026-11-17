@@ -492,6 +492,10 @@
 /* fixed screens (lib/fitScreen.ts): the window never scrolls; lists scroll inside themselves with their headings in view */
 html.fit-lock, html.fit-lock body { overflow: hidden; height: 100%; }
 .fit-list { overscroll-behavior: contain; }
+/* phones and tablets: lists never become their own scroll box; the page scrolls as one (wide tables still slide sideways) */
+@media screen and (max-width: 900px), screen and (pointer: coarse) {
+  html body .list-scroll { max-height: none !important; overflow-y: visible !important; overscroll-behavior: auto !important; overflow-x: auto; }
+}
 .fit-list thead th { position: sticky; top: 0; z-index: 2; background: hsl(var(--card)); }
 @media print { html.fit-lock, html.fit-lock body { overflow: visible !important; height: auto !important; } main { height: auto !important; overflow: visible !important; } .fit-list { max-height: none !important; overflow: visible !important; } }
 

@@ -34,14 +34,21 @@ function fitScreen(host: HTMLElement) {
 }
 
 /** Keeps `ref`'s element sized to the screen and its lists scrolling inside it. `resetKey` (e.g. the open tab) scrolls it back to the top. */
+/** Phones and tablets: the page scrolls as one, like any app; it is never locked to the window with lists
+ *  scrolling inside it (that caught the thumb and made scrolling feel stuck). Same rule as LSA and MarkWise. */
+const FIT_OFF_QUERY = "(max-width: 900px), (pointer: coarse)";
+const fitOff = () => !!window.matchMedia && window.matchMedia(FIT_OFF_QUERY).matches;
+
 export function useFitScreen(ref: RefObject<HTMLElement | null>, resetKey?: unknown) {
   useEffect(() => {
-    const host = ref.current; if (!host) return; let raf = 0;
+    const host = ref.current; if (!host) return;
+    if (fitOff()) { document.documentElement.classList.remove("fit-lock"); host.style.height = ""; return; }
+    let raf = 0;
     const run = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => fitScreen(host)); };
     document.documentElement.classList.add("fit-lock"); run();
     const mo = new MutationObserver(run); mo.observe(host, { childList: true, subtree: true, characterData: true });
     window.addEventListener("resize", run); const t = setTimeout(run, 400);
     return () => { mo.disconnect(); window.removeEventListener("resize", run); cancelAnimationFrame(raf); clearTimeout(t); document.documentElement.classList.remove("fit-lock"); };
   }, [ref.current]);   // re-attach when the element appears (pages that render it only after loading)
-  useEffect(() => { if (ref.current) ref.current.scrollTop = 0; }, [ref, resetKey]);
+  useEffect(() => { if (ref.current) ref.current.scrollTop = 0; if (fitOff()) window.scrollTo?.(0, 0); }, [ref, resetKey]);
 }
