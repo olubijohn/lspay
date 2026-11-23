@@ -125,10 +125,8 @@ const initialsAvatar = (name: string) => `https://api.dicebear.com/7.x/initials/
  *  Only names too long for one line at 9.5 px go onto two lines. */
 function nameStyle(raw: string): React.CSSProperties {
   const n = raw.replace(/\s+/g, " ").trim().length;
-  const one = n <= 17 ? 14 : n <= 19 ? 12.5 : n <= 21 ? 11.5 : n <= 23 ? 10.5 : n <= 26 ? 9.5 : 0;
-  const base: React.CSSProperties = { fontFamily: DISPLAY, fontWeight: 800, lineHeight: 1.2, color: INK, maxWidth: "100%", overflow: "hidden" };
-  if (one) return { ...base, fontSize: `${one}px`, whiteSpace: "nowrap", textOverflow: "ellipsis" };
-  return { ...base, fontSize: "10.5px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" };
+  const size = n <= 18 ? 15 : n <= 30 ? 14 : n <= 40 ? 12 : 11;   // big type; long names take two lines instead of shrinking
+  return { fontFamily: DISPLAY, fontWeight: 800, fontSize: `${size}px`, lineHeight: 1.12, color: INK, maxWidth: "100%", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflowWrap: "anywhere" };
 }
 export function FrontCardArt({ stud, schoolName, logo, face }: { stud: Pick<Student, "name" | "studentId" | "imageUrl"> & { className?: string }; schoolName: string; logo?: string | null; face?: FaceBox | null }) {
   const P = PANEL; const RING = 5; const D = PHOTO.r * 2 - RING * 2;
@@ -175,12 +173,10 @@ export function FrontCardArt({ stud, schoolName, logo, face }: { stud: Pick<Stud
       <div style={blob(204, 262, 17, "#F05A4F", true)} />
       <div style={blob(189, 280, 3, "#2F6FE4", true)} />
 
-      {/* Student ID and name */}
-      <div style={{ position: "absolute", left: "24px", right: "24px", top: `${P.top + P.height + (stud.className ? 1 : 6)}px`, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: stud.className ? "2px" : "3px" }}>
-        <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.03em", color: "#555555" }}>{stud.studentId}</span>
+      {/* Name (big), then student number and class in one small label, centred above the footer */}
+      <div style={{ position: "absolute", left: "16px", right: "16px", top: `${P.top + P.height + 2}px`, height: `${CARD_H - 42 - (P.top + P.height + 2) - 4}px`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: "4px" }}>
         <span style={nameStyle(stud.name)}>{stud.name.replace(/\s+/g, " ").trim()}</span>
-        {/* the student's class, as a small pill under the name */}
-        {stud.className ? <span style={{ marginTop: "0px", padding: "0px 9px", borderRadius: "999px", background: "#EEF0FA", border: `1px solid ${LINE}`, fontFamily: DISPLAY, fontWeight: 700, fontSize: "10px", lineHeight: "14px", color: INK, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stud.className}</span> : null}
+        <span style={{ padding: "0px 9px", borderRadius: "999px", background: stud.className ? "#EEF0FA" : "transparent", border: stud.className ? `1px solid ${LINE}` : "0", fontFamily: DISPLAY, fontWeight: 700, fontSize: "10px", lineHeight: "15px", color: "#333333", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stud.studentId}{stud.className ? ` · ${stud.className}` : ""}</span>
       </div>
 
       {/* Footer: the school name, large, filling the footer */}
