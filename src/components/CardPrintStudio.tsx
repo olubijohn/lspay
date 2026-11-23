@@ -121,6 +121,15 @@ const initialsAvatar = (name: string) => `https://api.dicebear.com/7.x/initials/
 
 /** FRONT: photo panel with coloured circles and a large round photo, the school crest at the top right, the student
  *  ID and name, and a footer filled by the school name. Inline styles only (copied into the print window and file). */
+/** The name on one line whenever it can fit: the longer the name, the smaller the type (the panel is ~156 px wide).
+ *  Only names too long for one line at 9.5 px go onto two lines. */
+function nameStyle(raw: string): React.CSSProperties {
+  const n = raw.replace(/\s+/g, " ").trim().length;
+  const one = n <= 17 ? 14 : n <= 19 ? 12.5 : n <= 21 ? 11.5 : n <= 23 ? 10.5 : n <= 26 ? 9.5 : 0;
+  const base: React.CSSProperties = { fontFamily: DISPLAY, fontWeight: 800, lineHeight: 1.2, color: INK, maxWidth: "100%", overflow: "hidden" };
+  if (one) return { ...base, fontSize: `${one}px`, whiteSpace: "nowrap", textOverflow: "ellipsis" };
+  return { ...base, fontSize: "10.5px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" };
+}
 export function FrontCardArt({ stud, schoolName, logo, face }: { stud: Pick<Student, "name" | "studentId" | "imageUrl"> & { className?: string }; schoolName: string; logo?: string | null; face?: FaceBox | null }) {
   const P = PANEL; const RING = 5; const D = PHOTO.r * 2 - RING * 2;
   return (
@@ -169,7 +178,7 @@ export function FrontCardArt({ stud, schoolName, logo, face }: { stud: Pick<Stud
       {/* Student ID and name */}
       <div style={{ position: "absolute", left: "24px", right: "24px", top: `${P.top + P.height + (stud.className ? 1 : 6)}px`, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: stud.className ? "2px" : "3px" }}>
         <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.03em", color: "#555555" }}>{stud.studentId}</span>
-        <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: stud.name.length > 26 ? "12.5px" : "14px", lineHeight: 1.2, color: INK, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{stud.name}</span>
+        <span style={nameStyle(stud.name)}>{stud.name.replace(/\s+/g, " ").trim()}</span>
         {/* the student's class, as a small pill under the name */}
         {stud.className ? <span style={{ marginTop: "0px", padding: "0px 9px", borderRadius: "999px", background: "#EEF0FA", border: `1px solid ${LINE}`, fontFamily: DISPLAY, fontWeight: 700, fontSize: "10px", lineHeight: "14px", color: INK, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stud.className}</span> : null}
       </div>
