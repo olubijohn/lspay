@@ -121,7 +121,7 @@ const initialsAvatar = (name: string) => `https://api.dicebear.com/7.x/initials/
 
 /** FRONT: photo panel with coloured circles and a large round photo, the school crest at the top right, the student
  *  ID and name, and a footer filled by the school name. Inline styles only (copied into the print window and file). */
-export function FrontCardArt({ stud, schoolName, logo, face }: { stud: Pick<Student, "name" | "studentId" | "imageUrl">; schoolName: string; logo?: string | null; face?: FaceBox | null }) {
+export function FrontCardArt({ stud, schoolName, logo, face }: { stud: Pick<Student, "name" | "studentId" | "imageUrl"> & { className?: string }; schoolName: string; logo?: string | null; face?: FaceBox | null }) {
   const P = PANEL; const RING = 5; const D = PHOTO.r * 2 - RING * 2;
   return (
     <div className="id-card" style={cardShell({ background: "#FFFFFF", border: `1px solid ${LINE}` })}>
@@ -167,9 +167,11 @@ export function FrontCardArt({ stud, schoolName, logo, face }: { stud: Pick<Stud
       <div style={blob(189, 280, 3, "#2F6FE4", true)} />
 
       {/* Student ID and name */}
-      <div style={{ position: "absolute", left: "24px", right: "24px", top: `${P.top + P.height + 6}px`, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "3px" }}>
+      <div style={{ position: "absolute", left: "24px", right: "24px", top: `${P.top + P.height + (stud.className ? 1 : 6)}px`, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: stud.className ? "2px" : "3px" }}>
         <span style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: "10.5px", letterSpacing: "0.03em", color: "#555555" }}>{stud.studentId}</span>
         <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: stud.name.length > 26 ? "12.5px" : "14px", lineHeight: 1.2, color: INK, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{stud.name}</span>
+        {/* the student's class, as a small pill under the name */}
+        {stud.className ? <span style={{ marginTop: "0px", padding: "0px 9px", borderRadius: "999px", background: "#EEF0FA", border: `1px solid ${LINE}`, fontFamily: DISPLAY, fontWeight: 700, fontSize: "10px", lineHeight: "14px", color: INK, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stud.className}</span> : null}
       </div>
 
       {/* Footer: the school name, large, filling the footer */}
