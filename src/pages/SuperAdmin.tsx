@@ -20,6 +20,7 @@ import { CheckCircle2, Shield, ShieldAlert, Building2, Users, Bell, CreditCard, 
 import { SystemUser, AppNotification, CardLifecycleStatus, cardLifecycleLabel } from "@/lib/types";
 import { SuperAdminSidebar } from "@/components/layout/SuperAdminSidebar";
 import { CardPrintStudio } from "@/components/CardPrintStudio";
+import { StaffCards } from "@/components/StaffCards";
 import { LspayParentAccessPanel, LspayParentBadge } from "@/components/LspayParentAccess";
 import { CameraCaptureButton, asFileEvent } from "@/components/CameraCapture";
 import { TransactionFilters } from "@/components/TransactionFilters";
@@ -49,6 +50,7 @@ export function SuperAdmin() {
   const chartTheme = useChartTheme();
   const { tenants, students, transactions, parentUsers, lspayGuardians, addTenant, updateTenant, createStudent, updateStudent, deleteStudent, deleteStudents, assignCard, replaceCard, removeCard, systemUsers, createSystemUser, updateSystemUser, notifications, markNotificationRead, markCardReady } = useStore();
   const [activeTab, setActiveTab] = useState("overview");
+  const [cardWho, setCardWho] = useState<"students" | "staff">("students");   // Card Assignment: student or staff cards
   const mainRef = useRef<HTMLElement>(null);
   useFitScreen(mainRef, activeTab);   // header fixed, lists scroll inside the page
   const [successMsg, setSuccessMsg] = useState("");
@@ -1310,6 +1312,15 @@ export function SuperAdmin() {
               <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
                 <CreditCard className="text-primary" /> Card Assignment Studio
               </h1>
+              <div className="flex items-center gap-1 self-start bg-muted/50 p-1 rounded-lg border border-border" role="tablist" aria-label="Cards for">
+                {(["students", "staff"] as const).map((w) => (
+                  <button key={w} role="tab" aria-selected={cardWho === w} onClick={() => setCardWho(w)} data-testid={`cards-for-${w}`}
+                    className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${cardWho === w ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                    {w === "students" ? "Students" : "Staff"}
+                  </button>
+                ))}
+              </div>
+              {cardWho === "staff" ? <StaffCards tenants={tenants} /> : <>
 
               {selectedStudentIds.length > 0 && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-primary/5 border border-primary/20 rounded-xl animate-in fade-in slide-in-from-top-4 duration-300">
@@ -1831,6 +1842,7 @@ export function SuperAdmin() {
                   )}
                 </div>
               </div>
+              </>}
             </div>
           )}
 

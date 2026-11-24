@@ -16,6 +16,10 @@ interface CardPrintStudioProps {
   tenant?: Tenant;
   isOpen: boolean;
   onClose: () => void;
+  /** "staff": staff ID cards (a STAFF label on the front; the QR holds the staff number, Attendify's staff ID) */
+  kind?: "student" | "staff";
+  /** records the cards as printed (staff cards use their own table); default: the student print status */
+  onMarkPrinted?: (ids: string[]) => Promise<{ success: boolean }>;
 }
 
 // Helper to scale down an image to a compact Base64 data URL so exported files are 100% self-contained offline
@@ -128,7 +132,7 @@ function nameStyle(raw: string): React.CSSProperties {
   const size = n <= 18 ? 15 : n <= 30 ? 14 : n <= 40 ? 12 : 11;   // big type; long names take two lines instead of shrinking
   return { fontFamily: DISPLAY, fontWeight: 800, fontSize: `${size}px`, lineHeight: 1.12, color: INK, maxWidth: "100%", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflowWrap: "anywhere" };
 }
-export function FrontCardArt({ stud, schoolName, logo, face }: { stud: Pick<Student, "name" | "studentId" | "imageUrl"> & { className?: string }; schoolName: string; logo?: string | null; face?: FaceBox | null }) {
+export function FrontCardArt({ stud, schoolName, logo, face, tag }: { stud: Pick<Student, "name" | "studentId" | "imageUrl"> & { className?: string }; schoolName: string; logo?: string | null; face?: FaceBox | null; tag?: string }) {
   const P = PANEL; const RING = 5; const D = PHOTO.r * 2 - RING * 2;
   return (
     <div className="id-card" style={cardShell({ background: "#FFFFFF", border: `1px solid ${LINE}` })}>
@@ -166,6 +170,11 @@ export function FrontCardArt({ stud, schoolName, logo, face }: { stud: Pick<Stud
         </div>
       ) : null}
 
+      {/* STAFF label (staff cards), top left of the photo panel */}
+      {tag ? (
+        <div style={{ position: "absolute", left: "18px", top: "18px", padding: "0 8px", borderRadius: "999px", background: INK, color: "#FFFFFF", fontFamily: DISPLAY, fontWeight: 800, fontSize: "9px", lineHeight: "17px", letterSpacing: "1.2px" }}>{tag}</div>
+      ) : null}
+
       {/* Dots and balls around the name */}
       <div style={blob(10, 218, 3, "#9B59D0")} />
       <div style={blob(4, 270, 19, "#2F6FE4", true)} />
@@ -189,7 +198,9 @@ export function FrontCardArt({ stud, schoolName, logo, face }: { stud: Pick<Stud
   );
 }
 
-export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: CardPrintStudioProps) {
+export function CardPrintStudio({ student, students, tenant, isOpen, onClose, kind = "student", onMarkPrinted }: CardPrintStudioProps) {
+  const staffCards = kind === "staff";
+  const who = staffCards ? "staff member" : "student";
   const [isFlipped, setIsFlipped] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [printLayout, setPrintLayout] = useState<"pair" | "front_only" | "grid_a4">("pair");
@@ -207,7 +218,8 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
   // after printing: record these cards as printed, so the school always knows which ones are done
   const markPrinted = async () => {
     setMarked("busy");
-    const r = await setPrintStatus(printList.map((s) => s.id), "printed");
+    const ids = printList.map((s) => s.id);
+    const r = onMarkPrinted ? await onMarkPrinted(ids) : await setPrintStatus(ids, "printed");
     setMarked(r.success ? "done" : "error");
   };
 
@@ -381,7 +393,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
     const printArea = document.getElementById("lspay-print-area");
     if (!printArea) return;
     const cleanSchoolName = schoolName.replace(/[^a-zA-Z0-9_-]/g, "_");
-    const fileName = `${cleanSchoolName}_${printList.length}_Student_Cards.html`;
+    const fileName = `${cleanSchoolName}_${printList.length}_${staffCards ? "Staff" : "Student"}_Cards.html`;
 
     let htmlContent = printArea.innerHTML.replace(/<style[\s\S]*?<\/style>/gi, "");
 
@@ -406,7 +418,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   ${CARD_FONTS_LINK}
-  <title>${schoolName} — ${printList.length} Student ID Cards</title>
+  <title>${schoolName} — ${printList.length} ${staffCards ? "Staff" : "Student"} ID Cards</title>
   <style>
     * {
       box-sizing: border-box;
@@ -569,7 +581,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F2B33D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/><path d="M6 8V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4"/></svg>
         <span>${schoolName} — Ready for Printing</span>
       </div>
-      <div class="export-subtitle">${printList.length} Student ID Cards • Layout: ${printLayout === 'grid_a4' ? 'A4 Sheet (8 per Page — Landscape 4×2)' : printLayout === 'pair' ? 'CR80 Pair (Front & Back)' : 'Front Cards Only'}</div>
+      <div class="export-subtitle">${printList.length} ${staffCards ? "Staff" : "Student"} ID Cards • Layout: ${printLayout === 'grid_a4' ? 'A4 Sheet (8 per Page — Landscape 4×2)' : printLayout === 'pair' ? 'CR80 Pair (Front & Back)' : 'Front Cards Only'}</div>
     </div>
     <button class="btn-print" onclick="window.print()">
       🖨️ Print / Save as PDF (${printList.length} Cards)
@@ -601,7 +613,7 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
   // (uid is kept for callers; the design no longer needs per-card SVG ids.)
   const renderFrontCard = (stud: Student, _uid: string) => {
     const studTenant = tenantFor(stud);
-    return <FrontCardArt stud={stud} schoolName={titleCase(studTenant?.name || schoolName)} logo={studTenant?.logoUrl || schoolLogo} face={faces[stud.id]} />;
+    return <FrontCardArt stud={stud} schoolName={titleCase(studTenant?.name || schoolName)} logo={studTenant?.logoUrl || schoolLogo} face={faces[stud.id]} tag={staffCards ? "STAFF" : undefined} />;
   };
 
   // BACK — QR code on a white tile, school name, address and phone, footer with the Nova mark and umusa.cloud.
@@ -660,12 +672,12 @@ export function CardPrintStudio({ student, students, tenant, isOpen, onClose }: 
         <div className="flex flex-col items-center pt-1 pb-1 space-y-4">
           {skippedNotReady.length > 0 && (
             <p className="w-full max-w-md rounded-xl bg-peach px-3 py-2 text-center text-xs font-bold text-amber-700" role="status" data-testid="print-skipped-not-ready">
-              {skippedNotReady.length} student{skippedNotReady.length === 1 ? " is" : "s are"} marked Not ready and {skippedNotReady.length === 1 ? "was" : "were"} left out: {skippedNotReady.slice(0, 5).map((s) => s.name).join(", ")}{skippedNotReady.length > 5 ? ` and ${skippedNotReady.length - 5} more` : ""}.
+              {skippedNotReady.length} {who}{skippedNotReady.length === 1 ? " is" : "s are"} marked Not ready and {skippedNotReady.length === 1 ? "was" : "were"} left out: {skippedNotReady.slice(0, 5).map((s) => s.name).join(", ")}{skippedNotReady.length > 5 ? ` and ${skippedNotReady.length - 5} more` : ""}.
             </p>
           )}
           {skippedPrinted.length > 0 && (
             <p className="w-full max-w-md rounded-xl bg-lilac px-3 py-2 text-center text-xs font-bold text-primary" role="status" data-testid="print-skipped-printed">
-              {skippedPrinted.length} card{skippedPrinted.length === 1 ? " was" : "s were"} already printed and {skippedPrinted.length === 1 ? "is" : "are"} left out. To reprint one, open that student and print it on its own.
+              {skippedPrinted.length} card{skippedPrinted.length === 1 ? " was" : "s were"} already printed and {skippedPrinted.length === 1 ? "is" : "are"} left out. To reprint one, open that {who} and print it on its own.
             </p>
           )}
           {!students?.length && student?.printStatus === "printed" && (
